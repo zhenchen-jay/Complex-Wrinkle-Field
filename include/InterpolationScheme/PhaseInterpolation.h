@@ -58,7 +58,7 @@ private:
 
 
 
-private:
+public:
 	Eigen::MatrixXd _restV, _upsampledRestV, _refV, _upsampledRefV;
 	MeshConnectivity _restMesh, _upsampledRestMesh, _refMesh, _upsampledRefMesh;
 	std::vector<CutEdge> _cuts;

@@ -195,7 +195,7 @@ std::complex<double> PhaseInterpolation::waterPoolBasis(Eigen::VectorXd p, Eigen
 		return 1;
 	Eigen::Vector2d p0 = v.segment<2>(0) + Eigen::Vector2d(-omega(1), omega(0)) / omega.squaredNorm();
 	
-	return std::complex<double>(p(0) - p0(0), p(1) - p0(0)) / std::complex<double>(v(0) - p0(0), v(1) - p0(0));
+	return std::complex<double>(p(0) - p0(0), p(1) - p0(1)) / std::complex<double>(v(0) - p0(0), v(1) - p0(1));
 
 }
 
@@ -233,10 +233,15 @@ void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& vertexOmega
 			planewaveValue = planWaveBasis(P, Pi, vertexOmega.row(i).transpose());
 			waterpoolValue = 1;
 		}
-		else
+		else if (interpolationType == 2)
 		{
 			planewaveValue = 1;
 			waterpoolValue = waterPoolBasis(P, Pi, vertexOmega.row(i).transpose());
+		}
+		else
+		{
+			planewaveValue = planWaveBasis(P, Pi, globalOmega);
+			waterpoolValue = 1;
 		}
 		
 

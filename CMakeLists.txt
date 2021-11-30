@@ -68,7 +68,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
-add_subdirectory("deps/polyscope")
+add_subdirectory("dep/polyscope")
 
 # Add libIGL
 # With these lines commented out, we use libIGL in "header only" mode.  Uncomment to recurse and get the full package.
@@ -92,15 +92,34 @@ file(GLOB SRCFILES
     src/*.cpp
     src/InterpolationScheme/*.cpp
     src/MeshLib/*.cpp
-    src/Visualization/*.cpp)
+    src/Visualization/*.cpp
+    *.cpp)
     
 add_executable(
         phaseInterp-polyscope-example
         ${SRCFILES}
         )
 
+
 # Include settings
-target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include")
+target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
+
+
+option(BUILD_WITH_TBB        "Enable TBB"         ON)
+
+if(BUILD_WITH_TBB)
+  message("-- Building with TBB.")
+  set(TBB_FIND_RELEASE_ONLY TRUE)
+  if(MSVC)
+	  find_package(TBB REQUIRED)    
+	  message("TBB found at:  version: ${TBB_VERSION}")
+  else()
+    find_package(TBB COMPONENTS tbbmalloc tbbmalloc_proxy tbb_preview)
+  endif()
+endif()
+if(MSVC)
+  add_compile_definitions(__TBB_NO_IMPLICIT_LINKAGE=1)
+endif()
 
 # Link settings
-target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen)
+target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen TBB::tbb)
