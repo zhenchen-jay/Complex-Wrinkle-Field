@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/libigl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/polyscope" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/polyscope/deps/glfw" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/polyscope/deps/happly" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/polyscope/deps/imgui/imgui" vcs="Git" />
+  </component>
+</project>

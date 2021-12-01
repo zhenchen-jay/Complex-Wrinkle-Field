@@ -17,6 +17,7 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support co
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using Clang (linux or apple) or GCC
@@ -71,16 +72,27 @@ message("\n\n == CMAKE recursively building Polyscope\n")
 add_subdirectory("dep/polyscope")
 
 # Add libIGL
-# With these lines commented out, we use libIGL in "header only" mode.  Uncomment to recurse and get the full package.
-# (and see the libIGL build documentation)
-# message("\n\n == CMAKE recursively building libIGL\n")
-# set(LIBIGL_WITH_EMBREE            OFF CACHE BOOL "Use Embree")
-# set(LIBIGL_WITH_OPENGL            OFF CACHE BOOL "Use OpenGL")
-# set(LIBIGL_WITH_OPENGL            OFF CACHE BOOL "Use OpenGL")
-# set(LIBIGL_WITH_OPENGL_GLFW       OFF CACHE BOOL "Use GLFW"  )
-# set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
-# set(LIBIGL_WITH_TRIANGLE          ON  CACHE BOOL "Use Triangle" )
-# add_subdirectory("deps/libIGL")
+option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" OFF)
+option(LIBIGL_WITH_ANTTWEAKBAR       "Use AntTweakBar"    OFF)
+option(LIBIGL_WITH_CGAL              "Use CGAL"           OFF)
+option(LIBIGL_WITH_COMISO            "Use CoMiso"         OFF)
+option(LIBIGL_WITH_CORK              "Use Cork"           OFF)
+option(LIBIGL_WITH_EMBREE            "Use Embree"         OFF)
+option(LIBIGL_WITH_LIM               "Use LIM"            OFF)
+option(LIBIGL_WITH_MATLAB            "Use Matlab"         OFF)
+option(LIBIGL_WITH_MOSEK             "Use MOSEK"          OFF)
+option(LIBIGL_WITH_OPENGL            "Use OpenGL"         ON)
+option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"           ON)
+option(LIBIGL_WITH_OPENGL_GLFW_IMGUI "Use ImGui"          ON)
+option(LIBIGL_WITH_PNG               "Use PNG"            ON)
+option(LIBIGL_WITH_PYTHON            "Use Python"         OFF)
+option(LIBIGL_WITH_TETGEN            "Use Tetgen"         OFF)
+option(LIBIGL_WITH_TRIANGLE          "Use Triangle"       ON)
+option(LIBIGL_WITH_VIEWER            "Use OpenGL viewer"  ON)
+option(LIBIGL_WITH_XML               "Use XML"            OFF)
+
+find_package(LIBIGL REQUIRED)
+include_directories(${LIBIGL_INCLUDE_DIR})
 
 # Create an executable
 file(GLOB SRCFILES  
@@ -102,7 +114,18 @@ add_executable(
 
 
 # Include settings
-target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
+# target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
+
+
+option(NASOQ "Use NASOQ" ON)
+if(NASOQ)
+  find_package(METIS REQUIRED)
+  find_package(MKL REQUIRED)
+  find_package(NASOQ REQUIRED)
+  include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR})  
+  message("found NASOQ at ${NASOQ_INCLUDE_DIRS}")
+endif()
+
 
 
 option(BUILD_WITH_TBB        "Enable TBB"         ON)
@@ -110,16 +133,16 @@ option(BUILD_WITH_TBB        "Enable TBB"         ON)
 if(BUILD_WITH_TBB)
   message("-- Building with TBB.")
   set(TBB_FIND_RELEASE_ONLY TRUE)
-  if(MSVC)
-	  find_package(TBB REQUIRED)    
-	  message("TBB found at:  version: ${TBB_VERSION}")
-  else()
-    find_package(TBB COMPONENTS tbbmalloc tbbmalloc_proxy tbb_preview)
-  endif()
+	find_package(TBB REQUIRED)    
+	message("TBB found at:  version: ${TBB_VERSION}")
 endif()
 if(MSVC)
   add_compile_definitions(__TBB_NO_IMPLICIT_LINKAGE=1)
 endif()
 
 # Link settings
-target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen TBB::tbb)
+target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen )
+
+if(BUILD_WITH_TBB)
+  target_link_libraries( phaseInterp-polyscope-example polyscope TBB::tbb ${MKL_LIBRARIES} ${METIS_LIBRARIES} igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle)
+endif()
