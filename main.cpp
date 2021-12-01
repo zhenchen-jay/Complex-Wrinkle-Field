@@ -1,400 +1,420 @@
-// #include "polyscope/polyscope.h"
+#include "polyscope/polyscope.h"
+
+#include <igl/PI.h>
+#include <igl/avg_edge_length.h>
+#include <igl/barycenter.h>
+#include <igl/boundary_loop.h>
+#include <igl/exact_geodesic.h>
+#include <igl/gaussian_curvature.h>
+#include <igl/invert_diag.h>
+#include <igl/lscm.h>
+#include <igl/massmatrix.h>
+#include <igl/per_vertex_normals.h>
+#include <igl/readOBJ.h>
+#include <igl/writeOBJ.h>
+#include <igl/doublearea.h>
+#include <igl/file_dialog_open.h>
+#include <igl/file_dialog_save.h>
+#include <igl/boundary_loop.h>
+#include <igl/triangle/triangulate.h>
+#include <filesystem>
+#include "polyscope/messages.h"
+#include "polyscope/point_cloud.h"
+#include "polyscope/surface_mesh.h"
 
-// #include <igl/PI.h>
-// #include <igl/avg_edge_length.h>
-// #include <igl/barycenter.h>
-// #include <igl/boundary_loop.h>
-// #include <igl/exact_geodesic.h>
-// #include <igl/gaussian_curvature.h>
-// #include <igl/invert_diag.h>
-// #include <igl/lscm.h>
-// #include <igl/massmatrix.h>
-// #include <igl/per_vertex_normals.h>
-// #include <igl/readOBJ.h>
-// #include <igl/writeOBJ.h>
-// #include <igl/doublearea.h>
-// #include <igl/file_dialog_open.h>
-// #include <igl/file_dialog_save.h>
-// #include <igl/boundary_loop.h>
-// //#include <igl/triangle/triangulate.h>
-// #include <filesystem>
-// #include "polyscope/messages.h"
-// #include "polyscope/point_cloud.h"
-// #include "polyscope/surface_mesh.h"
-
-// #include <iostream>
-// #include <fstream>
-// #include <unordered_set>
-// #include <utility>
-
-
-// #include "include/InterpolationScheme/PhaseInterpolation.h"
-// #include "include/MeshLib/MeshConnectivity.h"
-// #include "include/MeshLib/MeshUpsampling.h"
-
-
-
-// Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
-// Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
-
-// Eigen::VectorXd phaseField(0);
-// Eigen::VectorXd ampField(0);
-
-// Eigen::VectorXd ampFieldNormalized(0);
-// Eigen::VectorXd phaseFieldNormalized(0);
-
-// std::vector<Eigen::VectorXd> ampFieldLists;
-// std::vector<Eigen::VectorXd> ampFieldNormalizedLists;
-
-// std::vector<Eigen::VectorXd> phaseFieldLists;
-// std::vector<Eigen::VectorXd> phaseFieldNormalizedLists;
-
-// double curAmpMin = 0;
-// double curAmpMax = 1;
-
-// double globalAmpMin = 0;
-// double globalAmpMax = 1;
-
-// Eigen::MatrixXd dataV;
-// Eigen::MatrixXi dataF;
-// Eigen::MatrixXd edgeStartV, edgeEndV;
-
-// int numofFrames = 1000;
-// int loopLevel = 2;
-// double dampingRatio = 1;
-
-// bool isNormalize = false;
-// bool isVisualizePhase = false;
-// bool isVisualizeAmp = false;
-// bool isVisualizeWrinkles = false;
-
-// bool isAnimated = true;
-// bool isOnlyChangeOne = false;
-
-// Eigen::MatrixXd curColor;
-// int currentFrame = 0;
-// int fps = 30;
-// bool isPaused = true;
-// bool isQuaticAmp = false;
-
-// int numWaves = 8;
-// int interpType = 0;
-
-// std::vector<Eigen::MatrixXd> wrinkledVs;
-
-
-// void normalizeCurrentFrame(const Eigen::VectorXd& input, Eigen::VectorXd& normalizedScalarField, double* min = NULL, double* max = NULL)
-// {
-// 	double curMin = input.minCoeff();
-// 	double curMax = input.maxCoeff();
-
-// 	if (min)
-// 		curMin = *min;
-// 	if (max)
-// 		curMax = *max;
-
-// 	if (curMin > curMax)
-// 	{
-// 		std::cout << "some errors in the input min and max values." << std::endl;
-
-// 		curMin = input.minCoeff();
-// 		curMax = input.maxCoeff();
-// 	}
-
-// 	normalizedScalarField = input;
-// 	for (int i = 0; i < input.size(); i++)
-// 	{
-// 		normalizedScalarField(i) = (input(i) - curMin) / (curMax - curMin);
-// 	}
-
-// }
-
-// void computePhaseInSequence(const int& numofFrames)
-// {
-// 	double PI = 3.1415926535898;
-// 	MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
-// 	MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
-
-// 	phaseFieldLists.resize(numofFrames);
-// 	ampFieldLists.resize(numofFrames);
-
-// 	phaseFieldNormalizedLists.resize(numofFrames);
-// 	ampFieldNormalizedLists.resize(numofFrames);
-
-// 	wrinkledVs.resize(numofFrames);
-
-// 	PhaseInterpolation model(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D);
-
-// 	Eigen::MatrixXd normals;
-// 	igl::per_vertex_normals(upsampledTriV3D, upsampledTriF3D, normals);
-
-// 	std::vector<std::complex<double>> initTheta(triV3D.rows());
-
-// 	for (int i = 0; i < triV3D.rows(); i++)
-// 		initTheta[i] = std::complex<double>(1, 0);
-
-// 	/*initTheta.row(0) << -std::sqrt(3) / 2, -1.0 / 2;
-// 	initTheta.row(1) << std::sqrt(3) / 2, -1.0 / 2;
-// 	initTheta.row(2) << 0, 1.0;*/
-
-// 	for (int i = 0; i < mesh3D.nEdges(); i++)
-// 	{
-// 		std::cout << "edge id: " << i << std::endl;
-// 		std::cout << "vertex id: " << mesh3D.edgeVertex(i, 0) << ", value: " << triV3D.row(mesh3D.edgeVertex(i, 0)) << std::endl;
-// 		std::cout << "vertex id: " << mesh3D.edgeVertex(i, 1) << ", value: " << triV3D.row(mesh3D.edgeVertex(i, 1)) << std::endl;
-// 	}
-
-// 	for (uint32_t n = 0; n < numofFrames; ++n)
-// 	{
-// 		Eigen::MatrixXd vertexOmega(triV2D.rows(), 3);
-
-// 		vertexOmega.setZero();
-
-// 		double frequency = (numWaves) * 1.0 / numofFrames * (n + 1);
-
-
-// 		vertexOmega.row(0) << 2 * frequency * PI, 0, 0;
-// 		vertexOmega.row(1) << 2 * frequency * PI, 0, 0;
-// 		vertexOmega.row(2) << 4 * PI, 0, 0;
-
-	
-// 		Eigen::VectorXd upsampledAmp, upsampledTheta;
-
-// 		std::vector<std::complex<double>> upsampledPhase;
-
-// 		/*if (n == 250)
-// 		{
-// 			std::cout << "\n";
-// 		}*/
-
-// 		model.estimatePhase(vertexOmega, initTheta, upsampledPhase, interpType);
-// 		model.getAngleMagnitude(upsampledPhase, upsampledTheta, upsampledAmp);
-
-// 		/*if (n == 249 || n == 250 || n == 251)
-// 		{
-// 			if (loopLevel == 2)
-// 			{
-// 				std::cout << "\nframe: " << n << ", freq: " << frequency << std::endl;
-// 				std::cout << "vertex omega: \n" << vertexOmega << std::endl;
-// 				std::cout << "upsampled z: " << std::endl;
-// 				for (int i = 0; i < upsampledTriV3D.rows(); i++)
-// 				{
-// 					std::cout << "vertix pos: " << upsampledTriV3D.row(i) << ", \tbary: " << model._baryCoords[i].second.transpose() << ", \tz: " << upsampledPhase[i] << std::endl;
-// 				}
-				
-// 			}
-// 		}*/
-
-// 		phaseFieldLists[n] = upsampledTheta;
-// 		ampFieldLists[n] = upsampledAmp;
-
-// 		wrinkledVs[n] = upsampledTriV3D;
-
-// 		for (int i = 0; i < upsampledTriV3D.rows(); i++)
-// 		{
-// 			wrinkledVs[n].row(i) += 0.05 * upsampledAmp(i) * std::cos(upsampledTheta(i)) * normals.row(i);
-// 		}
-
-// 		ampField = upsampledAmp;
-// 		phaseField = upsampledTheta;
-
-// 		globalAmpMin = std::min(globalAmpMin, upsampledAmp.minCoeff());
-// 		globalAmpMax = std::max(globalAmpMax, upsampledAmp.maxCoeff());
-
-// 	}
-// }
-
-// void updateFieldsInView()
-// {
-// 	std::cout << "update view" << std::endl;
-// 	ampField = ampFieldLists[currentFrame];
-// 	phaseField = phaseFieldLists[currentFrame];
-
-// 	if (isNormalize)
-// 	{
-// 		normalizeCurrentFrame(ampField, ampFieldNormalized, &globalAmpMin, &globalAmpMax);
-// 		polyscope::getSurfaceMesh("input mesh")
-// 			->addVertexScalarQuantity("vertex amp field", ampFieldNormalized,
-// 				polyscope::DataType::SYMMETRIC);
-// 		polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex amp field")->setEnabled(true);
-// 	}
-// 	else
-// 	{
-// 		polyscope::getSurfaceMesh("input mesh")
-// 			->addVertexScalarQuantity("vertex amp field", ampField,
-// 				polyscope::DataType::SYMMETRIC);
-// 		polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex amp field")->setEnabled(true);
-// 	}
-// }
-
-// void callback() {
-// 	ImGui::PushItemWidth(100);
-// 	if (ImGui::Button("Reset", ImVec2(-1, 0)))
-// 	{
-// 		currentFrame = 0;
-// 		updateFieldsInView();
-// 	}
-// 	if (ImGui::Button("update the dynamic vector field"))
-// 	{
-// 		computePhaseInSequence(numofFrames);
-// 		updateFieldsInView();
-// 	}
-// 	ImGui::SameLine();
-// 	if (ImGui::InputInt("total Frames ", &numofFrames))
-// 	{
-// 		if (numofFrames <= 0)
-// 			numofFrames = 1000;
-// 	}
-
-// 	if (ImGui::DragInt("current frame", &currentFrame, 0.5, 0, numofFrames))
-// 	{
-// 		std::cout << "current frame: " << currentFrame << std::endl;
-// 		if (currentFrame < ampFieldLists.size())
-// 			updateFieldsInView();
-// 	}
-
-// 	if (ImGui::Combo("interp Type", &interpType, "composite\0plane wave\0water pool\0\0"))
-// 	{
-// 		computePhaseInSequence(numofFrames);
-// 		currentFrame = 0;
-// 		updateFieldsInView();
-// 	}
-
-// 	if (ImGui::InputInt("upsampling level", &loopLevel))
-// 	{
-// 		if (loopLevel <= 0)
-// 			loopLevel = 8;
-// 		//loopWithCorners(triV, triF, corners, upsampledTriV, upsampledTriF, loopLevel);
-
-// 		meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
-// 		meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
-// 		polyscope::registerSurfaceMesh("input mesh", upsampledTriV3D, upsampledTriF3D);
-
-// 		computePhaseInSequence(numofFrames);
-// 		updateFieldsInView();
-// 	}
-
-// 	if (ImGui::InputInt("num of waves", &numWaves))
-// 	{
-// 		if (numWaves <= 0)
-// 			numWaves = 1;
-// 		computePhaseInSequence(numofFrames);
-// 	}
-
-// 	ImGui::PopItemWidth();
-// }
-
-// int main(int argc, char** argv)
-// {
-// 	triV2D.resize(3, 3);
-// 	triV2D << -std::sqrt(3) / 2, -1.0 / 2, 0,
-// 		std::sqrt(3) / 2, -1.0 / 2, 0,
-// 		0, 1, 0;
-// 	triF2D.resize(1, 3);
-// 	triF2D << 0, 1, 2;
-
-// 	triV3D = triV2D;
-// 	triF3D = triF2D;
-
-// 	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
-// 	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
-// 	std::cout << "upsampling finished" << std::endl;
-
-	
-// 	computePhaseInSequence(numofFrames);
-// 	std::cout << "compute finished" << std::endl;
-
-// 	// Options
-// 	polyscope::options::autocenterStructures = true;
-// 	polyscope::view::windowWidth = 1024;
-// 	polyscope::view::windowHeight = 1024;
-
-// 	// Initialize polyscope
-// 	polyscope::init();
-
-	
-// 	// Register the mesh with Polyscope
-// 	polyscope::registerSurfaceMesh("input mesh", upsampledTriV3D, upsampledTriF3D);
-
-// 	// Add the callback
-// 	polyscope::state::userCallback = callback;
-
-// 	// Show the gui
-// 	polyscope::show();
-
-// 	return 0;
-// }
-
-
-//#include <nasoq.h>
 #include <iostream>
+#include <fstream>
+#include <unordered_set>
+#include <utility>
 
-/*
- * Minimizing 1/2 x^THx + q^Tx + C; Cx <= d
- * H and C are sparse CSC matrices
- * q and d are dense arrays
- */
 
-int main(int argc, char *argv[]){
- /// Declaring inputs
-// size_t sizeH;
-// size_t nnzH;
-// size_t CRows; size_t CCols; size_t nnzA;
-// sizeH = 2; nnzH = 2;
-// CRows = 4; CCols = 2; nnzA = 8;
-// auto *q = new double[sizeH];
-// auto *Hp = new int[sizeH+1];
-// auto *Hi = new int[nnzH];
-// auto *Hx = new double[nnzH];
-// auto *Cp = new int[CCols+1];
-// auto *Ci = new int[nnzA];
-// auto *Cx = new double[nnzA];
-// auto *d = new double[CRows];
-//
-// q[0] = -4; q[1] = -4;
-//
-// Hp[0]=0;Hp[1]=1;Hp[2]=2;
-// Hi[0]=0;Hi[1]=1;
-// Hx[0]=2;Hx[1]=2;
-//
-// Cp[0]=0;Cp[1]=4;Cp[2]=8;
-// Ci[0]=0;Ci[1]=1;Ci[2]=2;Ci[3]=3;
-// Ci[4]=0;Ci[5]=1;Ci[6]=2;Ci[7]=3;
-// Cx[0]=2;Cx[1]=1;Cx[2]=-1;Cx[3]=-2;
-// Cx[4]=1;Cx[5]=-1;Cx[6]=-1;Cx[7]=1;
-//
-// d[0]=2;d[1]=1;d[2]=1;d[3]=2;
-//
-// /// Solving the QP pronlem
-// nasoq::Nasoq *qm;
-// qm = new nasoq::Nasoq(sizeH,Hp,Hi,Hx,
-//                       q,CRows,CCols,Cp, Ci, Cx, d);
-// qm->diag_perturb=1e-9;
-// qm->eps_abs=1e-3;
-// qm->max_iter = 0;
-// qm->variant = nasoq::PREDET;
-// int converged = qm->solve();
-//
-// /// Printing results
-// if(converged)
-//  std::cout<<"The problem is converged\n";
-//
-// // expected x={0.4,1.2};
-// auto *x = qm->primal_vars;
-// std::cout<<"Primal variables: ";
-// for (int i = 0; i < sizeH; ++i) {
-//  std::cout<<x[i]<<",";
-// }
-//
-// // expected z = {1.6,0,0,0}
-// std::cout<<"\nDual variables: ";
-// auto *z = qm->dual_vars;
-// for (int i = 0; i < CRows; ++i) {
-//  std::cout<<z[i]<<",";
-// }
-//
-// delete qm;
-// delete []Hp; delete []Hi; delete []Hx; delete []q;
-// delete []Cp;  delete []Ci; delete []Cx; delete []d;
- return 0;
+#include "include/InterpolationScheme/PhaseInterpolation.h"
+#include "include/InterpolationScheme/PlaneWaveExtraction.h"
+#include "include/MeshLib/MeshConnectivity.h"
+#include "include/MeshLib/MeshUpsampling.h"
+#include "include/Visualization/PaintGeometry.h"
+
+
+Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
+Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
+
+std::vector<std::complex<double>> zvals;
+Eigen::MatrixXd omegaFields;
+
+Eigen::VectorXd phaseField(0);
+Eigen::VectorXd ampField(0);
+
+Eigen::VectorXd ampFieldNormalized(0);
+Eigen::VectorXd phaseFieldNormalized(0);
+
+Eigen::MatrixXd dataV;
+Eigen::MatrixXi dataF;
+Eigen::MatrixXd dataVec;
+Eigen::MatrixXd curColor;
+
+int loopLevel = 4;
+
+bool isVisualizePhase = false;
+bool isVisualizeAmp = false;
+bool isVisualizeWrinkles = false;
+
+bool isVisualizeVertexOmega = false;
+
+
+std::vector<Eigen::MatrixXd> wrinkledVs;
+
+PhaseInterpolation model;
+PaintGeometry mPaint;
+
+void updateFieldsInView()
+{
+	std::cout << "update view" << std::endl;
+	if (isVisualizeVertexOmega)
+	{
+		polyscope::getSurfaceMesh("input mesh")
+			->addVertexVectorQuantity("vertex vector field", dataVec);
+		polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
+	}
+}
+
+void computeAmpTheta()
+{
+	Eigen::VectorXd upsampledAmp, upsampledTheta;
+	std::vector<std::complex<double>> upsampledPhase;
+
+	Eigen::MatrixXd faceField;
+	PlaneWaveExtraction extractModel(triV2D, MeshConnectivity(triF2D), omegaFields);
+	extractModel.extractPlaneWave(faceField);
+
+	Eigen::MatrixXd planeOmega, waterpoolOmega;
+	planeOmega = omegaFields;
+	planeOmega.setZero();
+
+	Eigen::VectorXd verCounts(triV2D.rows());
+	verCounts.setZero();
+
+	for (int i = 0; i < triF2D.rows(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = triF2D(i, j);
+			verCounts(vid)++;
+			planeOmega.row(vid) += faceField.row(i);
+		}
+	}
+
+	for (int i = 0; i < verCounts.rows(); i++)
+	{
+		planeOmega.row(i) /= verCounts(i);
+	}
+	waterpoolOmega = omegaFields - planeOmega;
+
+	model.estimatePhase(planeOmega, waterpoolOmega, zvals, upsampledPhase);
+	model.getAngleMagnitude(upsampledPhase, upsampledTheta, upsampledAmp);
+
+	wrinkledV = upsampledTriV3D;
+
+	Eigen::MatrixXd normals;
+	igl::per_vertex_normals(upsampledTriV3D, upsampledTriF3D, normals);
+
+	for (int i = 0; i < upsampledTriV3D.rows(); i++)
+	{
+		wrinkledV.row(i) += 0.05 * upsampledAmp(i) * std::cos(upsampledTheta(i)) * normals.row(i);
+	}
+	
+	phaseField = upsampledTheta;
+	ampField = upsampledAmp;
+}
+
+
+void callback() {
+	ImGui::PushItemWidth(100);
+	if (ImGui::Button("Reset", ImVec2(-1, 0)))
+	{
+		updateFieldsInView();
+	}
+	
+	if (ImGui::InputInt("upsampling level", &loopLevel))
+	{
+		if (loopLevel <= 0)
+			loopLevel = 2;
+		//loopWithCorners(triV, triF, corners, upsampledTriV, upsampledTriF, loopLevel);
+
+		meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
+		meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
+	}
+	ImGui::Checkbox("visualize phase", &isVisualizePhase);
+	ImGui::Checkbox("visualize amp", &isVisualizeAmp);
+	ImGui::Checkbox("visualize wrinkles", &isVisualizeWrinkles);
+	ImGui::Checkbox("Visualize vertex omega", &isVisualizeVertexOmega);
+
+	if (ImGui::Button("register mesh", ImVec2(-1, 0)))
+	{
+		MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
+		MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
+
+		model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D);
+		computeAmpTheta();
+
+		int ndataVerts = upsampledTriV3D.rows();
+		int ndataFaces = upsampledTriF3D.rows();
+
+		int nupsampledVerts = ndataVerts;
+		int nupsampledFaces = ndataFaces;
+
+		if (isVisualizeWrinkles)
+		{
+			ndataVerts += nupsampledVerts;
+			ndataFaces += nupsampledFaces;
+		}
+
+		if (isVisualizeAmp)
+		{
+			ndataVerts += nupsampledVerts;
+			ndataFaces += nupsampledFaces;
+		}
+
+		if (isVisualizeVertexOmega)
+		{
+			ndataVerts += triV3D.rows();
+			ndataFaces += triF3D.rows();
+		}
+
+		int currentDataVerts = nupsampledVerts;
+		int currentDataFaces = nupsampledFaces;
+
+		dataV.resize(ndataVerts, 3);
+		dataF.resize(ndataFaces, 3);
+		curColor.resize(ndataVerts, 3);
+
+		curColor.col(0).setConstant(1.0);
+		curColor.col(1).setConstant(1.0);
+		curColor.col(2).setConstant(1.0);
+
+		if (isVisualizePhase)
+		{
+			Eigen::MatrixXd phiColor;
+			mPaint.setNormalization(false);
+			phiColor = mPaint.paintPhi(phaseField);
+			curColor.block(0, 0, nupsampledVerts, 3) = phiColor;
+		}
+		else
+		{
+			curColor.block(0, 0, nupsampledVerts, 3).col(0).setConstant(1.0);
+			curColor.block(0, 0, nupsampledVerts, 3).col(1).setConstant(1.0);
+			curColor.block(0, 0, nupsampledVerts, 3).col(2).setConstant(1.0);
+		}
+
+		if (isVisualizeAmp)
+		{
+			mPaint.setNormalization(true);
+			Eigen::MatrixXd ampColor;
+			ampColor = mPaint.paintAmplitude(ampField);
+			curColor.block(currentDataVerts, 0, nupsampledVerts, 3) = ampColor;
+		}
+
+		dataV.block(0, 0, nupsampledVerts, 3) = upsampledTriV3D;
+		dataF.block(0, 0, nupsampledFaces, 3) = upsampledTriF3D;
+
+		Eigen::MatrixXd shiftV = upsampledTriV3D;
+		double shiftAmount = 1.5 * (upsampledTriV3D.col(0).maxCoeff() - upsampledTriV3D.col(0).minCoeff());
+		shiftV.col(0).setConstant(shiftAmount);
+		shiftV.col(1).setConstant(0);
+		shiftV.col(2).setConstant(0);
+
+
+		Eigen::MatrixXi shiftF = upsampledTriF3D;
+		shiftF.setConstant(currentDataVerts);
+
+		if (isVisualizeAmp)
+		{
+			dataV.block(currentDataVerts, 0, nupsampledVerts, 3) = upsampledTriV3D - shiftV;
+			dataF.block(nupsampledFaces, 0, nupsampledFaces, 3) = upsampledTriF3D + shiftF;
+
+			currentDataVerts += nupsampledVerts;
+			currentDataFaces += nupsampledFaces;
+		}
+
+		shiftF.setConstant(currentDataVerts);
+		if (isVisualizeWrinkles)
+		{
+			dataV.block(currentDataVerts, 0, nupsampledVerts, 3) = upsampledTriV3D + shiftV;
+			dataF.block(currentDataFaces, 0, nupsampledFaces, 3) = upsampledTriF3D + shiftF;
+
+			currentDataVerts += nupsampledVerts;
+			currentDataFaces += nupsampledFaces;
+		}
+
+		if (isVisualizeVertexOmega)
+		{
+			shiftV = triV3D;
+			shiftAmount = 1.5 * (upsampledTriV3D.col(1).maxCoeff() - upsampledTriV3D.col(1).minCoeff());
+			shiftV.col(0).setConstant(0);
+			shiftV.col(1).setConstant(shiftAmount);
+			shiftV.col(2).setConstant(0);
+
+			shiftF = triF3D;
+			shiftF.setConstant(currentDataVerts);
+
+			dataV.block(currentDataVerts, 0, triV3D.rows(), 3) = triV3D + shiftV;
+			dataF.block(currentDataFaces, 0, triF3D.rows(), 3) = triF3D + shiftF;
+
+
+			dataVec = dataV;
+			dataVec.setZero();
+
+			for (int i = 0; i < triV2D.rows(); i++)
+			{
+				dataVec.row(currentDataVerts + i) << omegaFields(i, 0), omegaFields(i, 1), 0;
+			}
+		}
+
+
+
+		polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+		polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
+		updateFieldsInView();
+	}
+
+	ImGui::PopItemWidth();
+}
+
+void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
+{
+	double area = length * width;
+	int N = (0.25 * std::sqrt(area / triarea));
+	N = N > 1 ? N : 1;
+	double deltaX = length / (4.0 * N);
+	double deltaY = width / (4.0 * N);
+
+	Eigen::MatrixXd planeV;
+	Eigen::MatrixXi planeE;
+
+	planeV.resize(10, 2);
+	planeE.resize(10, 2);
+
+	for (int i = -2; i <= 2; i++)
+	{
+		planeV.row(i + 2) << length / 4.0 * i, -width / 2.0;
+	}
+
+	for (int i = 2; i >= -2; i--)
+	{
+		planeV.row(5 + 2 - i) << length / 4.0 * i, width / 2.0;
+	}
+
+	for (int i = 0; i < 10; i++)
+	{
+		planeE.row(i) << i, (i + 1) % 10;
+	}
+
+	Eigen::MatrixXd V2d;
+	Eigen::MatrixXi F;
+	Eigen::MatrixXi H(0, 2);
+	std::cout << triarea << std::endl;
+	// Create an output string stream
+	std::ostringstream streamObj;
+	//Add double to stream
+	streamObj << triarea;
+	const std::string flags = "q20a" + std::to_string(triarea);
+
+	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+	irregularV.resize(V2d.rows(), 3);
+	irregularV.setZero();
+	irregularV.block(0, 0, irregularV.rows(), 2) = V2d;
+	irregularF = F;
+}
+
+void testFunction()
+{
+	Eigen::MatrixXd irregularV;
+	Eigen::MatrixXi irregularF;
+
+	double length = 1.0;
+	double width = 1.0;
+	double triarea = 0.001;
+
+	generateSquare(length, width, triarea, irregularV, irregularF);
+	igl::writeOBJ("planeMesh.obj", irregularV, irregularF);
+
+	MeshConnectivity meshF(irregularF);
+
+	Eigen::MatrixXd vertFields(irregularV.rows(), 2);
+	vertFields.setRandom();
+	
+	/*for (int i = 0; i < irregularV.rows(); i++)
+		vertFields.row(i) << 1, 0;*/
+
+	PlaneWaveExtraction model(irregularV, meshF, vertFields);
+
+	int nfaces = meshF.nFaces();
+	Eigen::VectorXd x(3 * nfaces);
+	x.setRandom();
+	//x.setConstant(1.0 / 3);
+
+
+	int nedges = meshF.nEdges();
+
+	int eid = std::rand() % nedges;
+
+	while (meshF.edgeFace(eid, 0) == -1 || meshF.edgeFace(eid, 1) == -1)
+	{
+		eid = std::rand() % nedges;
+	}
+	std::cout << eid << std::endl;
+	model.testOptEnergyPerEdge(x, eid);
+	model.testOptEnergy(x);
+}
+
+
+int main(int argc, char** argv)
+{
+	generateSquare(1.0, 1.0, 0.1, triV2D, triF2D);
+
+	triV3D = triV2D;
+	triF3D = triF2D;
+
+	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
+	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
+	std::cout << "upsampling finished" << std::endl;
+
+	zvals.resize(triV3D.rows());
+	omegaFields.resize(triV3D.rows(), 2);
+
+	for (int i = 0; i < zvals.size(); i++)
+	{
+		double x = triV2D(i, 0);
+		double y = triV2D(i, 1);
+		double rsquare = x * x + y * y;
+
+		zvals[i] = std::complex<double>(x, y);
+
+		if (std::abs(std::sqrt(rsquare)) < 1e-10)
+			omegaFields.row(i) << 0, 0;
+		else
+			omegaFields.row(i) << -y / rsquare, x / rsquare;
+	}
+
+	/*computePhaseInSequence(numofFrames);
+	std::cout << "compute finished" << std::endl;*/
+
+	// Options
+	polyscope::options::autocenterStructures = true;
+	polyscope::view::windowWidth = 1024;
+	polyscope::view::windowHeight = 1024;
+
+	// Initialize polyscope
+	polyscope::init();
+
+	
+	// Register the mesh with Polyscope
+	polyscope::registerSurfaceMesh("input mesh", upsampledTriV3D, upsampledTriF3D);
+
+	// Add the callback
+	polyscope::state::userCallback = callback;
+
+	// Show the gui
+	polyscope::show();
+
+	return 0;
 }

@@ -203,7 +203,7 @@ std::complex<double> PhaseInterpolation::planWaveBasis(Eigen::VectorXd p, Eigen:
 {
 	if (omega.norm() == 0)
 		return 1;
-	double deltatheta = omega.dot(p - v);
+	double deltatheta = omega.dot((p - v).segment<2>(0));
 
 	return std::complex<double>(std::cos(deltatheta), std::sin(deltatheta));
 }
@@ -270,6 +270,45 @@ void PhaseInterpolation::estimatePhase(const Eigen::MatrixXd& vertexOmega, const
 	{
 		std::complex<double> interiorPhi;
 		estimatePhasePerface(vertexOmega, globalOmega, vertexPhi, _baryCoords[i].first, _baryCoords[i].second, interiorPhi, interpolationType);
+		upsampledPhi[i] = interiorPhi;
+	}
+}
+
+void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi)
+{
+	Phi = 0;
+	Eigen::VectorXd P = baryCoord(0) * _restV.row(_restMesh.faceVertex(faceId, 0)) + baryCoord(1) * _restV.row(_restMesh.faceVertex(faceId, 1)) + baryCoord(2) * _restV.row(_restMesh.faceVertex(faceId, 2));
+
+	double prod = baryCoord(0) * baryCoord(1) * baryCoord(2);
+
+	for (int i = 0; i < 3; i++)
+	{
+		int vid = _refMesh.faceVertex(faceId, i);
+		Eigen::VectorXd Pi = _restV.row(_restMesh.faceVertex(faceId, i));
+
+		std::complex<double> planewaveValue = planWaveBasis(P, Pi, planeOmega.row(i).transpose());
+		std::complex<double> waterpoolValue = waterPoolBasis(P, Pi, waterpoolOmega.row(i).transpose());
+
+		double weight = 3 * baryCoord(i) * baryCoord(i) - 2 * std::pow(baryCoord(i), 3) + 2 * prod;
+
+		Phi += weight * vertexPhi[vid] * planewaveValue * waterpoolValue;
+	}
+}
+
+void PhaseInterpolation::estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi)
+{
+	if (planeOmega.size() != waterpoolOmega.size())
+	{
+		std::cerr << "vertex omega doesn't match" << std::endl;
+		exit(1);
+	}
+	int nUpsampledVerts = _upsampledRefV.rows();
+	upsampledPhi.resize(nUpsampledVerts);
+
+	for (int i = 0; i < nUpsampledVerts; i++)
+	{
+		std::complex<double> interiorPhi;
+		estimatePhasePerface(planeOmega, waterpoolOmega, vertexPhi, _baryCoords[i].first, _baryCoords[i].second, interiorPhi);
 		upsampledPhi[i] = interiorPhi;
 	}
 }

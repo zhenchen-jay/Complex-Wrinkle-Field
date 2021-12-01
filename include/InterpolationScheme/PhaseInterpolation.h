@@ -18,6 +18,7 @@ public:
 	};
 
 public:
+	PhaseInterpolation() {}
 	PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& upsampledRestV, const MeshConnectivity& upsampledRestMesh, const Eigen::MatrixXd& refV, const MeshConnectivity& refMesh, const Eigen::MatrixXd& upsampledRefV, const MeshConnectivity& upsampledRefMesh);
 	/*
 	* Input:
@@ -39,6 +40,13 @@ public:
 	/*
 	* Note: baryCoord: barycentric coordinate (w, u, v), w + u + v = 1
 	*/
+
+	void estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi);
+	void estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi);
+	/*
+	* Note: baryCoord: barycentric coordinate (w, u, v), w + u + v = 1
+	*/
+	
 
 	void getAngleMagnitude(const std::vector<std::complex<double>>& Phi, Eigen::VectorXd& angle, Eigen::VectorXd& mag);
 

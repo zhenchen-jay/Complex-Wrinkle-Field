@@ -6,6 +6,7 @@
 
 class PlaneWaveExtraction{
 public:
+    PlaneWaveExtraction() {}
     PlaneWaveExtraction(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& inputFields)
     : _pos(pos), _mesh(mesh), _inputFields(inputFields)
     {}
