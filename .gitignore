@@ -3,6 +3,8 @@ build/
 build_debug/
 build_clion/
 
+cmake/FindMKL.cmake
+
 # Editor and OS things
 imgui.ini
 .DS_Store
