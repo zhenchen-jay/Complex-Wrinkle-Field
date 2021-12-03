@@ -41,6 +41,8 @@
 #include "include/MeshLib/MeshConnectivity.h"
 #include "include/MeshLib/MeshUpsampling.h"
 #include "include/Visualization/PaintGeometry.h"
+#include "include/InterpolationScheme/VecFieldSplit.h"
+#include "include/Optimization/NewtonDescent.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -48,6 +50,8 @@ Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
 
 std::vector<std::complex<double>> zvals;
 Eigen::MatrixXd omegaFields;
+Eigen::MatrixXd planeFields;
+Eigen::MatrixXd whirlFields;
 
 Eigen::VectorXd phaseField(0);
 Eigen::VectorXd ampField(0);
@@ -138,10 +142,10 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 }
 
 
-void generateWaterPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z)
+void generateWaterPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>> *upsampledZ = NULL)
 {
-	z.resize(triV3D.rows());
-	w.resize(triV3D.rows(), 2);
+	z.resize(triV2D.rows());
+	w.resize(triV2D.rows(), 2);
 
 	for (int i = 0; i < z.size(); i++)
 	{
@@ -156,6 +160,163 @@ void generateWaterPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 		else
 			w.row(i) << -y / rsquare, x / rsquare;
 	}
+
+	if(upsampledZ)
+	{
+	    upsampledZ->resize(upsampledTriV2D.rows());
+	    for(int i = 0; i < upsampledZ->size(); i++)
+	    {
+	        double x = upsampledTriV2D(i, 0) - centerx;
+	        double y = upsampledTriV2D(i, 1) - centery;
+	        double rsquare = x * x + y * y;
+
+	        z[i] = std::complex<double>(x, y);
+	    }
+	}
+}
+
+void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>> *upsampledZ = NULL)
+{
+    z.resize(triV2D.rows());
+    w.resize(triV2D.rows(), 2);
+
+    for (int i = 0; i < z.size(); i++)
+    {
+        double theta = v.dot(triV2D.row(i).segment<2>(0));
+        double x = std::cos(theta);
+        double y = std::sin(theta);
+        z[i] = std::complex<double>(x, y);
+        w.row(i) = v;
+    }
+
+    if(upsampledZ)
+    {
+        upsampledZ->resize(upsampledTriV2D.rows());
+        for(int i = 0; i < upsampledZ->size(); i++)
+        {
+            double theta = v.dot(upsampledTriV2D.row(i).segment<2>(0));
+            double x = std::cos(theta);
+            double y = std::sin(theta);
+            upsampledZ->at(i) = std::complex<double>(x, y);
+        }
+    }
+}
+
+void generatePlaneSumWhirl(double centerx, double centery, Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>> *upsampledZ = NULL)
+{
+    z.resize(triV2D.rows());
+    w.resize(triV2D.rows(), 2);
+
+    for (int i = 0; i < z.size(); i++)
+    {
+        double x = triV2D(i, 0) - centerx;
+        double y = triV2D(i, 1) - centery;
+        double rsquare = x * x + y * y;
+
+        double theta = v.dot(triV2D.row(i).segment<2>(0));
+
+        z[i] = std::complex<double>(x, y) * std::complex<double>(std::cos(theta), std::sin(theta));
+
+        if (std::abs(std::sqrt(rsquare)) < 1e-10)
+            w.row(i) << 0, 0;
+        else
+            w.row(i) << -y / rsquare, x / rsquare;
+        w.row(i) += v;
+    }
+
+    if(upsampledZ)
+    {
+        upsampledZ->resize(upsampledTriV2D.rows());
+        for(int i = 0; i < upsampledZ->size(); i++)
+        {
+            double x = upsampledTriV2D(i, 0) - centerx;
+            double y = upsampledTriV2D(i, 1) - centery;
+
+            double theta = v.dot(upsampledTriV2D.row(i).segment<2>(0));
+
+            upsampledZ->at(i) = std::complex<double>(x, y) * std::complex<double>(std::cos(theta), std::sin(theta));
+        }
+    }
+}
+
+void generateYshape(Eigen::Vector2d w1, Eigen::Vector2d w2, Eigen::MatrixXd &w, std::vector<std::complex<double>> &z, std::vector<std::complex<double>> *upsampledZ)
+{
+    z.resize(triV2D.rows());
+    w.resize(triV2D.rows(), 2);
+
+    double ymax = triV2D.col(1).maxCoeff();
+    double ymin = triV2D.col(1).minCoeff();
+
+    for (int i = 0; i < z.size(); i++)
+    {
+        double theta = w1.dot(triV2D.row(i).segment<2>(0));
+        double x = std::cos(theta);
+        double y = std::sin(theta);
+        std::complex<double> z1 = std::complex<double>(x, y);
+
+        theta = w2.dot(triV2D.row(i).segment<2>(0));
+        x = std::cos(theta);
+        y = std::sin(theta);
+        std::complex<double> z2 = std::complex<double>(x, y);
+
+        double weight = (triV2D(i, 1) - triV2D.col(1).minCoeff()) / (triV2D.col(1).maxCoeff() - triV2D.col(1).minCoeff());
+        z[i] = (1 - weight) * z1 + weight * z2;
+
+        std::complex<double> z1x = z1 * std::complex<double>(0, w1(0));
+        std::complex<double> z1y = z1 * std::complex<double>(0, w1(1));
+
+        std::complex<double> z2x = z2 * std::complex<double>(0, w2(0));
+        std::complex<double> z2y = z2 * std::complex<double>(0, w2(1));
+
+        double wx = 0;
+        double wy = 1 / (ymax - ymin);
+
+        w(i, 0) = (std::complex<double>(z[i].real(), -z[i].imag()) * ((1 - weight) * z1x + weight * z2x + wx * (z2 - z1))).imag();
+        w(i, 1) = (std::complex<double>(z[i].real(), -z[i].imag()) * ((1 - weight) * z1y + weight * z2y + wy * (z2 - z1))).imag();
+
+    }
+
+    if(upsampledZ)
+    {
+        upsampledZ->resize(upsampledTriV2D.rows());
+        for(int i = 0; i < upsampledZ->size(); i++)
+        {
+            double theta = w1.dot(upsampledTriV2D.row(i).segment<2>(0));
+            double x = std::cos(theta);
+            double y = std::sin(theta);
+            std::complex<double> z1 = std::complex<double>(x, y);
+
+            theta = w2.dot(upsampledTriV2D.row(i).segment<2>(0));
+            x = std::cos(theta);
+            y = std::sin(theta);
+            std::complex<double> z2 = std::complex<double>(x, y);
+
+            double weight = (upsampledTriV2D(i, 1) - upsampledTriV2D.col(1).minCoeff()) / (upsampledTriV2D.col(1).maxCoeff() - upsampledTriV2D.col(1).minCoeff());
+            upsampledZ->at(i) = (1 - weight) * z1 + weight * z2;
+        }
+    }
+}
+
+void generateRandom(Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>> *upsampledZ = NULL)
+{
+    z.resize(triV2D.rows());
+    w.resize(triV2D.rows(), 2);
+    for(int i=0; i < w.rows(); i++)
+    {
+        w.row(i).setRandom();
+
+        Eigen::Vector2d v = Eigen::Vector2d::Random();
+        z[i] = std::complex<double>(v(0), v(1));
+    }
+    if(upsampledZ)
+    {
+        upsampledZ->resize(upsampledTriV2D.rows());
+        for(int i = 0; i < upsampledZ->size(); i++)
+        {
+            Eigen::Vector2d v = Eigen::Vector2d::Random();
+            upsampledZ->at(i) = std::complex<double>(v(0), v(1));
+        }
+    }
 }
 
 void generateSingularity(double& x0, double& y0, double t, MotionType motion)
@@ -202,6 +363,77 @@ void generateSingularity(double& x0, double& y0, double t, MotionType motion)
 		std::cout << "undefined motion type!" << std::endl;
 		exit(1);
 	}
+}
+
+void registerVecMesh()
+{
+    int ndataVerts = triV2D.rows();
+    int ndataFaces = triF2D.rows();
+
+    int nverts = ndataVerts;
+    int nfaces = ndataFaces;
+
+    ndataVerts *= 3;
+    ndataFaces *= 3;
+
+
+    int currentDataVerts = nverts;
+    int currentDataFaces = nfaces;
+
+    dataV.resize(ndataVerts, 3);
+    dataF.resize(ndataFaces, 3);
+    curColor.resize(ndataVerts, 3);
+
+    curColor.col(0).setConstant(1.0);
+    curColor.col(1).setConstant(1.0);
+    curColor.col(2).setConstant(1.0);
+
+    dataV.block(0, 0, nverts, 3) = triV2D;
+    dataF.block(0, 0, nfaces, 3) = triF2D;
+
+    Eigen::MatrixXd shiftV = triV2D;
+    double shiftAmount = 1.5 * (triV2D.col(0).maxCoeff() - triV2D.col(0).minCoeff());
+    shiftV.col(0).setConstant(shiftAmount);
+    shiftV.col(1).setConstant(0);
+    shiftV.col(2).setConstant(0);
+
+
+    Eigen::MatrixXi shiftF = triF2D;
+    shiftF.setConstant(currentDataVerts);
+
+    dataV.block(currentDataVerts, 0, nverts, 3) = triV2D - shiftV;
+    dataF.block(currentDataFaces, 0, nfaces, 3) = triF2D + shiftF;
+
+    currentDataVerts += nverts;
+    currentDataFaces += nfaces;
+
+    shiftF.setConstant(currentDataVerts);
+    dataV.block(currentDataVerts, 0, nverts, 3) = triV2D + shiftV;
+    dataF.block(currentDataFaces, 0, nfaces, 3) = triF2D + shiftF;
+
+
+
+    dataVec = dataV;
+    dataVec.setZero();
+
+    for (int i = 0; i < triV2D.rows(); i++)
+    {
+        dataVec.row(i) << omegaFields(i, 0), omegaFields(i, 1), 0;
+        dataVec.row(i + nverts) << planeFields(i, 0), planeFields(i, 1), 0;
+        dataVec.row(i + 2 * nverts) << whirlFields(i, 0), whirlFields(i, 1), 0;
+    }
+    polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+}
+
+void updateVecFieldsInView()
+{
+    std::cout << "update view" << std::endl;
+    registerVecMesh();
+    polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
+    polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
+
+    polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec);
+    polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
 }
 
 void registerMesh(int frameId)
@@ -514,47 +746,257 @@ void callback() {
 	ImGui::PopItemWidth();
 }
 
+void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen::MatrixXd& whirlPoolPart)
+{
+    VecFieldsSplit testModel = VecFieldsSplit(triV2D, MeshConnectivity(triF2D), vecfields);
+    Eigen::Vector2d aveVec;
+    aveVec.setZero();
+
+    for(int i = 0; i < vecfields.rows(); i++)
+        aveVec += vecfields.row(i);
+    aveVec /= vecfields.rows();
+
+    Eigen::VectorXd x(2 * vecfields.rows());
+    x.setRandom();
+
+    //    for(int i = 0; i < vecfields.rows(); i++)
+    //        x.segment<2>(2 * i) = aveVec;
+
+    auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj){
+        Eigen::VectorXd deriv;
+        Eigen::SparseMatrix<double> H;
+        double E = testModel.optEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+
+        if (grad)
+        {
+            (*grad) = deriv;
+        }
+
+        if (hess)
+        {
+            (*hess) = H;
+        }
+
+        return E;
+    };
+    auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir){
+        return 1.0;
+    };
+
+    OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+
+    planePart = vecfields;
+    for(int i = 0; i < planePart.rows(); i++)
+    {
+        planePart.row(i) = x.segment<2>(2 * i);
+    }
+
+    whirlPoolPart = vecfields - planePart;
+}
+
+enum TargetType{
+    Whirlpool = 0,
+    PlaneWave = 1,
+    Summation = 2,
+    Random = 3
+};
+
+TargetType tarType = TargetType::PlaneWave;
+
+void vecCallback() {
+    ImGui::PushItemWidth(100);
+    if (ImGui::Combo("vec types", (int*)&tarType, "Whirl pool\0plane wave\0sum\0random\0\0"))
+    {
+        if(tarType == TargetType::Whirlpool)
+        {
+            Eigen::Vector2d center = Eigen::Vector2d::Random();
+            generateWaterPool(center(0), center(1), omegaFields, zvals);
+            doSplit(omegaFields, planeFields, whirlFields);
+        }
+        else if(tarType == TargetType::PlaneWave)
+        {
+            Eigen::Vector2d v = Eigen::Vector2d::Random();
+            omegaFields.resize(triV2D.rows(), 2);
+            for(int i = 0; i < omegaFields.rows(); i++)
+            {
+                omegaFields.row(i) = v;
+            }
+            doSplit(omegaFields, planeFields, whirlFields);
+        }
+        else if (tarType == TargetType::Summation)
+        {
+            Eigen::Vector2d center = Eigen::Vector2d::Random();
+            generateWaterPool(center(0), center(1), omegaFields, zvals);
+
+            Eigen::Vector2d v = Eigen::Vector2d::Random();
+            for(int i = 0; i < omegaFields.rows(); i++)
+            {
+                omegaFields.row(i) += v;
+            }
+            doSplit(omegaFields, planeFields, whirlFields);
+        }
+        else
+        {
+            omegaFields.setRandom(triV2D.rows(), 2);
+            doSplit(omegaFields, planeFields, whirlFields);
+        }
+        updateVecFieldsInView();
+    }
+
+    ImGui::PopItemWidth();
+}
+
+void testFunction(Eigen::MatrixXd pos, Eigen::MatrixXi face)
+{
+    Eigen::MatrixXd vecfields(pos.rows(), 2);
+    vecfields.setRandom();
+
+    VecFieldsSplit testModel(pos, MeshConnectivity(face), vecfields);
+    std::cout << "test plane wave part." << std::endl;
+    testModel.testPlaneWaveSmoothnessPerface(vecfields, 0);
+    testModel.testPlaneWaveSmoothness(vecfields);
+
+    std::cout << "\ntest whirl pool part." << std::endl;
+    testModel.testWhirlpoolSmoothnessPerface(vecfields, 0);
+    testModel.testPlaneWaveSmoothness(vecfields);
+
+    std::vector<std::complex<double>> z;
+    generateWaterPool(0.1, 0.2, vecfields, z);
+    std::cout << "test whirl energy: (expected 0) " << testModel.whirlpoolSmoothness(vecfields) << std::endl;
+
+    Eigen::Vector2d v = Eigen::Vector2d::Random();
+    for(int i = 0; i < vecfields.rows(); i++)
+        vecfields.row(i) = v;
+    std::cout << "test plane energy: (expected 0) " << testModel.planeWaveSmoothness(vecfields) << std::endl;
+
+    std::cout << "test opt energy: " << std::endl;
+    Eigen::VectorXd x = Eigen::VectorXd::Random(2 * pos.rows());
+    testModel.testOptEnergy(x);
+
+
+    // test newton solver:
+    generateWaterPool(0.1, 0.2, vecfields, z);
+    testModel = VecFieldsSplit(pos, MeshConnectivity(face), vecfields);
+
+    Eigen::Vector2d aveVec;
+    aveVec.setZero();
+
+    for(int i = 0; i < vecfields.rows(); i++)
+       aveVec += vecfields.row(i);
+    aveVec /= vecfields.rows();
+
+    for(int i = 0; i < vecfields.rows(); i++)
+        x.segment<2>(2 * i) = aveVec;
+
+    auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj){
+        Eigen::VectorXd deriv;
+        Eigen::SparseMatrix<double> H;
+        double E = testModel.optEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+
+        if (grad)
+        {
+            (*grad) = deriv;
+        }
+
+        if (hess)
+        {
+            (*hess) = H;
+        }
+
+        return E;
+    };
+    auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir){
+        return 1.0;
+    };
+
+    OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+    std::cout << "Norm(x) (expected 0): " << x.norm() << std::endl;
+
+    v = Eigen::Vector2d::Random();
+    Eigen::VectorXd planeX = x;
+    for(int i = 0; i < vecfields.rows(); i++)
+    {
+        vecfields.row(i) = v;
+        planeX.segment<2>(2 * i) = v;
+    }
+    testModel = VecFieldsSplit(pos, MeshConnectivity(face), vecfields);
+    x.setRandom();
+
+    OptSolver::newtonSolver(funVal, maxStep, x, 10000, 1e-6, 0, 0, true);
+    std::cout << "Norm(x - xtheo) (expected 0): " << (x - planeX).norm() << std::endl;
+}
+
+//int main(int argc, char** argv)
+//{
+//	generateSquare(2.0, 2.0, 0.1, triV2D, triF2D);
+//
+//	triV3D = triV2D;
+//	triF3D = triF2D;
+//
+//	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
+//	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
+//	std::cout << "upsampling finished" << std::endl;
+//
+//	MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
+//	MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
+//
+//	model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D);
+//
+//	//generateWaterPool(0, 0, omegaFields, zvals);
+//	computeAmpThetaInSequence();
+//
+//	/*computePhaseInSequence(numofFrames);
+//	std::cout << "compute finished" << std::endl;*/
+//
+//	// Options
+//	polyscope::options::autocenterStructures = true;
+//	polyscope::view::windowWidth = 1024;
+//	polyscope::view::windowHeight = 1024;
+//
+//	// Initialize polyscope
+//	polyscope::init();
+//
+//
+//	// Register the mesh with Polyscope
+//	polyscope::registerSurfaceMesh("input mesh", upsampledTriV3D, upsampledTriF3D);
+//
+//	// Add the callback
+//	polyscope::state::userCallback = callback;
+//
+//	// Show the gui
+//	polyscope::show();
+//
+//	return 0;
+//}
+
+
+
 
 
 int main(int argc, char** argv)
 {
-	generateSquare(2.0, 2.0, 0.1, triV2D, triF2D);
+    generateSquare(2.0, 2.0, 0.1, triV2D, triF2D);
 
-	triV3D = triV2D;
-	triF3D = triF2D;
+    triV3D = triV2D;
+    triF3D = triF2D;
+    Eigen::Vector2d v = Eigen::Vector2d::Random();
+    // Options
+    polyscope::options::autocenterStructures = true;
+    polyscope::view::windowWidth = 1024;
+    polyscope::view::windowHeight = 1024;
 
-	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
-	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
-	std::cout << "upsampling finished" << std::endl;
+    // Initialize polyscope
+    polyscope::init();
 
-	MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
-	MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
 
-	model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D);
+    // Register the mesh with Polyscope
+    polyscope::registerSurfaceMesh("input mesh", triV2D, triF2D);
 
-	//generateWaterPool(0, 0, omegaFields, zvals);
-	computeAmpThetaInSequence();
+    // Add the callback
+    polyscope::state::userCallback = vecCallback;
 
-	/*computePhaseInSequence(numofFrames);
-	std::cout << "compute finished" << std::endl;*/
+    // Show the gui
+    polyscope::show();
 
-	// Options
-	polyscope::options::autocenterStructures = true;
-	polyscope::view::windowWidth = 1024;
-	polyscope::view::windowHeight = 1024;
-
-	// Initialize polyscope
-	polyscope::init();
-
-	
-	// Register the mesh with Polyscope
-	polyscope::registerSurfaceMesh("input mesh", upsampledTriV3D, upsampledTriF3D);
-
-	// Add the callback
-	polyscope::state::userCallback = callback;
-
-	// Show the gui
-	polyscope::show();
-
-	return 0;
+    return 0;
 }

@@ -101,11 +101,13 @@ file(GLOB SRCFILES
     include/InterpolationScheme/*.h 
     include/MeshLib/*.h
     include/Visualization/*.h
+    include/Optimization/*.h
   
     src/*.cpp
     src/InterpolationScheme/*.cpp
     src/MeshLib/*.cpp
     src/Visualization/*.cpp
+    src/Optimization/*.cpp
     *.cpp)
     
 add_executable(
@@ -118,18 +120,18 @@ add_executable(
 # target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
 
 
-# option(NASOQ "Use NASOQ" ON)
+ option(NASOQ "Use NASOQ" ON)
 
-# if(NASOQ)
-#   # find_package(NASOQ REQUIRED)
-#   find_package(METIS REQUIRED)
-#   find_package(MKL REQUIRED)
-#   include_directories(${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR}) 
-#   target_link_libraries( phaseInterp-polyscope-example ${MKL_LIBRARIES} ${METIS_LIBRARIES}) 
-#   # include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR}) 
-#   # target_link_libraries( phaseInterp-polyscope-example ${NASOQ_LIBRARIES}  ${MKL_LIBRARIES} ${METIS_LIBRARIES}) 
-#   # message("found NASOQ at ${NASOQ_INCLUDE_DIRS}")
-# endif()
+ if(NASOQ)
+   find_package(NASOQ REQUIRED)
+   find_package(METIS REQUIRED)
+   find_package(MKL REQUIRED)
+   include_directories(${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR} ${NASOQ_INCLUDE_DIRS})
+   target_link_libraries( phaseInterp-polyscope-example ${MKL_LIBRARIES} ${METIS_LIBRARIES})
+   # include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR})
+   # target_link_libraries( phaseInterp-polyscope-example ${NASOQ_LIBRARIES}  ${MKL_LIBRARIES} ${METIS_LIBRARIES})
+   # message("found NASOQ at ${NASOQ_INCLUDE_DIRS}")
+ endif()
 
 option(BUILD_WITH_TBB        "Enable TBB"         ON)
 
