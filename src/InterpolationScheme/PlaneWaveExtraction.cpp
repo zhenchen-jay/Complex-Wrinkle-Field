@@ -3,7 +3,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
 #include <iostream>
-#include <nasoq_eigen.h>
+//#include <nasoq_eigen.h>
 
 #ifndef GRAIN_SIZE
 #define GRAIN_SIZE 10
@@ -283,7 +283,7 @@ bool PlaneWaveExtraction::extractPlaneWave(Eigen::MatrixXd &planeFields)
 
 	
 
-    nasoq::QPSettings qpsettings;
+    /*nasoq::QPSettings qpsettings;
 	qpsettings.eps = 1e-8;
 	getNumIter(qpsettings.eps, qpsettings.inner_iter_ref, qpsettings.outer_iter_ref);
 	qpsettings.nasoq_variant = "PREDET";
@@ -303,7 +303,7 @@ bool PlaneWaveExtraction::extractPlaneWave(Eigen::MatrixXd &planeFields)
 			std::cout << "infeasible, the problem is unbounded" << std::endl;
 		else
 			std::cout << "NotConverged" << std::endl;
-	}
+	}*/
 
 	planeFields.setZero(nfaces, 2);
 	for (int i = 0; i < nfaces; i++)
