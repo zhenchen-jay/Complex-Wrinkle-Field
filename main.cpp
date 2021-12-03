@@ -95,6 +95,26 @@ enum MotionType
 	MT_SPIRAL = 5
 };
 
+
+enum TargetType {
+	Whirlpool = 0,
+	PlaneWave = 1,
+	Summation = 2,
+	YShape = 3,
+	TwoWhirlPool,
+	Random = 4
+};
+
+enum InterpolationType {
+	PureWhirlpool = 0,
+	PurePlaneWave = 1,
+	NaiveSplit = 2,
+	NewSplit = 3
+};
+
+TargetType tarType = TargetType::PlaneWave;
+InterpolationType interType = InterpolationType::NewSplit;
+
 MotionType motionType = MotionType::MT_LINEAR;
 
 void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
@@ -881,62 +901,91 @@ void callback() {
 
 void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen::MatrixXd& whirlPoolPart)
 {
-    VecFieldsSplit testModel = VecFieldsSplit(triV2D, MeshConnectivity(triF2D), vecfields);
-    Eigen::Vector2d aveVec;
-    aveVec.setZero();
+	if (interType == InterpolationType::PurePlaneWave)
+	{
+		std::cout << "pure plane wave" << std::endl;
+		planePart = vecfields;
+		whirlPoolPart = vecfields;
+		whirlPoolPart.setZero();
+	}
+	else if (interType == InterpolationType::PureWhirlpool)
+	{
+		std::cout << "pure whirl pool" << std::endl;
+		planePart = vecfields;
+		whirlPoolPart = vecfields;
+		planePart.setZero();
+	}
+	else if (interType == InterpolationType::NaiveSplit)
+	{
+		std::cout << "naive split" << std::endl;
+		Eigen::Vector2d aveVec;
+		aveVec.setZero();
 
-    for(int i = 0; i < vecfields.rows(); i++)
-        aveVec += vecfields.row(i);
-    aveVec /= vecfields.rows();
+		for (int i = 0; i < vecfields.rows(); i++)
+		{
+			aveVec += vecfields.row(i);
+		}
+		aveVec /= vecfields.rows();
 
-    Eigen::VectorXd x(2 * vecfields.rows());
-    x.setRandom();
+		planePart = vecfields;
+		for (int i = 0; i < vecfields.rows(); i++)
+		{
+			planePart.row(i) = aveVec;
+		}
 
-    //    for(int i = 0; i < vecfields.rows(); i++)
-    //        x.segment<2>(2 * i) = aveVec;
+		whirlPoolPart = vecfields - planePart;
 
-    auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj){
-        Eigen::VectorXd deriv;
-        Eigen::SparseMatrix<double> H;
-        double E = testModel.optEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+	}
+	else
+	{
+		std::cout << "new split" << std::endl;
+		VecFieldsSplit testModel = VecFieldsSplit(triV2D, MeshConnectivity(triF2D), vecfields);
+		Eigen::Vector2d aveVec;
+		aveVec.setZero();
 
-        if (grad)
-        {
-            (*grad) = deriv;
-        }
+		for (int i = 0; i < vecfields.rows(); i++)
+			aveVec += vecfields.row(i);
+		aveVec /= vecfields.rows();
 
-        if (hess)
-        {
-            (*hess) = H;
-        }
+		Eigen::VectorXd x(2 * vecfields.rows());
+		x.setRandom();
 
-        return E;
-    };
-    auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir){
-        return 1.0;
-    };
+		/*for(int i = 0; i < vecfields.rows(); i++)
+			x.segment<2>(2 * i) = aveVec;*/
 
-    OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+			Eigen::VectorXd deriv;
+			Eigen::SparseMatrix<double> H;
+			double E = testModel.optEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
-    planePart = vecfields;
-    for(int i = 0; i < planePart.rows(); i++)
-    {
-        planePart.row(i) = x.segment<2>(2 * i);
-    }
+			if (grad)
+			{
+				(*grad) = deriv;
+			}
 
-    whirlPoolPart = vecfields - planePart;
+			if (hess)
+			{
+				(*hess) = H;
+			}
+
+			return E;
+		};
+		auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+			return 1.0;
+		};
+
+		OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+
+		planePart = vecfields;
+		for (int i = 0; i < planePart.rows(); i++)
+		{
+			planePart.row(i) = x.segment<2>(2 * i);
+		}
+
+		whirlPoolPart = vecfields - planePart;
+	}
 }
 
-enum TargetType{
-    Whirlpool = 0,
-    PlaneWave = 1,
-    Summation = 2,
-	YShape = 3,
-	TwoWhirlPool,
-    Random = 4
-};
-
-TargetType tarType = TargetType::PlaneWave;
 
 void initialization()
 {
@@ -984,6 +1033,7 @@ void generateTargetVals()
 		w1(0) = 2 * 3.1415926;
 		w2(0) = 4 * 3.1415926;
 		generateYshape(w1, w2, omegaFields, zvals, &theoZVals);
+		doSplit(omegaFields, planeFields, whirlFields);
 	}
 	else if (tarType == TargetType::TwoWhirlPool)
 	{
@@ -1012,8 +1062,8 @@ void vecCallback() {
 	{
 		initialization();
 	}
-    if (ImGui::Combo("vec types", (int*)&tarType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0random\0\0"))
-    {}
+    if (ImGui::Combo("vec types", (int*)&tarType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0random\0\0")){}
+	if (ImGui::Combo("interpolation types", (int*)&interType, "Pure Whirl pool\0Pure plane wave\0Naive Split\0New Split\0\0")) {}
 	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
 	{
 		generateTargetVals();
