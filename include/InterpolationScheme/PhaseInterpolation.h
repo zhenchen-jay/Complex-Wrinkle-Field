@@ -33,7 +33,7 @@ public:
 	/*
 	* Main function: take per-vertex omega and per-vertex phi (complex value a+bi), returns per-vertex upsampled phi (complex value a+bi).
 	* All the (upsampled) values are for the (upsampled) reference 3D shape. In this way, we can handle the cutting issue.
-	* interpolation_type: 0: composite, 1: planewave, 2: waterpool
+	* interpolation_type: 0: composite, 1: planewave, 2: whirlpool
 	*/
 
 	void estimatePhasePerface(const Eigen::MatrixXd& vertexOmega, const Eigen::VectorXd& globalOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi, int interpolationType = 0);
@@ -41,8 +41,8 @@ public:
 	* Note: baryCoord: barycentric coordinate (w, u, v), w + u + v = 1
 	*/
 
-	void estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi);
-	void estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi);
+	void estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& whirlpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi);
+	void estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& whirlpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi);
 	/*
 	* Note: baryCoord: barycentric coordinate (w, u, v), w + u + v = 1
 	*/
@@ -61,7 +61,7 @@ private:
 	// compute the barycentric coordinates, where p = (x, y, 0) and V is flat (z = 0).
 
 	// basis function
-	std::complex<double> waterPoolBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::VectorXd omega); // we now only consider the 2d case
+	std::complex<double> whirlpoolBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::VectorXd omega); // we now only consider the 2d case
 	std::complex<double> planWaveBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::VectorXd omega);
 
 

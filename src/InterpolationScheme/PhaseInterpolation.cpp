@@ -189,11 +189,13 @@ void PhaseInterpolation::computeBaryCoordinates()
 	tbb::parallel_for(rangex, getBaryPervertex);
 }
 
-std::complex<double> PhaseInterpolation::waterPoolBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::VectorXd omega)
+std::complex<double> PhaseInterpolation::whirlpoolBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::VectorXd omega)
 {
 	if (omega.norm() == 0)
 		return 1;
 	Eigen::Vector2d p0 = v.segment<2>(0) + Eigen::Vector2d(-omega(1), omega(0)) / omega.squaredNorm();
+
+	std::cout << "P0: " << p0.transpose() << std::endl;
 	
 	return std::complex<double>(p(0) - p0(0), p(1) - p0(1)) / std::complex<double>(v(0) - p0(0), v(1) - p0(1));
 
@@ -221,33 +223,33 @@ void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& vertexOmega
 		Eigen::VectorXd Pi = _restV.row(_restMesh.faceVertex(faceId, i));
 
 		std::complex<double> planewaveValue = 1;
-		std::complex<double> waterpoolValue = 1;
+		std::complex<double> whirlpoolValue = 1;
 
 		if (interpolationType == 0)
 		{
 			planewaveValue = planWaveBasis(P, Pi, globalOmega);
-			waterpoolValue = waterPoolBasis(P, Pi, vertexOmega.row(i).transpose() - globalOmega);
+			whirlpoolValue = whirlpoolBasis(P, Pi, vertexOmega.row(i).transpose() - globalOmega);
 		}
 		else if (interpolationType == 1)
 		{
 			planewaveValue = planWaveBasis(P, Pi, vertexOmega.row(i).transpose());
-			waterpoolValue = 1;
+			whirlpoolValue = 1;
 		}
 		else if (interpolationType == 2)
 		{
 			planewaveValue = 1;
-			waterpoolValue = waterPoolBasis(P, Pi, vertexOmega.row(i).transpose());
+			whirlpoolValue = whirlpoolBasis(P, Pi, vertexOmega.row(i).transpose());
 		}
 		else
 		{
 			planewaveValue = planWaveBasis(P, Pi, globalOmega);
-			waterpoolValue = 1;
+			whirlpoolValue = 1;
 		}
 		
 
 		double weight = 3 * baryCoord(i) * baryCoord(i) - 2 * std::pow(baryCoord(i), 3) + 2 * prod;
 
-		Phi += weight * vertexPhi[vid] * planewaveValue * waterpoolValue;
+		Phi += weight * vertexPhi[vid] * planewaveValue * whirlpoolValue;
 	}
 }
 
@@ -274,7 +276,7 @@ void PhaseInterpolation::estimatePhase(const Eigen::MatrixXd& vertexOmega, const
 	}
 }
 
-void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi)
+void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& whirlpoolOmega, const std::vector<std::complex<double>>& vertexPhi, int faceId, Eigen::Vector3d baryCoord, std::complex<double>& Phi)
 {
 	Phi = 0;
 	Eigen::VectorXd P = baryCoord(0) * _restV.row(_restMesh.faceVertex(faceId, 0)) + baryCoord(1) * _restV.row(_restMesh.faceVertex(faceId, 1)) + baryCoord(2) * _restV.row(_restMesh.faceVertex(faceId, 2));
@@ -287,28 +289,31 @@ void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& planeOmega,
 		Eigen::VectorXd Pi = _restV.row(_restMesh.faceVertex(faceId, i));
 
 		std::complex<double> planewaveValue = planWaveBasis(P, Pi, planeOmega.row(i).transpose());
-		std::complex<double> waterpoolValue = waterPoolBasis(P, Pi, waterpoolOmega.row(i).transpose());
+		std::complex<double> whirlpoolValue = whirlpoolBasis(P, Pi, whirlpoolOmega.row(i).transpose());
 
 		double weight = 3 * baryCoord(i) * baryCoord(i) - 2 * std::pow(baryCoord(i), 3) + 2 * prod;
 
-		Phi += weight * vertexPhi[vid] * planewaveValue * waterpoolValue;
+		Phi += weight * vertexPhi[vid] * planewaveValue * whirlpoolValue;
 	}
 }
 
-void PhaseInterpolation::estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& waterpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi)
+void PhaseInterpolation::estimatePhase(const Eigen::MatrixXd& planeOmega, const Eigen::MatrixXd& whirlpoolOmega, const std::vector<std::complex<double>>& vertexPhi, std::vector<std::complex<double>>& upsampledPhi)
 {
-	if (planeOmega.size() != waterpoolOmega.size())
+	if (planeOmega.size() != whirlpoolOmega.size())
 	{
 		std::cerr << "vertex omega doesn't match" << std::endl;
 		exit(1);
 	}
+	std::cout << "plane omega norm: " << planeOmega.norm() << std::endl;
+	std::cout << "whirl pool norm: "  << whirlpoolOmega.norm() << std::endl;
+	
 	int nUpsampledVerts = _upsampledRefV.rows();
 	upsampledPhi.resize(nUpsampledVerts);
 
 	for (int i = 0; i < nUpsampledVerts; i++)
 	{
 		std::complex<double> interiorPhi;
-		estimatePhasePerface(planeOmega, waterpoolOmega, vertexPhi, _baryCoords[i].first, _baryCoords[i].second, interiorPhi);
+		estimatePhasePerface(planeOmega, whirlpoolOmega, vertexPhi, _baryCoords[i].first, _baryCoords[i].second, interiorPhi);
 		upsampledPhi[i] = interiorPhi;
 	}
 }
