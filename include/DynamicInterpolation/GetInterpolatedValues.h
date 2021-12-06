@@ -15,17 +15,27 @@ public:
     {
         _baseMesh = MeshConnectivity(baseF);
         _upsampledMesh = MeshConnectivity(upsampledF);
+        for (auto& it : _baryCoords)
+        {
+            Eigen::Vector3d weights = computeWeight(it.second);
+            _baryWeights.push_back({ it.first, weights });
+        }
     }
     GetInterpolatedValues() {}
 
-    std::complex<double> planeWaveBasis(Eigen::VectorXd p, Eigen::VectorXd v, Eigen::Vector2d omega, Eigen::VectorXcd *deriv, Eigen::MatrixXcd* hess);
+    std::complex<double> planeWaveBasis(Eigen::VectorXd p, Eigen::VectorXd pi, Eigen::Vector2d omega, Eigen::VectorXcd *deriv, Eigen::MatrixXcd* hess, std::vector<Eigen::MatrixXcd>* derivHess);
 
-    std::complex<double> planeWaveValue(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess, bool isProj = false);
-    std::vector<std::complex<double>> getZValues(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, std::vector<Eigen::VectorXcd> *deriv, std::vector<Eigen::MatrixXcd> *H, bool isProj = false);
+    std::complex<double> planeWaveValue(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess, std::vector<Eigen::MatrixXcd> *derivHess);
+    std::vector<std::complex<double>> getZValues(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, std::vector<Eigen::VectorXcd> *deriv, std::vector<Eigen::MatrixXcd> *H);
 
     // we use (x_{t+1} - x_t) / dt to approximate x'(t)
-    std::complex<double> planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess, bool isProj = false);
-    std::vector<std::complex<double>> getZDotValues(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, std::vector<Eigen::VectorXcd>* deriv, std::vector<Eigen::MatrixXcd> *H, bool isProj = false);
+    std::complex<double> planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess);
+    std::vector<std::complex<double>> getZDotValues(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, std::vector<Eigen::VectorXcd>* deriv, std::vector<Eigen::MatrixXcd> *H);
+
+    // test function
+    void testPlaneWaveValue(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int vid);
+    void testPlaneWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid);
+    void testPlaneWaveBasis(Eigen::VectorXd p, Eigen::VectorXd pi, Eigen::Vector2d omega);
 
 private:
     Eigen::Vector3d computeWeight(Eigen::Vector3d bary)
@@ -33,7 +43,7 @@ private:
         Eigen::Vector3d weights;
         for(int i = 0; i < 3; i++)
         {
-            weights(i) = 3 * bary(i) * bary(i) - 2 * bary(i) * bary(i) + 2 * bary(i) * bary((i+1)%3) * bary((i+2)%3);
+            weights(i) = 3 * bary(i) * bary(i) - 2 * bary(i) * bary(i) * bary(i) + 2 * bary(i) * bary((i+1)%3) * bary((i+2)%3);
         }
         return weights;
     }
@@ -45,4 +55,5 @@ private:
     MeshConnectivity _upsampledMesh;
 
     std::vector<std::pair<int, Eigen::Vector3d>> _baryCoords;
+    std::vector<std::pair<int, Eigen::Vector3d>> _baryWeights;
 };

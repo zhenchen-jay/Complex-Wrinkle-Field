@@ -291,12 +291,18 @@ void PhaseInterpolation::estimatePhasePerface(const Eigen::MatrixXd& planeOmega,
 		int vid = _refMesh.faceVertex(faceId, i);
 		Eigen::VectorXd Pi = _restV.row(_restMesh.faceVertex(faceId, i));
 
-		std::complex<double> planewaveValue = planWaveBasis(P, Pi, planeOmega.row(i).transpose());
-		std::complex<double> whirlpoolValue = whirlpoolBasis(P, Pi, whirlpoolOmega.row(i).transpose());
+		std::complex<double> planewaveValue = planWaveBasis(P, Pi, planeOmega.row(vid).transpose());
+		std::complex<double> whirlpoolValue = whirlpoolBasis(P, Pi, whirlpoolOmega.row(vid).transpose());
 
 		double weight = 3 * baryCoord(i) * baryCoord(i) - 2 * std::pow(baryCoord(i), 3) + 2 * prod;
 
-		Phi += weight * vertexPhi[vid] * planewaveValue * whirlpoolValue;
+		if (planeOmega.norm() == 0 && whirlpoolOmega.norm() == 0)
+		{
+			//std::cout << "just linear interpolation." << std::endl;
+			Phi += baryCoord(i) * vertexPhi[vid];
+		}
+		else
+			Phi += weight * vertexPhi[vid] * planewaveValue * whirlpoolValue;
 	}
 }
 

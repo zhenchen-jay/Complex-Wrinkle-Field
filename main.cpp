@@ -43,10 +43,12 @@
 #include "include/Visualization/PaintGeometry.h"
 #include "include/InterpolationScheme/VecFieldSplit.h"
 #include "include/Optimization/NewtonDescent.h"
+#include "include/DynamicInterpolation/GetInterpolatedValues.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
 Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
+std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
 std::vector<std::complex<double>> zvals;
 std::vector<std::complex<double>> theoZVals;
@@ -117,7 +119,8 @@ enum InterpolationType {
 	PureWhirlpool = 0,
 	PurePlaneWave = 1,
 	NaiveSplit = 2,
-	NewSplit = 3
+	NewSplit = 3,
+	JustLinear = 4
 };
 
 TargetType tarType = TargetType::PlaneWave;
@@ -1057,7 +1060,7 @@ void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen
 		whirlPoolPart = vecfields - planePart;
 
 	}
-	else
+	else if (interType == InterpolationType::NewSplit)
 	{
 		std::cout << "new split" << std::endl;
 		VecFieldsSplit testModel = VecFieldsSplit(triV2D, MeshConnectivity(triF2D), vecfields);
@@ -1105,6 +1108,13 @@ void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen
 
 		whirlPoolPart = vecfields - planePart;
 	}
+	else
+	{
+		planePart = vecfields;
+		whirlPoolPart = vecfields;
+		whirlPoolPart.setZero();
+		planePart.setZero();
+	}
 	if(isShowOnlyPlaneWave)
 	    whirlPoolPart.setZero();
 	else if(isShowOnlyWhirlPool)
@@ -1121,7 +1131,6 @@ void initialization()
 
 	Eigen::SparseMatrix<double> S;
 	std::vector<int> facemap;
-	std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
 	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel, &S, &facemap, &bary);
 	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
@@ -1208,10 +1217,52 @@ void vecCallback() {
 		initialization();
 	}
     if (ImGui::Combo("vec types", (int*)&tarType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0random\0\0")){}
-    if (ImGui::Combo("interpolation types", (int*)&interType, "Pure Whirl pool\0Pure plane wave\0Naive Split\0New Split\0\0")) {}
+    if (ImGui::Combo("interpolation types", (int*)&interType, "Pure Whirl pool\0Pure plane wave\0Naive Split\0New Split\0Just linear\0\0")) {}
     if (ImGui::Checkbox("Show Only Plane wave", &isShowOnlyPlaneWave)){}
     if(ImGui::Checkbox("Show Only Whirl pool", &isShowOnlyWhirlPool)){}
     if(ImGui::Checkbox("Fixed center and dir", &isFixed)){}
+	if (ImGui::Button("Test", ImVec2(-1, 0)))
+	{
+		Eigen::Vector2d v = Eigen::Vector2d::Random();
+		if (isFixed)
+			v = fixedv;
+		generatePlaneWave(v, omegaFields, zvals, &theoZVals);
+		planeFields = omegaFields;
+		whirlFields = omegaFields;
+		planeFields.setRandom();
+		whirlFields.setZero();
+
+		std::vector<std::complex<double>> upsampledZvals, upsampledZvals1;
+		model.estimatePhase(planeFields, whirlFields, zvals, upsampledZvals);
+		model.getAngleMagnitude(upsampledZvals, phaseField, ampField);
+
+		GetInterpolatedValues testmodel = GetInterpolatedValues(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary);
+		upsampledZvals1 = testmodel.getZValues(planeFields, zvals, NULL, NULL);
+
+		for (int i = 0; i < upsampledZvals.size(); i++)
+		{
+			if (std::abs(upsampledZvals[i] - upsampledZvals1[i]) > 1e-6)
+			{
+				std::cout << "error in vertex: " << i << ", " << upsampledZvals[i] << ", " << upsampledZvals1[i] << std::endl;
+			}
+		}
+
+		int vid = std::rand() % upsampledTriV2D.rows();
+		testmodel.testPlaneWaveValue(planeFields, zvals, vid);
+
+		/*Eigen::Vector3d p = Eigen::Vector3d::Random();
+		p(2) = 0;
+		p << 0.2, 0.3, 0;
+		Eigen::Vector3d pi = Eigen::Vector3d::Random();
+		pi(2) = 0;
+		pi << -0.5, -0.1, 0;
+		Eigen::Vector2d omega = Eigen::Vector2d::Random();
+		omega << 0.03, 0.9;
+
+		testmodel.testPlaneWaveBasis(p, pi, omega);*/
+
+
+	}
 	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
 	{
 		generateTargetVals();
