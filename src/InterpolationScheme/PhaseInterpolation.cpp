@@ -9,7 +9,7 @@
 
 #include "../../include/InterpolationScheme/PhaseInterpolation.h"
 
-PhaseInterpolation::PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& upsampledRestV, const MeshConnectivity& upsampledRestMesh, const Eigen::MatrixXd& refV, const MeshConnectivity& refMesh, const Eigen::MatrixXd& upsampledRefV, const MeshConnectivity& upsampledRefMesh)
+PhaseInterpolation::PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& upsampledRestV, const MeshConnectivity& upsampledRestMesh, const Eigen::MatrixXd& refV, const MeshConnectivity& refMesh, const Eigen::MatrixXd& upsampledRefV, const MeshConnectivity& upsampledRefMesh, const std::vector<std::pair<int, Eigen::Vector3d>> *bary)
 {
 	_restV = restV;
 	_restMesh = restMesh;
@@ -23,7 +23,10 @@ PhaseInterpolation::PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshC
 	_upsampledRefV = upsampledRefV;
 	_upsampledRefMesh = upsampledRefMesh;
 
-	initialization();
+	if(bary)
+	    _baryCoords = *bary;
+	else
+	    initialization();
 }
 
 void PhaseInterpolation::initialization()
@@ -195,7 +198,7 @@ std::complex<double> PhaseInterpolation::whirlpoolBasis(Eigen::VectorXd p, Eigen
 		return 1;
 	Eigen::Vector2d p0 = v.segment<2>(0) + Eigen::Vector2d(-omega(1), omega(0)) / omega.squaredNorm();
 
-	std::cout << "P0: " << p0.transpose() << std::endl;
+//	std::cout << "P0: " << p0.transpose() << std::endl;
 	
 	return std::complex<double>(p(0) - p0(0), p(1) - p0(1)) / std::complex<double>(v(0) - p0(0), v(1) - p0(1));
 

@@ -102,12 +102,14 @@ file(GLOB SRCFILES
     include/MeshLib/*.h
     include/Visualization/*.h
     include/Optimization/*.h
+    include/DynamicInterpolation/*.h
   
     src/*.cpp
     src/InterpolationScheme/*.cpp
     src/MeshLib/*.cpp
     src/Visualization/*.cpp
     src/Optimization/*.cpp
+    src/DynamicInterpolation/*.cpp
     *.cpp)
     
 add_executable(

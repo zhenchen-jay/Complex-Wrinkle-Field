@@ -1118,14 +1118,19 @@ void initialization()
 
 	triV3D = triV2D;
 	triF3D = triF2D;
-	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel);
+
+	Eigen::SparseMatrix<double> S;
+	std::vector<int> facemap;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+
+	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel, &S, &facemap, &bary);
 	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
 	std::cout << "upsampling finished" << std::endl;
 
 	MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
 	MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
 
-	model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D);
+	model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D, &bary);
 }
 
 void generateTargetVals()

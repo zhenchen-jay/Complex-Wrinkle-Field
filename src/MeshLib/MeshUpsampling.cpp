@@ -114,51 +114,91 @@ static void midPoint(const int n_verts, const Eigen::MatrixXi& F, Eigen::SparseM
 }
 
 
-void meshUpSampling(Eigen::MatrixXd V, Eigen::MatrixXi F, Eigen::MatrixXd &NV, Eigen::MatrixXi &NF, int numSubdivs, Eigen::SparseMatrix<double> *mat, std::vector<int>* facemap)
+void meshUpSampling(Eigen::MatrixXd V, Eigen::MatrixXi F, Eigen::MatrixXd &NV, Eigen::MatrixXi &NF, int numSubdivs, Eigen::SparseMatrix<double> *mat, std::vector<int>* facemap, std::vector<std::pair<int, Eigen::Vector3d>> *bary)
 {
 	NV = V;
 	NF = F;
 	// midpoint subdivision
-	if (mat)
-	{
-		mat->resize(V.rows(), V.rows());
-		mat->setIdentity();
-	}
-
 	std::vector<int> tmpfacemap;
-	if (facemap)
-	{
-		facemap->resize(F.rows());
-		for (int i = 0; i < F.rows(); i++)
-			(*facemap)[i] = i;
-		tmpfacemap = *(facemap);
-	}
+	Eigen::SparseMatrix<double> tmpMat(V.rows(), V.rows());
+	tmpMat.setIdentity();
+
+	tmpfacemap.resize(F.rows());
+	for (int i = 0; i < F.rows(); i++)
+	    tmpfacemap[i] = i;
+
 
 	for(int i=0; i<numSubdivs; ++i)
 	{
 		Eigen::MatrixXi tempF = NF;
 		Eigen::SparseMatrix<double> S;
 		std::vector<int> faceTracing;
-		midPoint(NV.rows(), tempF, S, NF, facemap ? &faceTracing : NULL);
+		midPoint(NV.rows(), tempF, S, NF, &faceTracing);
 		// This .eval is super important
 		NV = (S*NV).eval();
 
-		if (mat)
-		{
-			(*mat) = S * (*mat);
-		}
+		tmpMat = S * tmpMat;
 
-		if (facemap)
+		std::vector<int> tmpfacemap1;
+		tmpfacemap1.resize(NF.rows());
+		for (int j = 0; j < NF.rows(); j++)
 		{
-			std::vector<int> tmpfacemap1;
-			tmpfacemap1.resize(NF.rows());
-			for (int j = 0; j < NF.rows(); j++)
-			{
-				tmpfacemap1[j] = tmpfacemap[faceTracing[j]];
-			}
-			std::swap(tmpfacemap, tmpfacemap1);
+		    tmpfacemap1[j] = tmpfacemap[faceTracing[j]];
 		}
+		std::swap(tmpfacemap, tmpfacemap1);
 	}
 	if(facemap)
 		(*facemap) = tmpfacemap;
+
+	if(mat)
+	    (*mat) = tmpMat;
+
+	if(bary)
+	{
+	    bary->resize(NV.rows());
+	    Eigen::VectorXi isVisited = Eigen::VectorXi::Zero(NV.rows());
+
+	    std::vector<std::vector<std::pair<int, double>>> nonzeroTracing(NV.rows());
+
+	    for (int k=0; k < tmpMat.outerSize(); ++k)
+	    {
+	        for (Eigen::SparseMatrix<double>::InnerIterator it(tmpMat,k); it; ++it)
+	        {
+	           nonzeroTracing[it.row()].push_back({it.col(), it.value()});
+	        }
+	    }
+
+	    for(int i = 0; i < NF.rows(); i++)
+	    {
+	        for(int j = 0; j < 3; j++)
+	        {
+	            int vid = NF(i, j);
+	            if(isVisited(vid))
+                    continue;
+	            std::vector<std::pair<int, double>> perFaceBary = nonzeroTracing[vid];
+	            if(perFaceBary.size() >3)
+	            {
+	                std::cerr << "some error in the upsampling matrix." << std::endl;
+	                exit(1);
+	            }
+	            int preFace = tmpfacemap[i];
+	            Eigen::Vector3d ptBary = Eigen::Vector3d::Zero();
+
+	            for(int k = 0; k < perFaceBary.size(); k++)
+	            {
+	                int preVid = perFaceBary[k].first;
+	                for(int n = 0; n < 3; n++)
+	                {
+	                    if(F(preFace, n) == preVid)
+	                    {
+	                        ptBary(n) = perFaceBary[k].second;
+	                    }
+	                }
+	            }
+	            bary->at(vid) = std::pair<int, Eigen::Vector3d>(preFace, ptBary);
+
+	            isVisited(vid) = 1;
+	        }
+	    }
+	}
 }

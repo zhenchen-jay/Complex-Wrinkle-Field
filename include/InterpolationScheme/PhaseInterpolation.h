@@ -19,7 +19,7 @@ public:
 
 public:
 	PhaseInterpolation() {}
-	PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& upsampledRestV, const MeshConnectivity& upsampledRestMesh, const Eigen::MatrixXd& refV, const MeshConnectivity& refMesh, const Eigen::MatrixXd& upsampledRefV, const MeshConnectivity& upsampledRefMesh);
+	PhaseInterpolation(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& upsampledRestV, const MeshConnectivity& upsampledRestMesh, const Eigen::MatrixXd& refV, const MeshConnectivity& refMesh, const Eigen::MatrixXd& upsampledRefV, const MeshConnectivity& upsampledRefMesh, const std::vector<std::pair<int, Eigen::Vector3d>> *bary = NULL);
 	/*
 	* Input:
 	* 1. rest shape (restV, restMesh).
