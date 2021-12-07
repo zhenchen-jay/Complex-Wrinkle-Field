@@ -32,10 +32,15 @@ public:
     std::complex<double> planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess);
     std::vector<std::complex<double>> getZDotValues(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, std::vector<Eigen::VectorXcd>* deriv, std::vector<Eigen::MatrixXcd> *H);
 
+    double zDotSquarePerVertex(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXd* deriv, Eigen::MatrixXd* hess, bool isProj = false);
+    double zDotSquareIntegration(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>> *hessT, bool isProj = false);
+
     // test function
     void testPlaneWaveValue(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int vid);
     void testPlaneWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid);
     void testPlaneWaveBasis(Eigen::VectorXd p, Eigen::VectorXd pi, Eigen::Vector2d omega);
+    void testZDotSquarePerVertex(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid);
+    void testZDotSquareIntegration(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt);
 
 private:
     Eigen::Vector3d computeWeight(Eigen::Vector3d bary)
@@ -47,6 +52,8 @@ private:
         }
         return weights;
     }
+
+    Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A);
 
 private:
     Eigen::MatrixXd _basePos;

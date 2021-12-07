@@ -67,7 +67,7 @@ Eigen::MatrixXi dataF;
 Eigen::MatrixXd dataVec;
 Eigen::MatrixXd curColor;
 
-int loopLevel = 2;
+int loopLevel = 1;
 
 bool isVisualizePhase = false;
 bool isVisualizeAmp = false;
@@ -89,10 +89,12 @@ PaintGeometry mPaint;
 
 int numFrames = 1000;
 int curFrame = 0;
+int sigIndex1 = 1;
+int sigIndex2 = 1;
 double triarea = 0.1;
 
-double fixedx = 0.1;
-double fixedy = 0.2;
+double fixedx = 0;
+double fixedy = 0;
 Eigen::Vector2d fixedv(1.0, -0.5);
 
 enum MotionType
@@ -168,14 +170,25 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 	const std::string flags = "q20a" + std::to_string(triarea);
 
 	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+
+//	V2d.resize(4, 3);
+//	V2d << 0, 0, 0,
+//	1, 0, 0,
+//	1, 1, 0,
+//	0, 1, 0;
+//
+//	F.resize(2, 3);
+//	F << 0, 1, 2,
+//	2, 3, 0;
+
 	irregularV.resize(V2d.rows(), 3);
 	irregularV.setZero();
-	irregularV.block(0, 0, irregularV.rows(), 2) = V2d;
+	irregularV.block(0, 0, irregularV.rows(), 2) = V2d.block(0, 0, irregularV.rows(), 2);
 	irregularF = F;
 }
 
 
-void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>> *upsampledZ = NULL, Eigen::MatrixXd *upOmega = NULL)
+void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1, std::vector<std::complex<double>> *upsampledZ = NULL, Eigen::MatrixXd *upOmega = NULL)
 {
 	z.resize(triV2D.rows());
 	w.resize(triV2D.rows(), 2);
@@ -187,12 +200,13 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 		double y = triV2D(i, 1) - centery;
 		double rsquare = x * x + y * y;
 
-		z[i] = std::complex<double>(x, y);
+		z[i] = std::pow(std::complex<double>(x, y), pow);
 
 		if (std::abs(std::sqrt(rsquare)) < 1e-10)
 			w.row(i) << 0, 0;
 		else
-			w.row(i) << -y / rsquare, x / rsquare;
+//			w.row(i) << -y / rsquare, x / rsquare;
+            w.row(i) << -pow * y / rsquare, pow * x / rsquare;
 	}
 
 	if(upsampledZ)
@@ -204,7 +218,7 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 	        double y = upsampledTriV2D(i, 1) - centery;
 	        double rsquare = x * x + y * y;
 
-			upsampledZ->at(i) = std::complex<double>(x, y);
+			upsampledZ->at(i) = std::pow(std::complex<double>(x, y), pow);
 	    }
 	}
 	if(upOmega)
@@ -219,7 +233,7 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 	        if (std::abs(std::sqrt(rsquare)) < 1e-10)
 	            upOmega->row(i) << 0, 0;
 	        else
-	            upOmega->row(i) << -y / rsquare, x / rsquare;
+	            upOmega->row(i) << -pow * y / rsquare, pow * x / rsquare;
 	    }
 
 	}
@@ -261,13 +275,13 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
     }
 }
 
-void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, double centery1, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<std::complex<double>>* upsampledZ = NULL, Eigen::MatrixXd *upOmega = NULL)
+void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, double centery1, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int n0 = 1, int n1 = 1, std::vector<std::complex<double>>* upsampledZ = NULL, Eigen::MatrixXd *upOmega = NULL)
 {
 	Eigen::MatrixXd w0, w1, upOmega0, upOmega1;
 	std::vector<std::complex<double>> z0, z1, upsampledZ0, upsampledZ1;
 
-	generateWhirlPool(centerx0, centery0, w0, z0, upsampledZ ? &upsampledZ0 : NULL, upOmega ? &upOmega0 : NULL);
-	generateWhirlPool(centerx1, centery1, w1, z1, upsampledZ ? &upsampledZ1 : NULL, upOmega ? &upOmega1 : NULL);
+	generateWhirlPool(centerx0, centery0, w0, z0, n0, upsampledZ ? &upsampledZ0 : NULL, upOmega ? &upOmega0 : NULL);
+	generateWhirlPool(centerx1, centery1, w1, z1, n1, upsampledZ ? &upsampledZ1 : NULL, upOmega ? &upOmega1 : NULL);
 
 	std::cout << "whirl pool center: " << centerx0 << ", " << centery0 << std::endl;
 	std::cout << "whirl pool center: " << centerx1 << ", " << centery1 << std::endl;
@@ -1149,7 +1163,7 @@ void generateTargetVals()
 		Eigen::Vector2d center = Eigen::Vector2d::Random();
 		if(isFixed)
 		    center << fixedx, fixedy;
-		generateWhirlPool(center(0), center(1), omegaFields, zvals, &theoZVals);
+		generateWhirlPool(center(0), center(1), omegaFields, zvals, sigIndex1, &theoZVals);
 		doSplit(omegaFields, planeFields, whirlFields);
 	}
 	else if (tarType == TargetType::PlaneWave)
@@ -1193,7 +1207,7 @@ void generateTargetVals()
 		    center0 << fixedx, fixedy;
 		    center1 << 0.8, -0.3;
 		}
-		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), omegaFields, zvals, &theoZVals);
+		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), omegaFields, zvals, sigIndex1, sigIndex2, &theoZVals);
 		doSplit(omegaFields, planeFields, whirlFields);
 	}
 	else
@@ -1210,12 +1224,18 @@ void vecCallback() {
     ImGui::PushItemWidth(100);
 	if (ImGui::InputDouble("triangle area", &triarea))
 	{
-		initialization();
+	    if(triarea > 0)
+		    initialization();
 	}
 	if (ImGui::InputInt("upsampled times", &loopLevel))
 	{
-		initialization();
+	    if(loopLevel > 0)
+		    initialization();
 	}
+	if (ImGui::InputInt("Singularity index 1", &sigIndex1))
+	{}
+	if (ImGui::InputInt("Singularity index 2", &sigIndex2))
+	{}
     if (ImGui::Combo("vec types", (int*)&tarType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0random\0\0")){}
     if (ImGui::Combo("interpolation types", (int*)&interType, "Pure Whirl pool\0Pure plane wave\0Naive Split\0New Split\0Just linear\0\0")) {}
     if (ImGui::Checkbox("Show Only Plane wave", &isShowOnlyPlaneWave)){}
@@ -1248,18 +1268,20 @@ void vecCallback() {
 		}
 
 		int vid = std::rand() % upsampledTriV2D.rows();
-		testmodel.testPlaneWaveValue(planeFields, zvals, vid);
+//		testmodel.testPlaneWaveValue(planeFields, zvals, vid);
+		
+		omegaFields.setRandom();
+		auto zvals1 = zvals;
+		for(auto& z: zvals1)
+		{
+		    Eigen::Vector2d randz = Eigen::Vector2d::Random();
+		    z = std::complex<double>(randz(0), randz(1));
+		}
+//		testmodel.testPlaneWaveValueDot(planeFields, omegaFields, zvals, zvals1, 0.1, vid);
+		
+		testmodel.testZDotSquarePerVertex(planeFields, omegaFields, zvals, zvals1, 0.1, 4);
 
-		/*Eigen::Vector3d p = Eigen::Vector3d::Random();
-		p(2) = 0;
-		p << 0.2, 0.3, 0;
-		Eigen::Vector3d pi = Eigen::Vector3d::Random();
-		pi(2) = 0;
-		pi << -0.5, -0.1, 0;
-		Eigen::Vector2d omega = Eigen::Vector2d::Random();
-		omega << 0.03, 0.9;
-
-		testmodel.testPlaneWaveBasis(p, pi, omega);*/
+		testmodel.testZDotSquareIntegration(planeFields, omegaFields, zvals, zvals1, 0.1);
 
 
 	}

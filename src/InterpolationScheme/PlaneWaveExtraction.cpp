@@ -9,7 +9,6 @@
 #define GRAIN_SIZE 10
 #endif
 
-
 double PlaneWaveExtraction::faceFieldDifferencePerEdge(const Eigen::MatrixXd faceFields, int eid,
 													   Eigen::Vector4d *deriv, Eigen::Matrix4d *hess)
 {
