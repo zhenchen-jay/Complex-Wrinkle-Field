@@ -92,11 +92,6 @@ std::complex<double> GetInterpolatedValues::planeWaveValue(const Eigen::MatrixXd
 			m.setZero(12, 12);
 	}
 
-	if (vid == 41)
-	{
-		std::cout << "test error case. " << std::endl;
-	}
-
 	for(int j = 0; j < 3; j++)
 	{
 		int baseVid = _baseMesh.faceVertex(baseFid, j);
