@@ -149,7 +149,7 @@ std::complex<double> GetInterpolatedValues::planeWaveValue(const Eigen::MatrixXd
 	}
 	return z;
 }
-
+/* really complicate implementation
 std::complex<double> GetInterpolatedValues::planeWaveValueDot(const Eigen::MatrixXd &w1, const Eigen::MatrixXd &w2,
 															  const std::vector<std::complex<double>> &vertVals1,
 															  const std::vector<std::complex<double>> &vertVals2,
@@ -244,6 +244,35 @@ std::complex<double> GetInterpolatedValues::planeWaveValueDot(const Eigen::Matri
 	}
 
 	return zdot;
+}
+*/
+std::complex<double> GetInterpolatedValues::planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2,
+																  const std::vector<std::complex<double>>& vertVals1,
+																  const std::vector<std::complex<double>>& vertVals2,
+																  const double dt, int vid, Eigen::VectorXcd* deriv,
+																  Eigen::MatrixXcd* hess)
+{
+	Eigen::VectorXcd z1Deriv, z2Deriv;
+	Eigen::MatrixXcd z1Hess, z2Hess;
+	std::complex<double> z1 = planeWaveValue(w1, vertVals1, vid, (deriv || hess) ? &z1Deriv : NULL, hess ? &z1Hess : NULL, NULL);
+	std::complex<double> z2 = planeWaveValue(w2, vertVals2, vid, (deriv || hess) ? &z2Deriv : NULL, hess ? &z2Hess : NULL, NULL);
+
+	std::complex<double> zdot = (z2 - z1) / dt;
+	if (deriv)
+	{
+		deriv->setZero(2 * z1Deriv.rows());
+		deriv->segment(0, z1Deriv.rows()) = -z1Deriv / dt;
+		deriv->segment(z1Deriv.rows(), z2Deriv.rows()) = z2Deriv / dt;
+		
+	}
+	if (hess)
+	{
+		hess->setZero(2 * z1Deriv.rows(), 2 * z1Deriv.rows());
+		hess->block(0, 0, z1Hess.rows(), z1Hess.cols()) = -z1Hess / dt;
+		hess->block(z1Hess.rows(), z1Hess.cols(), z2Hess.rows(), z2Hess.cols()) = z2Hess / dt;
+	}
+	return zdot;
+
 }
 
 std::vector<std::complex<double>> GetInterpolatedValues::getZValues(const Eigen::MatrixXd &w,
@@ -346,20 +375,20 @@ double GetInterpolatedValues::zDotSquareIntegration(const Eigen::MatrixXd &w1, c
     std::vector<Eigen::VectorXd> derivList(nupverts);
     std::vector<Eigen::MatrixXd> hessList(nupverts);
 
-//    auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
-//        for (uint32_t i = range.begin(); i < range.end(); ++i)
-//        {
-//            energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
-//        }
-//    };
-//
-//    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nupverts, GRAIN_SIZE);
-//    tbb::parallel_for(rangex, computeEnergy);
+    auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+			energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
+        }
+    };
 
-    for (uint32_t i = 0; i < nupverts; ++i)
-    {
-        energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
-    }
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nupverts, GRAIN_SIZE);
+    tbb::parallel_for(rangex, computeEnergy);
+
+    //for (uint32_t i = 0; i < nupverts; ++i)
+    //{
+    //    energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
+    //}
 
     for(int i = 0; i < nupverts; i++)
     {
