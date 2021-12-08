@@ -254,6 +254,7 @@ std::complex<double> GetInterpolatedValues::planeWaveValueDot(const Eigen::Matri
 {
 	Eigen::VectorXcd z1Deriv, z2Deriv;
 	Eigen::MatrixXcd z1Hess, z2Hess;
+	std::cout << "w1 - w2: " << (w1 - w2).norm() << std::endl;
 	std::complex<double> z1 = planeWaveValue(w1, vertVals1, vid, (deriv || hess) ? &z1Deriv : NULL, hess ? &z1Hess : NULL, NULL);
 	std::complex<double> z2 = planeWaveValue(w2, vertVals2, vid, (deriv || hess) ? &z2Deriv : NULL, hess ? &z2Hess : NULL, NULL);
 

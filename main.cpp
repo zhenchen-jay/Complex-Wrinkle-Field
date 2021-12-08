@@ -96,7 +96,7 @@ bool isForceOptimize = false;
 PhaseInterpolation model;
 PaintGeometry mPaint;
 
-int numFrames = 50;
+int numFrames = 1;
 int curFrame = 0;
 int sigIndex1 = 1;
 int sigIndex2 = 1;
@@ -144,7 +144,7 @@ enum InitializationType{
 
 FunctionType functionType = FunctionType::PlaneWave;
 FunctionType tarFunctionType = FunctionType::Whirlpool;
-InitializationType initializationType = InitializationType::Theoretical;
+InitializationType initializationType = InitializationType::Random;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
 
 InterpolationType interType = InterpolationType::NewSplit;
@@ -612,6 +612,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
+		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 
 	    if(initializationType == InitializationType::Theoretical)
 	    {
@@ -665,6 +666,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 	    wFrames = interpModel.getWList();
 	    zFrames = interpModel.getVertValsList();
+
+		for (int i = 0; i < wFrames.size() - 1; i++)
+		{
+			double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+			std::cout << "frame " << i << ", ||zdot||^2 = " << zdotNorm << std::endl;
+		}
 	}
 	else if(frameType == IntermediateFrameType::IEDynamic)
 	{

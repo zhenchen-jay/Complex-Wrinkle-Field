@@ -66,7 +66,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		if (disPlayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
-			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
+			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ",  " << grad.segment(0, delta_x.size() / 2).norm() << ", " << grad.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta x: " << rate * delta_x.norm() << " , z change: " << delta_x.segment(0, delta_x.size() / 2).norm() << ", w change: " << delta_x.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta_f: " << f - fnew << std::endl;
 		}
 		
 		if (f - fnew < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
