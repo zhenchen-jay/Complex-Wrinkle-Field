@@ -1,3 +1,4 @@
+#include <Eigen/CholmodSupport>
 
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/NewtonDescent.h"
@@ -25,8 +26,10 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		Eigen::SparseMatrix<double> I(DIM, DIM);
 		I.setIdentity();
 		hessian = H;
+		Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(hessian);
 
-		Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solver(hessian);
+//		Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solver(hessian);
+
 
 		while (solver.info() != Eigen::Success)
 		{

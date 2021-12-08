@@ -26,6 +26,7 @@ public:
 
 		_dt = 1.0 / (numFrames + 1);
 
+		// linear interpolate in between
 		for (int i = 1; i <= numFrames; i++)
 		{
 			double t = _dt * i;
@@ -49,7 +50,7 @@ public:
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 	void testEnergy(Eigen::VectorXd x);
 
-private:
+public:
 	Eigen::MatrixXd _basePos;
 	MeshConnectivity _baseMesh;
 	Eigen::MatrixXd _upsampledPos;

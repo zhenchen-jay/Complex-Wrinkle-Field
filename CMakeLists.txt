@@ -147,9 +147,12 @@ if(MSVC)
   add_compile_definitions(__TBB_NO_IMPLICIT_LINKAGE=1)
 endif()
 
+find_package(SuiteSparse REQUIRED)
+include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
+
 # Link settings
 target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen )
 
 if(BUILD_WITH_TBB)
-  target_link_libraries( phaseInterp-polyscope-example polyscope TBB::tbb igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle)
+  target_link_libraries( phaseInterp-polyscope-example polyscope TBB::tbb igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})
 endif()
