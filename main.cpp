@@ -654,9 +654,10 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            return 1.0;
 	        };
 
-	        std::cout << "before optimization: " << x.norm() << std::endl;
+	        OptSolver::testFuncGradHessian(funVal, x);
+	        auto x0 = x;
 	        OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
-	        std::cout << "after optimization: " << x.norm() << std::endl;
+	        std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 	    }
 
 	    std::cout << "x norm: " << x.norm() << std::endl;
