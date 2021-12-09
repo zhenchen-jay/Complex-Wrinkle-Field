@@ -91,7 +91,6 @@ std::complex<double> GetInterpolatedValues::planeWaveValue(const Eigen::MatrixXd
 		for (auto& m : *derivHess)
 			m.setZero(12, 12);
 	}
-
 	for(int j = 0; j < 3; j++)
 	{
 		int baseVid = _baseMesh.faceVertex(baseFid, j);
@@ -254,7 +253,7 @@ std::complex<double> GetInterpolatedValues::planeWaveValueDot(const Eigen::Matri
 {
 	Eigen::VectorXcd z1Deriv, z2Deriv;
 	Eigen::MatrixXcd z1Hess, z2Hess;
-	std::cout << "w1 - w2: " << (w1 - w2).norm() << std::endl;
+
 	std::complex<double> z1 = planeWaveValue(w1, vertVals1, vid, (deriv || hess) ? &z1Deriv : NULL, hess ? &z1Hess : NULL, NULL);
 	std::complex<double> z2 = planeWaveValue(w2, vertVals2, vid, (deriv || hess) ? &z2Deriv : NULL, hess ? &z2Hess : NULL, NULL);
 
@@ -337,6 +336,11 @@ double GetInterpolatedValues::zDotSquarePerVertex(const Eigen::MatrixXd &w1, con
     Eigen::MatrixXcd zdotHess;
     std::complex<double> zdot = planeWaveValueDot(w1, w2, vertVals1, vertVals2, dt, vid, (deriv || hess) ? &zdotDeriv : NULL, hess ? &zdotHess : NULL);
 
+//    std::cout << "vertex: " << vid << ", " << zdot;
+//    if(deriv)
+//        std::cout << ",  grad: \n" << zdotDeriv << std::endl;
+//    std::cout <<"\n";
+
     double energy = 0.5 * zdot.real() * zdot.real() + 0.5 * zdot.imag() * zdot.imag();
 
     if(deriv)
@@ -386,15 +390,13 @@ double GetInterpolatedValues::zDotSquareIntegration(const Eigen::MatrixXd &w1, c
     tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nupverts, GRAIN_SIZE);
     tbb::parallel_for(rangex, computeEnergy);
 
-    //for (uint32_t i = 0; i < nupverts; ++i)
-    //{
-    //    energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
-    //}
+//    for (uint32_t i = 0; i < nupverts; ++i)
+//    {
+//        energyList[i] = zDotSquarePerVertex(w1, w2, vertVals1, vertVals2, dt, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
+//    }
 
     for(int i = 0; i < nupverts; i++)
     {
-        if(i != 4)
-            continue;
          energy += energyList[i];
 
         if(deriv || hessT)

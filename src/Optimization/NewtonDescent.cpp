@@ -13,8 +13,9 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	double maxStepSize = 1.0;
 	double reg = 1e-8;
 
-	bool isProj = true;
+//	bool isProj = true;
 
+    bool isProj = false;
 	int i = 0;
 	for (; i < numIter; i++)
 	{
@@ -59,14 +60,13 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 			reg = std::max(reg, 1e-16);
 		}
 		
-
 		x0 = x0 + rate * delta_x;
 
 		double fnew = objFunc(x0, &grad, NULL, isProj);
 		if (disPlayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
-			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ",  " << grad.segment(0, delta_x.size() / 2).norm() << ", " << grad.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta x: " << rate * delta_x.norm() << " , z change: " << delta_x.segment(0, delta_x.size() / 2).norm() << ", w change: " << delta_x.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta_f: " << f - fnew << std::endl;
+			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ",  " << grad.segment(0, delta_x.size() / 2).norm() << ", " << grad.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta x: " << rate * delta_x.norm() << " , z change: " << rate * delta_x.segment(0, delta_x.size() / 2).norm() << ", w change: " << rate * delta_x.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta_f: " << f - fnew << std::endl;
 		}
 		
 		if (f - fnew < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
@@ -113,6 +113,7 @@ void OptSolver::testFuncGradHessian(std::function<double(const Eigen::VectorXd&,
 	Eigen::SparseMatrix<double> H;
 
 	double f = objFunc(x0, &grad, &H, false);
+	std::cout << "f: " << f << std::endl;
 
 	for (int i = 3; i < 10; i++)
 	{

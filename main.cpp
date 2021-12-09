@@ -96,7 +96,7 @@ bool isForceOptimize = false;
 PhaseInterpolation model;
 PaintGeometry mPaint;
 
-int numFrames = 1;
+int numFrames = 50;
 int curFrame = 0;
 int sigIndex1 = 1;
 int sigIndex2 = 1;
@@ -107,7 +107,7 @@ double globalAmpMax = 1;
 
 double dragSpeed = 0.5;
 
-double triarea = 0.1;
+double triarea = 0.04;
 
 double fixedx = 0;
 double fixedy = 0;
@@ -142,7 +142,7 @@ enum InitializationType{
   Theoretical = 2
 };
 
-FunctionType functionType = FunctionType::PlaneWave;
+FunctionType functionType = FunctionType::Whirlpool;
 FunctionType tarFunctionType = FunctionType::Whirlpool;
 InitializationType initializationType = InitializationType::Random;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
@@ -190,6 +190,16 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 	const std::string flags = "q20a" + std::to_string(triarea);
 
 	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+
+//	V2d.resize(4, 3);
+//	V2d << -1, -1, 0,
+//	1, -1, 0,
+//	1, 1, 0,
+//	-1, 1, 0;
+//
+//	F.resize(2, 3);
+//	F << 0, 1, 2,
+//	2, 3, 0;
 
 	irregularV.resize(V2d.rows(), 3);
 	irregularV.setZero();
@@ -606,13 +616,15 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 
-
+//    GetInterpolatedValues curmodel = GetInterpolatedValues(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary);
+//    auto zdots = curmodel.zDotSquareIntegration(sourceVec, tarVec, sourceZvals, sourceZvals, 1, NULL, NULL);
+//    std::cout << "zdot: " << zdots << std::endl;
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
-		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
+//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 
 	    if(initializationType == InitializationType::Theoretical)
 	    {
@@ -655,7 +667,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            return 1.0;
 	        };
 
-	        OptSolver::testFuncGradHessian(funVal, x);
+//	        OptSolver::testFuncGradHessian(funVal, x);
 	        auto x0 = x;
 	        OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
 	        std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
@@ -1027,10 +1039,32 @@ void callback() {
 
 	if (ImGui::Button("update values", ImVec2(-1, 0)))
 	{
+	    double backupx = fixedx, backupy = fixedy;
+	    Eigen::Vector2d backupv = fixedv;
+
 		// source vector fields
+		if(isFixed && isFixedTar)
+		{
+		    fixedx = -0.7;
+		    fixedy = -0.8;
+		}
 		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
+		if(isFixed && isFixedTar)
+		{
+		    double vx = fixedv(0);
+		    double vy = fixedv(1);
+		    fixedv << -vy, vx;
+
+		    fixedx = 0.5;
+		    fixedy = 0.6;
+		}
 		// target vector fields
 		generateValues(tarFunctionType, tarOmegaFields, tarZvals, tarTheoGradZvals, upsampledTarTheoZVals, singIndTar, singIndTar1, isFixedTar);
+
+		fixedx = backupx;
+		fixedy = backupy;
+		fixedv = backupv;
+
 		// update the theoretic ones
 		updateTheoMagnitudePhase(zvals, tarZvals, theoGradZvals, tarTheoGradZvals, upsampledTheoZVals, upsampledTarTheoZVals, numFrames, theoAmpFieldsList, theoPhaseFieldsList, theoOmegaList, theoZList);
 

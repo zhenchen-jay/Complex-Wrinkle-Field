@@ -99,6 +99,7 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 	}
 	if (hess)
 	{
+	    std::cout << "num of triplets: " << T.size() << std::endl;
 		hess->resize(DOFs, DOFs);
 		hess->setFromTriplets(T.begin(), T.end());
 	}
