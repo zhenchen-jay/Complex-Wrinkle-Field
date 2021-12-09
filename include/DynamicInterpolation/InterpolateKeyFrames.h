@@ -64,8 +64,8 @@ public:
 				znorm = std::max(znorm, std::abs(x(i * 4 * nbaseVerts + 2 * j)));
 				znorm = std::max(znorm, std::abs(x(i * 4 * nbaseVerts + 2 * j + 1)));
 				
-				wnorm = std::max(wnorm, std::abs(_wList[i + 1](j, 0)));
-				wnorm = std::max(wnorm, std::abs(_wList[i + 1](j, 1)));
+				wnorm = std::max(wnorm, std::abs(x(i * 4 * nbaseVerts + 2 * nbaseVerts + 2 * j)));
+				wnorm = std::max(wnorm, std::abs(x(i * 4 * nbaseVerts + 2 * nbaseVerts + 2 * j + 1)));
 			}
 		}
 	}
