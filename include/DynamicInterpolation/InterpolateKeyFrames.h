@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 
 #include "GetInterpolatedValues.h"
+#include "ComputeZandZdot.h"
 
 class InterpolateKeyFrames
 {
@@ -38,6 +39,7 @@ public:
 		}
 
 		_model = GetInterpolatedValues(basePos, baseF, upsampledPos, upsampledF, baryCoords);
+		_newmodel = ComputeZandZdot(basePos, baseF, 6);
 		
 	}
 
@@ -46,6 +48,28 @@ public:
 
 	std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 	std::vector<std::vector<std::complex<double>>> getVertValsList() { return _vertValsList; }
+
+	void getComponentNorm(const Eigen::VectorXd& x, double &znorm, double &wnorm)
+	{
+		int nbaseVerts = _basePos.rows();
+		int numFrames = _vertValsList.size() - 2;
+
+		znorm = 0;
+		wnorm = 0;
+
+		for (int i = 0; i < numFrames; i++)
+		{
+			for (int j = 0; j < nbaseVerts; j++)
+			{
+				znorm = std::max(znorm, std::abs(x(i * 4 * nbaseVerts + 2 * j)));
+				znorm = std::max(znorm, std::abs(x(i * 4 * nbaseVerts + 2 * j + 1)));
+				
+				wnorm = std::max(wnorm, std::abs(_wList[i + 1](j, 0)));
+				wnorm = std::max(wnorm, std::abs(_wList[i + 1](j, 1)));
+			}
+		}
+	}
+
 
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 	void testEnergy(Eigen::VectorXd x);
@@ -63,6 +87,7 @@ public:
 	std::vector<std::complex<double>> _vertVals1;
 	std::vector<std::vector<std::complex<double>>> _vertValsList;
 	GetInterpolatedValues _model;
+	ComputeZandZdot _newmodel;
 	double _dt;
 
 };

@@ -3,7 +3,7 @@
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/NewtonDescent.h"
 
-void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo)
+void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc)
 {
 	const int DIM = x0.rows();
 	Eigen::VectorXd grad = Eigen::VectorXd::Zero(DIM);
@@ -66,7 +66,16 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		if (disPlayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
-			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ",  " << grad.segment(0, delta_x.size() / 2).norm() << ", " << grad.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta x: " << rate * delta_x.norm() << " , z change: " << rate * delta_x.segment(0, delta_x.size() / 2).norm() << ", w change: " << rate * delta_x.segment(delta_x.size() / 2, delta_x.size() / 2).norm() << ", delta_f: " << f - fnew << std::endl;
+			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
+			if (getNormFunc)
+			{
+				double gradz, gradw;
+				getNormFunc(grad, gradz, gradw);
+
+				double updatez, updatew;
+				getNormFunc(rate * delta_x, updatez, updatew);
+				std::cout << "z grad: " << gradz << ", w grad: " << gradw << ", z change: " << updatez << ", w change: " << updatew  << std::endl;
+			}
 		}
 		
 		if (f - fnew < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)

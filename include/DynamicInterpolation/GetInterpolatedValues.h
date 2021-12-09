@@ -23,16 +23,19 @@ public:
     }
     GetInterpolatedValues() {}
 
-    std::complex<double> planeWaveBasis(Eigen::VectorXd p, Eigen::VectorXd pi, Eigen::Vector2d omega, Eigen::VectorXcd *deriv, Eigen::MatrixXcd* hess, std::vector<Eigen::MatrixXcd>* derivHess);
+    std::complex<double> planeWaveBasis(Eigen::Vector3d p, Eigen::Vector3d pi, Eigen::Vector2d omega, Eigen::Vector2cd *deriv, Eigen::Matrix2cd* hess, std::vector<Eigen::Matrix2cd>* derivHess);
 
-    std::complex<double> planeWaveValue(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess, std::vector<Eigen::MatrixXcd> *derivHess);
-    std::vector<std::complex<double>> getZValues(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, std::vector<Eigen::VectorXcd> *deriv, std::vector<Eigen::MatrixXcd> *H);
+    std::complex<double> planeWaveValue(const Eigen::MatrixXd& w,
+        const std::vector<std::complex<double>>& vertVals, int vid,
+        Eigen::Matrix<std::complex<double>, 12, 1>* deriv, Eigen::Matrix<std::complex<double>, 12, 12>* hess, std::vector<Eigen::Matrix<std::complex<double>, 12, 12>>* derivHess);
+
+    std::vector<std::complex<double>> getZValues(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, std::vector<Eigen::Matrix<std::complex<double>, 12, 1>> *deriv, std::vector<Eigen::Matrix<std::complex<double>, 12, 12>> *H);
 
     // we use (x_{t+1} - x_t) / dt to approximate x'(t)
-    std::complex<double> planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXcd* deriv, Eigen::MatrixXcd* hess);
-    std::vector<std::complex<double>> getZDotValues(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, std::vector<Eigen::VectorXcd>* deriv, std::vector<Eigen::MatrixXcd> *H);
+    std::complex<double> planeWaveValueDot(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::Matrix<std::complex<double>, 24, 1>* deriv, Eigen::Matrix<std::complex<double>, 24, 24>* hess);
+    std::vector<std::complex<double>> getZDotValues(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, std::vector<Eigen::Matrix<std::complex<double>, 24, 1>>* deriv, std::vector<Eigen::Matrix<std::complex<double>, 24, 24>> *H);
 
-    double zDotSquarePerVertex(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::VectorXd* deriv, Eigen::MatrixXd* hess, bool isProj = false);
+    double zDotSquarePerVertex(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int vid, Eigen::Matrix<double, 24, 1>* deriv, Eigen::Matrix<double, 24, 24>* hess, bool isProj = false);
     double zDotSquareIntegration(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>> *hessT, bool isProj = false);
 
     // test function

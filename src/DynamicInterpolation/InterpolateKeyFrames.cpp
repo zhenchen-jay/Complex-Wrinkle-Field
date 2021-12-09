@@ -58,7 +58,7 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 
 	for (int i = 0; i < _vertValsList.size() - 1; i++)
 	{
-		energy += _model.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+		energy += _newmodel.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
 
 		if (deriv)
 		{
@@ -112,6 +112,7 @@ void InterpolateKeyFrames::testEnergy(Eigen::VectorXd x)
 	Eigen::SparseMatrix<double> hess;
 
 	double e = computeEnergy(x, &deriv, &hess, false);
+	std::cout << "energy: " << e << std::endl;
 	
 	Eigen::VectorXd dir = deriv;
 	dir.setRandom();

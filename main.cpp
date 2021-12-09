@@ -46,6 +46,7 @@
 #include "include/DynamicInterpolation/GetInterpolatedValues.h"
 #include "include/DynamicInterpolation/InterpolateKeyFrames.h"
 #include "include/DynamicInterpolation/TimeIntegratedFrames.h"
+#include "include/DynamicInterpolation/ComputeZandZdot.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -109,9 +110,16 @@ double dragSpeed = 0.5;
 
 double triarea = 0.04;
 
+float vecratio = 0.1;
+
 double fixedx = 0;
 double fixedy = 0;
 Eigen::Vector2d fixedv(1.0, -0.5);
+
+double gradTol = 1e-6;
+double xTol = 0;
+double fTol = 0;
+int numIter = 1000;
 
 
 enum FunctionType {
@@ -615,17 +623,18 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 
 void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
+	//ComputeZandZdot zdotModel = ComputeZandZdot(triV2D, triF2D, 6);
+	//zdotModel.testPlaneWaveValueDotFromQuad(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0, 2);
+	//zdotModel.testZDotSquarePerface(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0);
+	//zdotModel.testZDotSquareIntegration(sourceVec, tarVec, sourceZvals, tarZvals, 1);
 
-//    GetInterpolatedValues curmodel = GetInterpolatedValues(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary);
-//    auto zdots = curmodel.zDotSquareIntegration(sourceVec, tarVec, sourceZvals, sourceZvals, 1, NULL, NULL);
-//    std::cout << "zdot: " << zdots << std::endl;
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
+		//interpModel.testEnergy(x);
 //		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
-
 	    if(initializationType == InitializationType::Theoretical)
 	    {
 	        interpModel._wList = theoOmegaList;
@@ -667,9 +676,14 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            return 1.0;
 	        };
 
-//	        OptSolver::testFuncGradHessian(funVal, x);
+			auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm)
+			{
+				interpModel.getComponentNorm(x, znorm, wnorm);
+			};
+
+	        OptSolver::testFuncGradHessian(funVal, x);
 	        auto x0 = x;
-	        OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+	        OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 	        std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 	    }
 
@@ -978,7 +992,7 @@ void updateFieldsInView(int frameId)
 	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
 
-	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec);
+	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
 }
 
@@ -1031,6 +1045,33 @@ void callback() {
 	if (ImGui::DragInt("current frame", &curFrame, dragSpeed, 0, numFrames + 1))
 	{
 		updateFieldsInView(curFrame);
+	}
+	if (ImGui::DragFloat("vec ratio", &(vecratio), 0.05, 0, 1))
+	{
+		updateFieldsInView(curFrame);
+	}
+	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::InputInt("num iterations", &numIter))
+		{
+			if (numIter < 0)
+				numIter = 1000;
+		}
+		if (ImGui::InputDouble("grad tol", &gradTol))
+		{
+			if (gradTol < 0)
+				gradTol = 1e-6;
+		}
+		if (ImGui::InputDouble("x tol", &xTol))
+		{
+			if (xTol < 0)
+				xTol = 0;
+		}
+		if (ImGui::InputDouble("f tol", &fTol))
+		{
+			if (fTol < 0)
+				fTol = 0;
+		}
 	}
 	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
 	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
