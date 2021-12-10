@@ -22,7 +22,7 @@
 Eigen::MatrixXd PaintGeometry::paintPhi(const Eigen::VectorXd& phi)
 {
     int nverts = phi.size();
-    std::cout << phi.minCoeff() << " " << phi.maxCoeff() << std::endl;
+    // std::cout << phi.minCoeff() << " " << phi.maxCoeff() << std::endl;
     Eigen::MatrixXd color(nverts, 3);
     if (isNormalize)
     {
@@ -54,7 +54,7 @@ Eigen::MatrixXd PaintGeometry::paintAmplitude(const Eigen::VectorXd& amplitude)
     int nverts = amplitude.size();
     Eigen::VectorXd trueAmp = amplitude;
 
-    std::cout << "amplitude: " << trueAmp.minCoeff() << " " << trueAmp.maxCoeff() << std::endl;
+    // std::cout << "amplitude: " << trueAmp.minCoeff() << " " << trueAmp.maxCoeff() << std::endl;
 
     Eigen::MatrixXd color(nverts, 3);
     igl::jet(trueAmp, isNormalize, color);

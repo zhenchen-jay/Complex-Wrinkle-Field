@@ -13,9 +13,9 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	double maxStepSize = 1.0;
 	double reg = 1e-8;
 
-//	bool isProj = true;
+	bool isProj = true;
 
-    bool isProj = false;
+    // bool isProj = false;
 	int i = 0;
 	for (; i < numIter; i++)
 	{
@@ -78,7 +78,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 			}
 		}
 		
-		if (f - fnew < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
+		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
 			isProj = false;
 
 

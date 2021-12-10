@@ -3,7 +3,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
 #include <iostream>
-//#include <nasoq_eigen.h>
+// #include <nasoq_eigen.h>
 
 #ifndef GRAIN_SIZE
 #define GRAIN_SIZE 10
@@ -282,27 +282,27 @@ bool PlaneWaveExtraction::extractPlaneWave(Eigen::MatrixXd &planeFields)
 
 	
 
-    /*nasoq::QPSettings qpsettings;
-	qpsettings.eps = 1e-8;
-	getNumIter(qpsettings.eps, qpsettings.inner_iter_ref, qpsettings.outer_iter_ref);
-	qpsettings.nasoq_variant = "PREDET";
-	qpsettings.diag_perturb = 1e-10;
+    // nasoq::QPSettings qpsettings;
+	// qpsettings.eps = 1e-8;
+	// getNumIter(qpsettings.eps, qpsettings.inner_iter_ref, qpsettings.outer_iter_ref);
+	// qpsettings.nasoq_variant = "PREDET";
+	// qpsettings.diag_perturb = 1e-10;
 
-	int converged = nasoq::quadprog(H.triangularView<Eigen::Lower>(), Eigen::VectorXd::Zero(3 * nfaces), Aeq, beq, Aineq, Eigen::VectorXd::Zero(3 * nfaces), x, y, z, &qpsettings);
+	// int converged = nasoq::quadprog(H.triangularView<Eigen::Lower>(), Eigen::VectorXd::Zero(3 * nfaces), Aeq, beq, Aineq, Eigen::VectorXd::Zero(3 * nfaces), x, y, z, &qpsettings);
 
-	if (converged == nasoq::nasoq_status::Optimal)
-	{
-		std::cout << "reach the optimal!" << std::endl;
-	}
-	else
-	{
-		if (converged == nasoq::nasoq_status::Inaccurate)
-			std::cout << "result may be inaccurate, only primal-feasibility is satisfied." << std::endl;
-		else if (converged == nasoq::nasoq_status::Infeasible)
-			std::cout << "infeasible, the problem is unbounded" << std::endl;
-		else
-			std::cout << "NotConverged" << std::endl;
-	}*/
+	// if (converged == nasoq::nasoq_status::Optimal)
+	// {
+	// 	std::cout << "reach the optimal!" << std::endl;
+	// }
+	// else
+	// {
+	// 	if (converged == nasoq::nasoq_status::Inaccurate)
+	// 		std::cout << "result may be inaccurate, only primal-feasibility is satisfied." << std::endl;
+	// 	else if (converged == nasoq::nasoq_status::Infeasible)
+	// 		std::cout << "infeasible, the problem is unbounded" << std::endl;
+	// 	else
+	// 		std::cout << "NotConverged" << std::endl;
+	// }
 
 	planeFields.setZero(nfaces, 2);
 	for (int i = 0; i < nfaces; i++)

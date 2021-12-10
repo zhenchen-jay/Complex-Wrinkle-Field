@@ -43,6 +43,7 @@
 #include "include/Visualization/PaintGeometry.h"
 #include "include/InterpolationScheme/VecFieldSplit.h"
 #include "include/Optimization/NewtonDescent.h"
+#include "include/Optimization/LinearConstrainedSolver.h"
 #include "include/DynamicInterpolation/GetInterpolatedValues.h"
 #include "include/DynamicInterpolation/InterpolateKeyFrames.h"
 #include "include/DynamicInterpolation/TimeIntegratedFrames.h"
@@ -104,6 +105,8 @@ int sigIndex2 = 1;
 
 int singInd = 1, singInd1 = 1;
 int singIndTar = 1, singIndTar1 = 1;
+int numWaves = 2, numWaveTar = 4;
+
 double globalAmpMax = 1;
 
 double dragSpeed = 0.5;
@@ -127,7 +130,8 @@ enum FunctionType {
 	PlaneWave = 1,
 	Summation = 2,
 	YShape = 3,
-	TwoWhirlPool = 4
+	TwoWhirlPool = 4,
+	PeroidicWave = 5
 };
 
 // this is just use for vecCallback functions
@@ -169,22 +173,48 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 	Eigen::MatrixXd planeV;
 	Eigen::MatrixXi planeE;
 
-	planeV.resize(10, 2);
-	planeE.resize(10, 2);
+//	planeV.resize(10, 2);
+//	planeE.resize(10, 2);
 
-	for (int i = -2; i <= 2; i++)
+//	for (int i = -2; i <= 2; i++)
+//	{
+//		planeV.row(i + 2) << length / 4.0 * i, -width / 2.0;
+//	}
+//
+//	for (int i = 2; i >= -2; i--)
+//	{
+//		planeV.row(5 + 2 - i) << length / 4.0 * i, width / 2.0;
+//	}
+//
+//	for (int i = 0; i < 10; i++)
+//	{
+//		planeE.row(i) << i, (i + 1) % 10;
+//	}
+
+	int M = 2 * N + 1;
+	planeV.resize(4 * M - 4, 2);
+	planeE.resize(4 * M - 4, 2);
+
+	for (int i = 0; i < M; i++)
 	{
-		planeV.row(i + 2) << length / 4.0 * i, -width / 2.0;
+	    planeV.row(i) << -length / 2, i * width / (M - 1) - width / 2;
+	}
+	for (int i = 1; i < M; i++)
+	{
+	    planeV.row(M - 1 + i) << i * length / (M - 1)-length / 2, width / 2;
+	}
+	for (int i = 1; i < M; i++)
+	{
+	    planeV.row(2 * (M - 1) + i) << length / 2, width/2 - i * width / (M - 1);
+	}
+	for (int i = 1; i < M - 1; i++)
+	{
+	    planeV.row(3 * (M - 1) + i) << length / 2- i * length / (M - 1), - width / 2;
 	}
 
-	for (int i = 2; i >= -2; i--)
+	for (int i = 0; i < 4 * (M - 1); i++)
 	{
-		planeV.row(5 + 2 - i) << length / 4.0 * i, width / 2.0;
-	}
-
-	for (int i = 0; i < 10; i++)
-	{
-		planeE.row(i) << i, (i + 1) % 10;
+	    planeE.row(i) << i, (i + 1) % (4 * (M - 1));
 	}
 
 	Eigen::MatrixXd V2d;
@@ -199,20 +229,21 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
 
-//	V2d.resize(4, 3);
-//	V2d << -1, -1, 0,
-//	1, -1, 0,
-//	1, 1, 0,
-//	-1, 1, 0;
-//
-//	F.resize(2, 3);
-//	F << 0, 1, 2,
-//	2, 3, 0;
+	V2d.resize(4, 3);
+	V2d << -1, -1, 0,
+	1, -1, 0,
+	1, 1, 0,
+	-1, 1, 0;
+
+	F.resize(2, 3);
+	F << 0, 1, 2,
+	2, 3, 0;
 
 	irregularV.resize(V2d.rows(), 3);
 	irregularV.setZero();
 	irregularV.block(0, 0, irregularV.rows(), 2) = V2d.block(0, 0, irregularV.rows(), 2);
 	irregularF = F;
+	igl::writeOBJ("irregularPlane.obj", irregularV, irregularF);
 }
 
 
@@ -309,6 +340,12 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
         }
 
     }
+}
+
+void generatePeriodicWave(int waveNum, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
+{
+    Eigen::Vector2d v(2 * M_PI * waveNum, 0);
+    generatePlaneWave(v, w, z, gradZ, upsampledZ);
 }
 
 void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, double centery1, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int n0 = 1, int n1 = 1, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>>* upsampledZ = NULL)
@@ -572,7 +609,7 @@ void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen
 }
 
 
-void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false)
+void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false, int waveNum = 2)
 {
 	if (funType == FunctionType::Whirlpool)
 	{
@@ -619,6 +656,10 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 		}
 		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), vecFields, zvalues, singularityInd1, singularityInd2, &gradZvals, &upZvals);
 	}
+	else if (funType == FunctionType::PeroidicWave)
+	{
+	    generatePeriodicWave(waveNum, vecFields, zvalues, &gradZvals, &upZvals);
+	}
 }
 
 void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
@@ -633,8 +674,8 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
-		//interpModel.testEnergy(x);
-//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
+	    //interpModel.testEnergy(x);
+	    //		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 	    if(initializationType == InitializationType::Theoretical)
 	    {
 	        interpModel._wList = theoOmegaList;
@@ -653,7 +694,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    }
 
 
-	    if (isForceOptimize)
+	    if(isForceOptimize)
 	    {
 	        auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 	            Eigen::VectorXd deriv;
@@ -676,28 +717,111 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            return 1.0;
 	        };
 
-			auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm)
-			{
-				interpModel.getComponentNorm(x, znorm, wnorm);
-			};
+	        auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm){
+	            interpModel.getComponentNorm(x, znorm, wnorm);
+	        };
 
-	        OptSolver::testFuncGradHessian(funVal, x);
-	        auto x0 = x;
-	        OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-	        std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
+	        if(functionType == FunctionType::PeroidicWave && tarFunctionType == FunctionType::PeroidicWave)
+	        {
+	            // build constraints
+	            std::vector<int> bnds;
+	            igl::boundary_loop(triF2D, bnds);
+
+	            std::vector<std::pair<int, int>> bndPairs;
+	            double minX = triV2D.col(0).minCoeff();
+	            double maxX = triV3D.col(0).maxCoeff();
+	            Eigen::VectorXi flagVec(triV2D.rows());
+	            flagVec.setZero();
+
+	            for(int i = 0; i < bnds.size(); i++)
+	            {
+	               int vid = bnds[i];
+	               if(triV2D(vid, 0) - minX < 1e-6)
+	               {
+	                   int vid1 = -1;
+	                   for(int j = 0; j < bnds.size(); j++)
+	                   {
+	                       vid1 = bnds[j];
+	                       if(maxX - triV2D(vid1, 0) < 1e-6 && std::abs(triV2D(vid, 1) - triV2D(vid1, 1)) < 1e-6)
+	                       {
+	                           std::cout << "left vid: " << vid << ", right pair: " << vid1 << std::endl;
+	                           bndPairs.push_back({vid, vid1});
+	                           flagVec(vid) = 1;
+	                           flagVec(vid1) = 1;
+	                       }
+	                   }
+	               }
+	            }
+	            std::cout << "total pair size: " << bndPairs.size() << std::endl;
+
+
+	            // equality
+	            std::vector<Eigen::Triplet<double>> T;
+	            int row = 0;
+	            int nverts = triV2D.rows();
+	            for(int i = 0; i < bndPairs.size(); i++)
+	            {
+	                T.push_back({row, 2 * bndPairs[i].first, 1});
+	                T.push_back({row, 2 * bndPairs[i].second, -1});
+
+	                T.push_back({row + 1, 2 * bndPairs[i].first + 1, 1});
+	                T.push_back({row + 1, 2 * bndPairs[i].second + 1, -1});
+
+
+	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].first, 1});
+	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].second, -1});
+
+	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].first + 1, 1});
+	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].second + 1, -1});
+
+
+	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].first, 1});
+	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].second, -1});
+
+	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].first + 1, 1});
+	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].second + 1, -1});
+
+	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
+	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
+
+	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
+	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
+
+	                row += 8;
+	            }
+
+	            Eigen::SparseMatrix<double> Aeq(row, x.rows()), Aineq(0, x.rows());
+	            Aeq.setFromTriplets(T.begin(), T.end());
+
+	            Eigen::VectorXd beq(row), bineq(0);
+	            beq.setZero();
+
+	            auto x0 = x;
+	            OptSolver::linearConstSolver(funVal, maxStep, Aeq, beq, Aineq, bineq, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
+	            std::cout << "x norm: " << x.norm() << std::endl;
+
+
+	        }
+	        else
+	        {
+	            OptSolver::testFuncGradHessian(funVal, x);
+	            auto x0 = x;
+	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
+	            std::cout << "x norm: " << x.norm() << std::endl;
+	        }
 	    }
-
-	    std::cout << "x norm: " << x.norm() << std::endl;
 	    interpModel.convertVariable2List(x);
 
 	    wFrames = interpModel.getWList();
 	    zFrames = interpModel.getVertValsList();
 
-		for (int i = 0; i < wFrames.size() - 1; i++)
-		{
-			double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-			std::cout << "frame " << i << ", ||zdot||^2 = " << zdotNorm << std::endl;
-		}
+	    for (int i = 0; i < wFrames.size() - 1; i++)
+	    {
+	        double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+	        std::cout << "frame " << i << ", ||zdot||^2 = " << zdotNorm << std::endl;
+	    }
 	}
 	else if(frameType == IntermediateFrameType::IEDynamic)
 	{
@@ -987,7 +1111,6 @@ void registerMesh(int frameId)
 
 void updateFieldsInView(int frameId)
 {
-	std::cout << "update view" << std::endl;
 	registerMesh(frameId);
 	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
@@ -1015,16 +1138,19 @@ void callback() {
 		if (loopLevel > 0)
 			initialization();
 	}
+
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0\0")) {}
+		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
+		if (ImGui::InputInt("source num waves", &numWaves)){}
 		if (ImGui::InputInt("source singularity index 1", &singInd)){}
 		if (ImGui::InputInt("source singularity index 2", &singInd1)){}
 		if (ImGui::Checkbox("Fixed source center and dir", &isFixed)) {}
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("target vec types", (int*)&tarFunctionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0\0")) {}
+		if (ImGui::Combo("target vec types", (int*)&tarFunctionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
+		if (ImGui::InputInt("target num waves", &numWaveTar)){}
 		if (ImGui::InputInt("target singularity index 1", &singIndTar)) {}
 		if (ImGui::InputInt("target singularity index 2", &singIndTar1)) {}
 		if (ImGui::Checkbox("Fixed target center and dir", &isFixedTar)) {}
@@ -1046,7 +1172,7 @@ void callback() {
 	{
 		updateFieldsInView(curFrame);
 	}
-	if (ImGui::DragFloat("vec ratio", &(vecratio), 0.05, 0, 1))
+	if (ImGui::DragFloat("vec ratio", &(vecratio), 0.005, 0, 1))
 	{
 		updateFieldsInView(curFrame);
 	}
@@ -1088,6 +1214,7 @@ void callback() {
 		{
 		    fixedx = -0.7;
 		    fixedy = -0.8;
+		    fixedv << 4 * M_PI, 0;
 		}
 		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
 		if(isFixed && isFixedTar)
@@ -1095,6 +1222,7 @@ void callback() {
 		    double vx = fixedv(0);
 		    double vy = fixedv(1);
 		    fixedv << -vy, vx;
+		    fixedv << 6 * M_PI, 0;
 
 		    fixedx = 0.5;
 		    fixedy = 0.6;
