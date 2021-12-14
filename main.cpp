@@ -229,15 +229,15 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
 
-	V2d.resize(4, 3);
-	V2d << -1, -1, 0,
-	1, -1, 0,
-	1, 1, 0,
-	-1, 1, 0;
-
-	F.resize(2, 3);
-	F << 0, 1, 2,
-	2, 3, 0;
+//	V2d.resize(4, 3);
+//	V2d << -1, -1, 0,
+//	1, -1, 0,
+//	1, 1, 0,
+//	-1, 1, 0;
+//
+//	F.resize(2, 3);
+//	F << 0, 1, 2,
+//	2, 3, 0;
 
 	irregularV.resize(V2d.rows(), 3);
 	irregularV.setZero();
@@ -669,9 +669,16 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	//zdotModel.testZDotSquarePerface(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0);
 	//zdotModel.testZDotSquareIntegration(sourceVec, tarVec, sourceZvals, tarZvals, 1);
 
+	Eigen::MatrixXd upV;
+	Eigen::MatrixXi upF;
+	std::vector<std::pair<int, Eigen::Vector3d>> upbary;
+	Eigen::SparseMatrix<double> S;
+	std::vector<int> facemap;
+	meshUpSampling(triV2D, triF2D, upV, upF, loopLevel / 2,  &S, &facemap, &upbary);
+
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
+	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
 	    //interpModel.testEnergy(x);
@@ -1135,7 +1142,7 @@ void callback() {
 	}
 	if (ImGui::InputInt("upsampled times", &loopLevel))
 	{
-		if (loopLevel > 0)
+		if (loopLevel >= 0)
 			initialization();
 	}
 
@@ -1319,6 +1326,24 @@ void generateTargetVals()
 	std::vector<std::complex<double>> upsampledZvals;
 	model.estimatePhase(planeFields, whirlFields, zvals, upsampledZvals);
 	model.getAngleMagnitude(upsampledZvals, phaseField, ampField);
+
+	std::cout << "face 127\npos 0: " << triV2D.row(triF2D(127, 0)) << ", pos 1: " << triV2D.row(triF2D(127, 1)) << ", pos 2: " << triV2D.row(triF2D(127, 2)) << std::endl;
+	std::cout << "zvals: " << zvals[triF2D(127, 0)] << ", " << zvals[triF2D(127, 1)] << ", " << zvals[triF2D(127, 2)] << std::endl;
+	std::cout << "w vals: " << omegaFields.row(triF2D(127, 0)) << ", " << omegaFields.row(triF2D(127, 1)) << ", " << omegaFields.row(triF2D(127, 2)) << std::endl;
+
+	std::cout << "face 70\npos 0: " << triV2D.row(triF2D(70, 0)) << ", pos 1: " << triV2D.row(triF2D(70, 1)) << ", pos 2: " << triV2D.row(triF2D(70, 2)) << std::endl;
+	std::cout << "zvals: " << zvals[triF2D(70, 0)] << ", " << zvals[triF2D(70, 1)] << ", " << zvals[triF2D(70, 2)] << std::endl;
+	std::cout << "w vals: " << omegaFields.row(triF2D(70, 0)) << ", " << omegaFields.row(triF2D(70, 1)) << ", " << omegaFields.row(triF2D(70, 2)) << std::endl;
+
+	for(int i = 0; i < model._baryCoords.size(); i++)
+	{
+	    auto it = model._baryCoords[i];
+	    if(it.first == 127 || it.first == 70)
+	    {
+	        std::cout << "face id: " << it.first << "\npos: " << upsampledTriV2D.row(i) << ", bary: " << it.second.transpose() << ", z vals: " << upsampledZvals[i] << std::endl;
+	    }
+	}
+	
 }
 
 void registerVecMesh()
@@ -1509,7 +1534,7 @@ void vecCallback() {
 	}
 	if (ImGui::InputInt("upsampled times", &loopLevel))
 	{
-	    if(loopLevel > 0)
+	    if(loopLevel >= 0)
 		    initialization();
 	}
 	if (ImGui::InputInt("Singularity index 1", &sigIndex1))
