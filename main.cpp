@@ -48,6 +48,7 @@
 #include "include/DynamicInterpolation/InterpolateKeyFrames.h"
 #include "include/DynamicInterpolation/TimeIntegratedFrames.h"
 #include "include/DynamicInterpolation/ComputeZandZdot.h"
+#include "include/DynamicInterpolation/ZdotIntegration.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -94,6 +95,7 @@ bool isFixed = true;
 bool isFixedTar = true;
 
 bool isForceOptimize = false;
+bool isTwoTriangles = false;
 
 PhaseInterpolation model;
 PaintGeometry mPaint;
@@ -154,12 +156,22 @@ enum InitializationType{
   Theoretical = 2
 };
 
+enum NumofQuads {
+	One = 0,
+	Three = 1,
+	Six = 2,
+	Sixteen = 3
+};
+
+bool isUseUpMesh = false;
+
 FunctionType functionType = FunctionType::Whirlpool;
 FunctionType tarFunctionType = FunctionType::Whirlpool;
 InitializationType initializationType = InitializationType::Random;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
 
 InterpolationType interType = InterpolationType::NewSplit;
+NumofQuads numQuads = NumofQuads::Six;
 
 
 void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
@@ -229,15 +241,18 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
 
-//	V2d.resize(4, 3);
-//	V2d << -1, -1, 0,
-//	1, -1, 0,
-//	1, 1, 0,
-//	-1, 1, 0;
-//
-//	F.resize(2, 3);
-//	F << 0, 1, 2,
-//	2, 3, 0;
+	if (isTwoTriangles)
+	{
+		V2d.resize(4, 3);
+		V2d << -1, -1, 0,
+			1, -1, 0,
+			1, 1, 0,
+			-1, 1, 0;
+
+		F.resize(2, 3);
+		F << 0, 1, 2,
+			2, 3, 0;
+	}
 
 	irregularV.resize(V2d.rows(), 3);
 	irregularV.setZero();
@@ -678,7 +693,14 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
+		int quadpts = 6;
+		if (numQuads == NumofQuads::One)
+			quadpts = 1;
+		else if (numQuads == NumofQuads::Three)
+			quadpts = 3;
+		else if (numQuads = NumofQuads::Sixteen)
+			quadpts = 16;
+	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadpts, isUseUpMesh);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
 	    //interpModel.testEnergy(x);
@@ -1140,6 +1162,10 @@ void callback() {
 		if (triarea > 0)
 			initialization();
 	}
+	if (ImGui::Checkbox("Two Triangle Mesh", &isTwoTriangles))
+	{
+		initialization();
+	}
 	if (ImGui::InputInt("upsampled times", &loopLevel))
 	{
 		if (loopLevel >= 0)
@@ -1205,6 +1231,10 @@ void callback() {
 			if (fTol < 0)
 				fTol = 0;
 		}
+		if (ImGui::Combo("num of quad", (int*)&numQuads, "One\0Three\0Six\0Sixteen\0\0"))
+		{ }
+		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
+
 	}
 	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
 	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
@@ -1221,7 +1251,7 @@ void callback() {
 		{
 		    fixedx = -0.7;
 		    fixedy = -0.8;
-		    fixedv << 4 * M_PI, 0;
+		    fixedv << 2 * numWaves * M_PI, 0;
 		}
 		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
 		if(isFixed && isFixedTar)
@@ -1229,7 +1259,7 @@ void callback() {
 		    double vx = fixedv(0);
 		    double vy = fixedv(1);
 		    fixedv << -vy, vx;
-		    fixedv << 6 * M_PI, 0;
+		    fixedv << 2 * numWaveTar * M_PI, 0;
 
 		    fixedx = 0.5;
 		    fixedy = 0.6;
@@ -1588,7 +1618,7 @@ void vecCallback() {
 
 		//testmodel.testZDotSquareIntegration(planeFields, omegaFields, zvals, zvals1, 0.1);
 
-		InterpolateKeyFrames keyframeModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, planeFields, omegaFields, zvals, zvals1, 2);
+		InterpolateKeyFrames keyframeModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, planeFields, omegaFields, zvals, zvals1, 2, 6, isUseUpMesh);
 		Eigen::VectorXd x;
 		keyframeModel.convertList2Variable(x);
 		keyframeModel.testEnergy(x);
@@ -1609,6 +1639,18 @@ void vecCallback() {
 
 int main(int argc, char** argv)
 {
+	ZdotIntegration myModel;
+	Eigen::Vector2d wi = Eigen::Vector2d::Random();
+	Eigen::Vector2d wj = Eigen::Vector2d::Random();
+	wi << -0.997497, 0.127171;
+	wj << -0.613392, 0.617481;
+
+	Eigen::Vector3d P0, P1, P2;
+	P0 << 0.277224034, 0.20139414, 0;
+	P1 << 0.033354871, -0.0778616741, 0;
+	P2 << -0.0244661774, 0.117710091, 0;
+	myModel.testComputeBiBj(wi, wj, P0, P1, P2, 0, 1);
+
 	initialization();
     
 	// Options

@@ -122,16 +122,16 @@ add_executable(
 # target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
 
 
- option(NASOQ "Use NASOQ" ON)
+#  option(NASOQ "Use NASOQ" ON)
 
- if(NASOQ)
-   find_package(NASOQ REQUIRED)
-   find_package(MKL REQUIRED)
-   include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR})
-   # include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR})
-   # target_link_libraries( phaseInterp-polyscope-example ${NASOQ_LIBRARIES}  ${MKL_LIBRARIES} ${METIS_LIBRARIES})
-   message("found NASOQ at ${NASOQ_INCLUDE_DIRS}, MKL at ${MKL_INCLUDE_DIR}, ${MKL_LIBRARIES}")
- endif()
+#  if(NASOQ)
+#    find_package(NASOQ REQUIRED)
+#    find_package(MKL REQUIRED)
+#    include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR})
+#    # include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR})
+#    # target_link_libraries( phaseInterp-polyscope-example ${NASOQ_LIBRARIES}  ${MKL_LIBRARIES} ${METIS_LIBRARIES})
+#    message("found NASOQ at ${NASOQ_INCLUDE_DIRS}, MKL at ${MKL_INCLUDE_DIR}, ${MKL_LIBRARIES}")
+#  endif()
 
 option(BUILD_WITH_TBB        "Enable TBB"         ON)
 
@@ -155,6 +155,6 @@ if(BUILD_WITH_TBB)
   target_link_libraries( phaseInterp-polyscope-example polyscope TBB::tbb igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})
 endif()
 
-if(NASOQ)
-  target_link_libraries(phaseInterp-polyscope-example ${MKL_LIBRARIES})
-endif()
+# if(NASOQ)
+#   target_link_libraries(phaseInterp-polyscope-example ${MKL_LIBRARIES})
+# endif()
