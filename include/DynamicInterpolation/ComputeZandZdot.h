@@ -29,6 +29,10 @@ public:
     ComputeZandZdot() {}
 
     void buildQuadraturePoints();
+    void setExternalQuadraturePoints(std::vector<QuadraturePoints> quadPoints) {
+        _quadPoints = quadPoints;
+        _numQuads = _quadPoints.size();
+    }
     Eigen::Vector3d getQuadPosition(int faceId, int quadId)
     {
         Eigen::Vector3d p = (1 - _quadPoints[quadId].u - _quadPoints[quadId].v) * _basePos.row(_baseMesh.faceVertex(faceId, 0)) + _quadPoints[quadId].u * _basePos.row(_baseMesh.faceVertex(faceId, 1)) + _quadPoints[quadId].v * _basePos.row(_baseMesh.faceVertex(faceId, 2));

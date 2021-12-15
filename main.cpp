@@ -87,6 +87,7 @@ Eigen::MatrixXd dataVec;
 Eigen::MatrixXd curColor;
 
 int loopLevel = 2;
+int uplevelForComputing = 2;
 
 bool isShowOnlyWhirlPool = false;
 bool isShowOnlyPlaneWave = false;
@@ -165,9 +166,9 @@ enum NumofQuads {
 
 bool isUseUpMesh = false;
 
-FunctionType functionType = FunctionType::Whirlpool;
-FunctionType tarFunctionType = FunctionType::Whirlpool;
-InitializationType initializationType = InitializationType::Random;
+FunctionType functionType = FunctionType::PlaneWave;
+FunctionType tarFunctionType = FunctionType::PlaneWave;
+InitializationType initializationType = InitializationType::Linear;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
 
 InterpolationType interType = InterpolationType::NewSplit;
@@ -689,7 +690,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	std::vector<std::pair<int, Eigen::Vector3d>> upbary;
 	Eigen::SparseMatrix<double> S;
 	std::vector<int> facemap;
-	meshUpSampling(triV2D, triF2D, upV, upF, loopLevel / 2,  &S, &facemap, &upbary);
+	meshUpSampling(triV2D, triF2D, upV, upF, uplevelForComputing,  &S, &facemap, &upbary);
 
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
@@ -698,8 +699,10 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 			quadpts = 1;
 		else if (numQuads == NumofQuads::Three)
 			quadpts = 3;
-		else if (numQuads = NumofQuads::Sixteen)
+		else if (numQuads == NumofQuads::Sixteen)
 			quadpts = 16;
+		std::cout << "num of quad pts: " << quadpts << std::endl;
+		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadpts, isUseUpMesh);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
@@ -1234,6 +1237,11 @@ void callback() {
 		if (ImGui::Combo("num of quad", (int*)&numQuads, "One\0Three\0Six\0Sixteen\0\0"))
 		{ }
 		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
+		if (ImGui::InputInt("underline upsampled times", &uplevelForComputing))
+		{
+		    if (uplevelForComputing < 0)
+		        uplevelForComputing = 2;
+		}
 
 	}
 	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
