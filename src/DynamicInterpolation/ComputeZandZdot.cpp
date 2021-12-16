@@ -9,172 +9,6 @@
 
 #include "../../include/DynamicInterpolation/ComputeZandZdot.h"
 
-void ComputeZandZdot::buildQuadraturePoints()
-{
-	if (_numQuads == 1)
-	{
-		_quadPoints.clear();
-		QuadraturePoints point;
-
-		point.u = 1.0 / 3;
-		point.v = 1.0 / 3;
-		point.weight = 1.0;
-		_quadPoints.push_back(point);
-	}
-	else if (_numQuads == 3)
-	{
-		_quadPoints.clear();
-		QuadraturePoints point;
-
-		double x, pos[3];
-		x = 0.16666666666666666667;
-		point.weight = 0.333333333333333333;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-	}
-	else if (_numQuads == 6)
-	{
-		_quadPoints.clear();
-		QuadraturePoints point;
-
-		double x, pos[3];
-		x = 0.091576213509771;
-		point.weight = 0.109951743655322;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-
-		x = 0.445948490915965;
-		point.weight = 0.223381589678011;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-	}
-	else if (_numQuads == 16)
-	{
-		_quadPoints.clear();
-		QuadraturePoints point;
-
-		point.u = 1.0 / 3;
-		point.v = 1.0 / 3;
-		point.weight = 0.1443156076777871682510911104890646;
-		point.hatWeight = computeHatWeight(point.u, point.v);
-		_quadPoints.push_back(point);
-
-		double x, pos[3];
-		x = 0.1705693077517602066222935014914645;
-		point.weight = 0.1032173705347182502817915502921290;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-
-		x = 0.0505472283170309754584235505965989;
-		point.weight = 0.0324584976231980803109259283417806;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-
-		x = 0.459292588292723156028815514494169;
-		point.weight = 0.0950916342672846247938961043885843;
-		pos[0] = x;
-		pos[1] = x;
-		pos[2] = 1 - 2 * x;
-		for (int i = 0; i < 3; i++)
-		{
-			point.u = pos[i];
-			point.v = pos[(i + 1) % 3];
-			point.hatWeight = computeHatWeight(point.u, point.v);
-			_quadPoints.push_back(point);
-		}
-
-		x = 0.263112829634638113421785786284643;
-		double y = 0.008394777409957605337213834539294;
-		point.weight = 0.0272303141744349942648446900739089;
-		pos[0] = x;
-		pos[1] = y;
-		pos[2] = 1 - x - y;
-		for (int i = 0; i < 3; i++)
-		{
-			for (int j = 1; j < 3; j++)
-			{
-				point.u = pos[i];
-				point.v = pos[(i + j) % 3];
-				point.hatWeight = computeHatWeight(point.u, point.v);
-				_quadPoints.push_back(point);
-			}
-		}
-	}
-	else
-	{
-		std::cout << "Please specify the _numQuads of quadrature points: 1, 3, 6, 16. Set default to 1" << std::endl;
-		_quadPoints.clear();
-		QuadraturePoints point;
-
-		point.u = 1.0 / 3;
-		point.v = 1.0 / 3;
-		point.weight = 1.0;
-		point.hatWeight = computeHatWeight(point.u, point.v);
-		_quadPoints.push_back(point);
-
-	}
-
-}
-
-Eigen::MatrixXd ComputeZandZdot::SPDProjection(Eigen::MatrixXd A)
-{
-	Eigen::MatrixXd posHess = A;
-	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
-	es.compute(posHess);
-	Eigen::VectorXd evals = es.eigenvalues();
-
-	for (int i = 0; i < evals.size(); i++)
-	{
-		if (evals(i) < 0)
-			evals(i) = 0;
-	}
-	Eigen::MatrixXd D = evals.asDiagonal();
-	Eigen::MatrixXd V = es.eigenvectors();
-	posHess = V * D * V.inverse();
-
-	return posHess;
-}
-
 std::complex<double> ComputeZandZdot::planeWaveBasis(Eigen::Vector3d p, Eigen::Vector3d pi, Eigen::Vector2d omega, Eigen::Vector2cd* deriv, Eigen::Matrix2cd* hess, std::vector<Eigen::Matrix2cd>* derivHess)
 {
 	if (deriv)
@@ -251,7 +85,7 @@ std::complex<double> ComputeZandZdot::planeWaveValueFromQuad(const Eigen::Matrix
 
 		std::complex<double> expPart = planeWaveBasis(p, _basePos.row(baseVid), wi, (deriv || hess || derivHess) ? &expDeriv : NULL, (hess || derivHess) ? &expHess : NULL, derivHess ? &expDerivHess : NULL);
 
-		z += _quadPoints[quadId].hatWeight(j) * fi * expPart;
+		z += _hatWeights[quadId](j) * fi * expPart;
 
 		if (deriv || hess || derivHess)
 		{
@@ -263,7 +97,7 @@ std::complex<double> ComputeZandZdot::planeWaveValueFromQuad(const Eigen::Matrix
 
 			if (deriv)
 			{
-				deriv->segment<4>(4 * j) += _quadPoints[quadId].hatWeight(j) * (expPart * gradFi + fullExpDeriv * fi);
+			    deriv->segment<4>(4 * j) += _hatWeights[quadId](j) * (expPart * gradFi + fullExpDeriv * fi);
 			}
 			if (hess || derivHess)
 			{
@@ -272,7 +106,7 @@ std::complex<double> ComputeZandZdot::planeWaveValueFromQuad(const Eigen::Matrix
 				fullExpHess.block<2, 2>(2, 2) = expHess;
 
 				if (hess)
-					hess->block<4, 4>(4 * j, 4 * j) += _quadPoints[quadId].hatWeight(j) * (gradFi * fullExpDeriv.transpose() + fullExpDeriv * gradFi.transpose() + fi * fullExpHess);
+				    hess->block<4, 4>(4 * j, 4 * j) += _hatWeights[quadId](j) * (gradFi * fullExpDeriv.transpose() + fullExpDeriv * gradFi.transpose() + fi * fullExpHess);
 
 				if (derivHess)
 				{
@@ -288,7 +122,7 @@ std::complex<double> ComputeZandZdot::planeWaveValueFromQuad(const Eigen::Matrix
 						for (int m = 0; m < 4; m++)
 							for (int n = 0; n < 4; n++)
 							{
-								(*derivHess)[4 * j + p](4 * j + m, 4 * j + n) += _quadPoints[quadId].hatWeight(j) * (fullExpHess(p, m) * gradFi(n) + fullExpHess(m, n) * gradFi(p) + fullExpHess(n, p) * gradFi(m) + fi * fullExpDerivHess[p](m, n));
+							    (*derivHess)[4 * j + p](4 * j + m, 4 * j + n) += _hatWeights[quadId](j) * (fullExpHess(p, m) * gradFi(n) + fullExpHess(m, n) * gradFi(p) + fullExpHess(n, p) * gradFi(m) + fi * fullExpDerivHess[p](m, n));
 							}
 				}
 
@@ -348,7 +182,7 @@ double ComputeZandZdot::zDotSquarePerface(const Eigen::MatrixXd& w1,
 		hess->setZero();
 	}
 
-	for (int qid = 0; qid < _numQuads; qid++)
+	for (int qid = 0; qid < _quadPoints.size(); qid++)
 	{
 		Eigen::Matrix<std::complex<double>, 24, 1> zdotDeriv;
 		Eigen::Matrix<std::complex<double>, 24, 24> zdotHess;

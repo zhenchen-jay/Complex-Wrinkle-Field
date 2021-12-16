@@ -126,6 +126,7 @@ double gradTol = 1e-6;
 double xTol = 0;
 double fTol = 0;
 int numIter = 1000;
+int quadOrder = 4;
 
 
 enum FunctionType {
@@ -157,13 +158,6 @@ enum InitializationType{
   Theoretical = 2
 };
 
-enum NumofQuads {
-	One = 0,
-	Three = 1,
-	Six = 2,
-	Sixteen = 3
-};
-
 bool isUseUpMesh = false;
 
 FunctionType functionType = FunctionType::PlaneWave;
@@ -172,7 +166,6 @@ InitializationType initializationType = InitializationType::Linear;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
 
 InterpolationType interType = InterpolationType::NewSplit;
-NumofQuads numQuads = NumofQuads::Six;
 
 
 void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
@@ -694,16 +687,8 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
-		int quadpts = 6;
-		if (numQuads == NumofQuads::One)
-			quadpts = 1;
-		else if (numQuads == NumofQuads::Three)
-			quadpts = 3;
-		else if (numQuads == NumofQuads::Sixteen)
-			quadpts = 16;
-		std::cout << "num of quad pts: " << quadpts << std::endl;
 		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadpts, isUseUpMesh);
+	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
 	    //interpModel.testEnergy(x);
@@ -1234,8 +1219,11 @@ void callback() {
 			if (fTol < 0)
 				fTol = 0;
 		}
-		if (ImGui::Combo("num of quad", (int*)&numQuads, "One\0Three\0Six\0Sixteen\0\0"))
-		{ }
+		if (ImGui::InputInt("quad order", &quadOrder))
+		{
+		    if (quadOrder <= 0 || quadOrder > 20)
+		        quadOrder = 4;
+		}
 		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
 		if (ImGui::InputInt("underline upsampled times", &uplevelForComputing))
 		{

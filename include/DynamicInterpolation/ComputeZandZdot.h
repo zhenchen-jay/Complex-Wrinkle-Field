@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../MeshLib/MeshConnectivity.h"
-
+#include "../CommonTools.h"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <vector>
@@ -11,28 +11,25 @@
 // TODO: make it work for 3D using intrinsic information
 
 class ComputeZandZdot {
-    struct QuadraturePoints
-    {
-        double u;
-        double v;
-        double weight;
-        Eigen::Vector3d hatWeight;
-    };
-
 public:
-    ComputeZandZdot(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, int numQuads) : _basePos(basePos), _numQuads(numQuads)
+    ComputeZandZdot(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, int quadOrder) : _basePos(basePos)
     {
         _baseMesh = MeshConnectivity(baseF);
-        buildQuadraturePoints();
+        _quadPoints = buildQuadraturePoints(quadOrder);
+        std::cout << "num of quad points: " << _quadPoints.size() << std::endl;
+        _hatWeights.clear();
+
+        for(auto &it : _quadPoints)
+        {
+            Eigen::Vector3d hw = computeHatWeight(it.u, it.v);
+            _hatWeights.push_back(hw);
+        }
+
         igl::doublearea(basePos, baseF, _doubleFarea);
     }
     ComputeZandZdot() {}
 
-    void buildQuadraturePoints();
-    void setExternalQuadraturePoints(std::vector<QuadraturePoints> quadPoints) {
-        _quadPoints = quadPoints;
-        _numQuads = _quadPoints.size();
-    }
+
     Eigen::Vector3d getQuadPosition(int faceId, int quadId)
     {
         Eigen::Vector3d p = (1 - _quadPoints[quadId].u - _quadPoints[quadId].v) * _basePos.row(_baseMesh.faceVertex(faceId, 0)) + _quadPoints[quadId].u * _basePos.row(_baseMesh.faceVertex(faceId, 1)) + _quadPoints[quadId].v * _basePos.row(_baseMesh.faceVertex(faceId, 2));
@@ -76,25 +73,10 @@ public:
     void testZDotSquareIntegration(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt);
 
 private:
-    Eigen::Vector3d computeHatWeight(double u, double v)
-    {
-        Eigen::Vector3d weights;
-        Eigen::Vector3d bary(1 - u - v, u, v);
-        for (int i = 0; i < 3; i++)
-        {
-            weights(i) = 3 * bary(i) * bary(i) - 2 * bary(i) * bary(i) * bary(i) + 2 * bary(i) * bary((i + 1) % 3) * bary((i + 2) % 3);
-//            weights(i) = bary(i);
-        }
-        return weights;
-    }
-
-    Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A);
-
-private:
     Eigen::MatrixXd _basePos;
     MeshConnectivity _baseMesh;
-    int _numQuads;
     std::vector<QuadraturePoints> _quadPoints;
+    std::vector<Eigen::Vector3d> _hatWeights;
     Eigen::VectorXd _doubleFarea;
 
 };

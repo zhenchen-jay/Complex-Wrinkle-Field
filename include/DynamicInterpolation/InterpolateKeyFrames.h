@@ -11,7 +11,7 @@ public:
 	InterpolateKeyFrames() {}
 	~InterpolateKeyFrames() {}
 
-	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int numQuads, bool isUseUpmesh):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh)
+	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh)
 	{
 		_baseMesh = MeshConnectivity(baseF);
 		_upsampledMesh = MeshConnectivity(upsampledF);
@@ -39,7 +39,7 @@ public:
 		}
 
 		_model = GetInterpolatedValues(basePos, baseF, upsampledPos, upsampledF, baryCoords);
-		_newmodel = ComputeZandZdot(basePos, baseF, numQuads);
+		_newmodel = ComputeZandZdot(basePos, baseF, quadOrder);
 		
 	}
 
