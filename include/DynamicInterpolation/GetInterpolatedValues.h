@@ -4,6 +4,7 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <igl/doublearea.h>
 #include <vector>
 #include <complex>
 
@@ -20,6 +21,20 @@ public:
             Eigen::Vector3d weights = computeWeight(it.second);
             _baryWeights.push_back({ it.first, weights });
         }
+        Eigen::VectorXd area;
+        igl::doublearea(upsampledPos, upsampledF, area);
+
+        int nupverts = upsampledPos.rows();
+        _upvertsArea.resize(nupverts, 0);
+        for(int i = 0; i < upsampledF.rows(); i++)
+        {
+            for(int j = 0; j < 3; j++)
+            {
+                int vid = upsampledF(i, j);
+                _upvertsArea[vid] += area(i) / 6.0;
+            }
+        }
+
     }
     GetInterpolatedValues() {}
 
@@ -67,4 +82,5 @@ private:
 
     std::vector<std::pair<int, Eigen::Vector3d>> _baryCoords;
     std::vector<std::pair<int, Eigen::Vector3d>> _baryWeights;
+    std::vector<double> _upvertsArea;
 };

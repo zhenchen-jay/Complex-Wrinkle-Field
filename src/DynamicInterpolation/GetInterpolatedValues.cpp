@@ -342,11 +342,13 @@ double GetInterpolatedValues::zDotSquarePerVertex(const Eigen::MatrixXd &w1, con
 //    std::cout <<"\n";
 
     double energy = 0.5 * zdot.real() * zdot.real() + 0.5 * zdot.imag() * zdot.imag();
+    energy *= _upvertsArea[vid];
 
     if(deriv)
     {
         deriv->setZero();
         (*deriv) = zdot.real() * zdotDeriv.real() + zdot.imag() * zdotDeriv.imag();
+        (*deriv) *= _upvertsArea[vid];
     }
 
     if(hess)
@@ -357,6 +359,7 @@ double GetInterpolatedValues::zDotSquarePerVertex(const Eigen::MatrixXd &w1, con
         {
             (*hess) = SPDProjection(*hess);
         }
+        (*hess) *= _upvertsArea[vid];
     }
     return energy;
 }

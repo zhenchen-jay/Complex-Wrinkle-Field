@@ -122,6 +122,9 @@ double fixedx = 0;
 double fixedy = 0;
 Eigen::Vector2d fixedv(1.0, -0.5);
 
+double sourceCenter1x = 0, sourceCenter1y = 0, sourceCenter2x = 0.8, sourceCenter2y = -0.2, targetCenter1x = 0, targetCenter1y = 0, targetCenter2x = 0.3, targetCenter2y = -0.7;
+double sourceDirx = 1.0, sourceDiry = 0, targetDirx = 1, targetDiry = 0;
+
 double gradTol = 1e-6;
 double xTol = 0;
 double fTol = 0;
@@ -261,6 +264,12 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 	z.resize(triV2D.rows());
 	w.resize(triV2D.rows(), 2);
 	std::cout << "whirl pool center: " << centerx << ", " << centery << std::endl;
+	bool isnegative = false;
+	if(pow < 0)
+	{
+	    isnegative = true;
+	    pow *= -1;
+	}
 
 	for (int i = 0; i < z.size(); i++)
 	{
@@ -268,13 +277,25 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 		double y = triV2D(i, 1) - centery;
 		double rsquare = x * x + y * y;
 
-		z[i] = std::pow(std::complex<double>(x, y), pow);
+		if(isnegative)
+		{
+		    z[i] = std::pow(std::complex<double>(x, -y), pow);
 
-		if (std::abs(std::sqrt(rsquare)) < 1e-10)
-			w.row(i) << 0, 0;
+		    if (std::abs(std::sqrt(rsquare)) < 1e-10)
+		        w.row(i) << 0, 0;
+		    else
+		        w.row(i) << pow * y / rsquare, -pow * x / rsquare;
+		}
 		else
-//			w.row(i) << -y / rsquare, x / rsquare;
-            w.row(i) << -pow * y / rsquare, pow * x / rsquare;
+		{
+		    z[i] = std::pow(std::complex<double>(x, y), pow);
+
+		    if (std::abs(std::sqrt(rsquare)) < 1e-10)
+		        w.row(i) << 0, 0;
+		    else
+		        //			w.row(i) << -y / rsquare, x / rsquare;
+		        w.row(i) << -pow * y / rsquare, pow * x / rsquare;
+		}
 	}
 
 	if(upsampledZ)
@@ -287,6 +308,8 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 	        double rsquare = x * x + y * y;
 
 			upsampledZ->at(i) = std::pow(std::complex<double>(x, y), pow);
+			if(isnegative)
+			    upsampledZ->at(i) = std::pow(std::complex<double>(x, -y), pow);
 	    }
 	}
 	if(gradZ)
@@ -299,8 +322,10 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 
 	        Eigen::Vector2cd tmpGrad;
 	        tmpGrad << 1, std::complex<double>(0, 1);
+	        if(isnegative)
+	            tmpGrad(1) *= -1;
 
-	        (*gradZ)[i] = std::pow(std::complex<double>(x, y), pow -1) * tmpGrad;
+	        (*gradZ)[i] = std::pow(std::complex<double>(x, y), pow - 1) * tmpGrad;
 	        (*gradZ)[i] *= pow;
 
 	    }
@@ -691,6 +716,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
+
 	    //interpModel.testEnergy(x);
 	    //		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 	    if(initializationType == InitializationType::Theoretical)
@@ -710,7 +736,8 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	        // do nothing, since it is initialized as the linear interpolation.
 	    }
 
-
+	    auto initWFrames = interpModel.getWList();
+	    auto initZFrames = interpModel.getVertValsList();
 	    if(isForceOptimize)
 	    {
 	        auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
@@ -823,6 +850,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	        else
 	        {
 	            OptSolver::testFuncGradHessian(funVal, x);
+
 	            auto x0 = x;
 	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
@@ -837,7 +865,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    for (int i = 0; i < wFrames.size() - 1; i++)
 	    {
 	        double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-	        std::cout << "frame " << i << ", ||zdot||^2 = " << zdotNorm << std::endl;
+	        double actualZdotNorm = interpModel._newmodel.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+
+	        double initZdotNorm = interpModel._model.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+	        double initActualZdotNorm = interpModel._newmodel.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+
+	        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << std::endl;
 	    }
 	}
 	else if(frameType == IntermediateFrameType::IEDynamic)
@@ -1163,18 +1196,57 @@ void callback() {
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
-		if (ImGui::InputInt("source num waves", &numWaves)){}
-		if (ImGui::InputInt("source singularity index 1", &singInd)){}
-		if (ImGui::InputInt("source singularity index 2", &singInd1)){}
 		if (ImGui::Checkbox("Fixed source center and dir", &isFixed)) {}
+
+		if (ImGui::CollapsingHeader("source whirl  pool Info"))
+		{
+		    if (ImGui::InputInt("source singularity index 1", &singInd)){}
+		    if (ImGui::InputDouble("source center 1 x: ", &sourceCenter1x)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("source center 1 y: ", &sourceCenter1y)) {}
+
+		    if (ImGui::InputInt("source singularity index 2", &singInd1)){}
+		    if (ImGui::InputDouble("source center 2 x: ", &sourceCenter2x)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("source center 2 y: ", &sourceCenter2y)) {}
+		}
+
+		if (ImGui::CollapsingHeader("source plane wave Info"))
+		{
+		    if (ImGui::InputInt("source num waves", &numWaves)){}
+		    if (ImGui::InputDouble("source dir x: ", &sourceDirx)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("source dir y: ", &sourceDiry)) {}
+		}
+
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::Combo("target vec types", (int*)&tarFunctionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
-		if (ImGui::InputInt("target num waves", &numWaveTar)){}
-		if (ImGui::InputInt("target singularity index 1", &singIndTar)) {}
-		if (ImGui::InputInt("target singularity index 2", &singIndTar1)) {}
+
 		if (ImGui::Checkbox("Fixed target center and dir", &isFixedTar)) {}
+		if (ImGui::CollapsingHeader("target whirl  pool Info"))
+		{
+		    if (ImGui::InputInt("target singularity index 1", &singIndTar)) {}
+		    if (ImGui::InputDouble("target center 1 x: ", &targetCenter1x)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("target center 1 y: ", &targetCenter1y)) {}
+
+		    if (ImGui::InputInt("target singularity index 2", &singIndTar1)) {}
+		    if (ImGui::InputDouble("target center 2 x: ", &targetCenter2x)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("target center 2 y: ", &targetCenter2y)) {}
+		}
+
+		if (ImGui::CollapsingHeader("target plane wave Info"))
+		{
+		    if (ImGui::InputInt("target num waves", &numWaveTar)){}
+		    if (ImGui::InputDouble("target dir x: ", &sourceDirx)) {}
+		    ImGui::SameLine();
+		    if (ImGui::InputDouble("target dir y: ", &sourceDiry)) {}
+		}
+
+
 	}
 
 	if (ImGui::InputInt("num of frames", &numFrames))
@@ -1243,22 +1315,21 @@ void callback() {
 	    Eigen::Vector2d backupv = fixedv;
 
 		// source vector fields
-		if(isFixed && isFixedTar)
+		if(isFixed)
 		{
-		    fixedx = -0.7;
-		    fixedy = -0.8;
-		    fixedv << 2 * numWaves * M_PI, 0;
+		    fixedx = sourceCenter1x;
+		    fixedy = sourceCenter1y;
+		    fixedv << sourceDirx, sourceDiry;
+		    fixedv *= numWaves * 2 * M_PI;
 		}
 		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
-		if(isFixed && isFixedTar)
-		{
-		    double vx = fixedv(0);
-		    double vy = fixedv(1);
-		    fixedv << -vy, vx;
-		    fixedv << 2 * numWaveTar * M_PI, 0;
 
-		    fixedx = 0.5;
-		    fixedy = 0.6;
+		if(isFixedTar)
+		{
+		   fixedx = targetCenter1x;
+		   fixedy = targetCenter1y;
+		   fixedv << targetDirx, targetDiry;
+		   fixedv *= numWaveTar * 2 * M_PI;
 		}
 		// target vector fields
 		generateValues(tarFunctionType, tarOmegaFields, tarZvals, tarTheoGradZvals, upsampledTarTheoZVals, singIndTar, singIndTar1, isFixedTar);
@@ -1289,6 +1360,11 @@ void callback() {
 		updateFieldsInView(curFrame);
 			
 	}
+//	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
+//	{
+//	    // ToDO: the viewer will break if we have never pressed "update values"
+//	    updateFieldsInView(curFrame);
+//	}
 
 	ImGui::PopItemWidth();
 }
