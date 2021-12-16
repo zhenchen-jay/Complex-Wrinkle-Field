@@ -896,6 +896,10 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
 			interpZList[i] = interpModel.getZValues(wFrames[i], zFrames[i], NULL, NULL);
+			/*Eigen::MatrixXd upsampledW;
+			Eigen::MatrixXd NV;
+			Eigen::MatrixXi NF;
+			upsampleMeshZvals(triV2D, triF2D, wFrames[i], zFrames[i], NV, NF, upsampledW, interpZList[i], loopLevel);*/
 			magList[i].setZero(interpZList[i].size());
 			phaseList[i].setZero(interpZList[i].size());
 
@@ -910,9 +914,13 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
 
+	/*Eigen::MatrixXd upsampledW;
+	upsampleMeshZvals(triV2D, triF2D, wFrames[0], zFrames[0], upsampledTriV2D, upsampledTriF2D, upsampledW, interpZList[0], loopLevel);*/
+
 	/*for (int i = 0; i < interpZList.size(); i++)
 	{
-		interpZList[i] = interpModel.getZValues(wFrames[i], zFrames[i], NULL, NULL);
+		Eigen::MatrixXd upsampledW;
+		upsampleMeshZvals(triV2D, triF2D, wFrames[i], zFrames[i], upsampledTriV2D, upsampledTriF2D, upsampledW, interpZList[i], loopLevel);
 		magList[i].setZero(interpZList[i].size());
 		phaseList[i].setZero(interpZList[i].size());
 
@@ -1425,26 +1433,10 @@ void generateTargetVals()
 		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), omegaFields, zvals, sigIndex1, sigIndex2, NULL, &upsampledTheoZVals);
 		doSplit(omegaFields, planeFields, whirlFields);
 	}
+
 	std::vector<std::complex<double>> upsampledZvals;
 	model.estimatePhase(planeFields, whirlFields, zvals, upsampledZvals);
 	model.getAngleMagnitude(upsampledZvals, phaseField, ampField);
-
-	std::cout << "face 127\npos 0: " << triV2D.row(triF2D(127, 0)) << ", pos 1: " << triV2D.row(triF2D(127, 1)) << ", pos 2: " << triV2D.row(triF2D(127, 2)) << std::endl;
-	std::cout << "zvals: " << zvals[triF2D(127, 0)] << ", " << zvals[triF2D(127, 1)] << ", " << zvals[triF2D(127, 2)] << std::endl;
-	std::cout << "w vals: " << omegaFields.row(triF2D(127, 0)) << ", " << omegaFields.row(triF2D(127, 1)) << ", " << omegaFields.row(triF2D(127, 2)) << std::endl;
-
-	std::cout << "face 70\npos 0: " << triV2D.row(triF2D(70, 0)) << ", pos 1: " << triV2D.row(triF2D(70, 1)) << ", pos 2: " << triV2D.row(triF2D(70, 2)) << std::endl;
-	std::cout << "zvals: " << zvals[triF2D(70, 0)] << ", " << zvals[triF2D(70, 1)] << ", " << zvals[triF2D(70, 2)] << std::endl;
-	std::cout << "w vals: " << omegaFields.row(triF2D(70, 0)) << ", " << omegaFields.row(triF2D(70, 1)) << ", " << omegaFields.row(triF2D(70, 2)) << std::endl;
-
-	for(int i = 0; i < model._baryCoords.size(); i++)
-	{
-	    auto it = model._baryCoords[i];
-	    if(it.first == 127 || it.first == 70)
-	    {
-	        std::cout << "face id: " << it.first << "\npos: " << upsampledTriV2D.row(i) << ", bary: " << it.second.transpose() << ", z vals: " << upsampledZvals[i] << std::endl;
-	    }
-	}
 	
 }
 
@@ -1648,55 +1640,6 @@ void vecCallback() {
     if (ImGui::Checkbox("Show Only Plane wave", &isShowOnlyPlaneWave)){}
     if(ImGui::Checkbox("Show Only Whirl pool", &isShowOnlyWhirlPool)){}
     if(ImGui::Checkbox("Fixed center and dir", &isFixed)){}
-	if (ImGui::Button("Test", ImVec2(-1, 0)))
-	{
-		Eigen::Vector2d v = Eigen::Vector2d::Random();
-		if (isFixed)
-			v = fixedv;
-		generatePlaneWave(v, omegaFields, zvals, NULL, &upsampledTheoZVals);
-		planeFields = omegaFields;
-		whirlFields = omegaFields;
-		planeFields.setRandom();
-		whirlFields.setZero();
-
-		std::vector<std::complex<double>> upsampledZvals, upsampledZvals1;
-		/*model.estimatePhase(planeFields, whirlFields, zvals, upsampledZvals);
-		model.getAngleMagnitude(upsampledZvals, phaseField, ampField);*/
-
-		GetInterpolatedValues testmodel = GetInterpolatedValues(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary);
-		upsampledZvals1 = testmodel.getZValues(planeFields, zvals, NULL, NULL);
-
-		for (int i = 0; i < upsampledZvals.size(); i++)
-		{
-			if (std::abs(upsampledZvals[i] - upsampledZvals1[i]) > 1e-6)
-			{
-				std::cout << "error in vertex: " << i << ", " << upsampledZvals[i] << ", " << upsampledZvals1[i] << std::endl;
-			}
-		}
-
-		int vid = std::rand() % upsampledTriV2D.rows();
-//		testmodel.testPlaneWaveValue(planeFields, zvals, vid);
-		
-		omegaFields.setRandom();
-		auto zvals1 = zvals;
-		for(auto& z: zvals1)
-		{
-		    Eigen::Vector2d randz = Eigen::Vector2d::Random();
-		    z = std::complex<double>(randz(0), randz(1));
-		}
-//		testmodel.testPlaneWaveValueDot(planeFields, omegaFields, zvals, zvals1, 0.1, vid);
-		
-		//testmodel.testZDotSquarePerVertex(planeFields, omegaFields, zvals, zvals1, 0.1, 4);
-
-		//testmodel.testZDotSquareIntegration(planeFields, omegaFields, zvals, zvals1, 0.1);
-
-		InterpolateKeyFrames keyframeModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, planeFields, omegaFields, zvals, zvals1, 2, 6, isUseUpMesh);
-		Eigen::VectorXd x;
-		keyframeModel.convertList2Variable(x);
-		keyframeModel.testEnergy(x);
-
-
-	}
 	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
 	{
 		generateTargetVals();
