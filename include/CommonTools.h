@@ -1,5 +1,12 @@
 #pragma once
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+
+#ifndef GRAIN_SIZE
+#define GRAIN_SIZE 10
+#endif
 
 struct QuadraturePoints
 {

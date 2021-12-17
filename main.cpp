@@ -49,6 +49,7 @@
 #include "include/DynamicInterpolation/TimeIntegratedFrames.h"
 #include "include/DynamicInterpolation/ComputeZandZdot.h"
 #include "include/DynamicInterpolation/ZdotIntegration.h"
+#include "include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -1654,17 +1655,16 @@ void vecCallback() {
 
 int main(int argc, char** argv)
 {
-	ZdotIntegration myModel;
-	Eigen::Vector2d wi = Eigen::Vector2d::Random();
-	Eigen::Vector2d wj = Eigen::Vector2d::Random();
-	wi << -0.997497, 0.127171;
-	wj << -0.613392, 0.617481;
+	/*Eigen::Vector3d edgew;
+	edgew.setRandom();
 
-	Eigen::Vector3d P0, P1, P2;
-	P0 << 0.277224034, 0.20139414, 0;
-	P1 << 0.033354871, -0.0778616741, 0;
-	P2 << -0.0244661774, 0.117710091, 0;
-	myModel.testComputeBiBj(wi, wj, P0, P1, P2, 0, 1);
+	Eigen::Vector3d testbary(0.45, 0.35, 0.2);
+	std::vector<std::complex<double>> testZvals(3);
+	testZvals[0] = std::complex<double>(0.1, 0.8);
+	testZvals[1] = std::complex<double>(0.7, 0.3);
+	testZvals[2] = std::complex<double>(0.34, 7.8);
+
+	IntrinsicFormula::testZvalsFromEdgeOmega(testbary, testZvals, edgew);*/
 
 	initialization();
     

@@ -103,6 +103,7 @@ file(GLOB SRCFILES
     include/Visualization/*.h
     include/Optimization/*.h
     include/DynamicInterpolation/*.h
+    include/IntrinsicFormula/*.h
   
     src/*.cpp
     src/InterpolationScheme/*.cpp
@@ -110,6 +111,7 @@ file(GLOB SRCFILES
     src/Visualization/*.cpp
     src/Optimization/*.cpp
     src/DynamicInterpolation/*.cpp
+    src/IntrinsicFormula/*.cpp
     *.cpp)
     
 add_executable(
