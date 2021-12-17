@@ -1,5 +1,7 @@
 #include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include <iostream>
 
+using namespace IntrinsicFormula;
 
 double ComputeZdotFromEdgeOmega::computeZdotIntegrationFromQuad(const std::vector<std::complex<double>>& curZvals, const Eigen::VectorXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::VectorXd& nextw, int fid, int qid, Eigen::Matrix<double, 18, 1>* deriv, Eigen::Matrix<double, 18, 18>* hess)
 {
@@ -41,8 +43,9 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegrationFromQuad(const std::vecto
 	if (deriv || hess)
 	{
 		Eigen::Matrix<std::complex<double>, 18, 1> gradDeltaZ;
-		gradDeltaZ.segment<9>(0) = derivNext;
-		gradDeltaZ.segment<9>(9) = -derivCur;
+
+		gradDeltaZ.segment<9>(0) = -derivCur;
+		gradDeltaZ.segment<9>(9) = derivNext;
 
 		for (int j = 0; j < 3; j++)
 		{
@@ -57,9 +60,11 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegrationFromQuad(const std::vecto
 
 		if (hess)
 		{
+		    hess->setZero();
 			Eigen::Matrix<std::complex<double>, 18, 18> hessDeltaZ;
-			hessDeltaZ.block<9, 9>(0, 0) = hessNext;
-			hessDeltaZ.block<9, 9>(9, 9) = -hessCur;
+
+			hessDeltaZ.block<9, 9>(0, 0) = -hessCur;
+			hessDeltaZ.block<9, 9>(9, 9) = hessNext;
 
 			for (int i = 0; i < 3; i++)
 			{
@@ -67,8 +72,8 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegrationFromQuad(const std::vecto
 				hessDeltaZ.row(15 + i) *= wflag(i);
 				for (int j = 0; j < 3; j++)
 				{
-					hessDeltaZ.row(6 + j) *= wflag(j);
-					hessDeltaZ.row(15 + j) *= wflag(j);
+					hessDeltaZ.col(6 + j) *= wflag(j);
+					hessDeltaZ.col(15 + j) *= wflag(j);
 				}
 			}
 
@@ -162,13 +167,13 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegration(const std::vector<std::c
 				int vid = _mesh.faceVertex(i, j);
 				int eid = _mesh.faceEdge(i, j);
 
-				(*deriv)(2 * vid) = derivList[i](2 * j);
-				(*deriv)(2 * vid + 1) = derivList[i](2 * j + 1);
-				(*deriv)(eid + nverts) = derivList[i](6 + j);
+				(*deriv)(2 * vid) += derivList[i](2 * j);
+				(*deriv)(2 * vid + 1) += derivList[i](2 * j + 1);
+				(*deriv)(eid + 2 * nverts) += derivList[i](6 + j);
 
-				(*deriv)(2 * vid + nOneGroup) = derivList[i](9 + 2 * j);
-				(*deriv)(2 * vid + 1 + nOneGroup) = derivList[i](9 + 2 * j + 1);
-				(*deriv)(eid + nverts + nOneGroup) = derivList[i](15 + j);
+				(*deriv)(2 * vid + nOneGroup) += derivList[i](9 + 2 * j);
+				(*deriv)(2 * vid + 1 + nOneGroup) += derivList[i](9 + 2 * j + 1);
+				(*deriv)(eid + 2 * nverts + nOneGroup) += derivList[i](15 + j);
 			}
 		}
 
@@ -189,17 +194,29 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegration(const std::vector<std::c
 						for (int m2 = 0; m2 < 2; m2++)
 						{
 							hessT->push_back({ 2 * vid + m1, 2 * vid1 + m2,  hessList[i](2 * j + m1, 2 * k + m2) });
+							hessT->push_back({ 2 * vid + m1, 2 * vid1 + m2 + nOneGroup,  hessList[i](2 * j + m1, 9 + 2 * k + m2) });
+
+							hessT->push_back({ 2 * vid + m1 + nOneGroup, 2 * vid1 + m2,  hessList[i](9 + 2 * j + m1, 2 * k + m2) });
 							hessT->push_back({ 2 * vid + m1 + nOneGroup, 2 * vid1 + m2 + nOneGroup,  hessList[i](9 + 2 * j + m1, 9 + 2 * k + m2) });
 						}
-						hessT->push_back({ 2 * vid + m1, eid1 + nverts,  hessList[i](2 * j + m1, 6 + k) });
-						hessT->push_back({ 2 * vid + m1 + nOneGroup, eid1 + nverts + nOneGroup,  hessList[i](9 + 2 * j + m1, 15 + k) });
 
-						hessT->push_back({ eid + nverts, 2 * vid1 + m1, hessList[i](6 + j, 2 * k + m1) });
-						hessT->push_back({ eid + nverts + nOneGroup, 2 * vid1 + m1 + nOneGroup,  hessList[i](15 + j, 9 + 2 * k + m1) });
+						hessT->push_back({ 2 * vid + m1, eid1 + 2 * nverts,  hessList[i](2 * j + m1, 6 + k) });
+						hessT->push_back({ eid + 2 * nverts, 2 * vid1 + m1, hessList[i](6 + j, 2 * k + m1) });
+
+						hessT->push_back({2 * vid + m1, eid1 + 2 * nverts + nOneGroup, hessList[i](2 * j + m1, 15 + k)});
+						hessT->push_back({ eid + 2 * nverts + nOneGroup, 2 * vid1 + m1, hessList[i](15 + j, 2 * k + m1) });
+
+						hessT->push_back({ 2 * vid + m1 + nOneGroup, eid1 + 2 * nverts,  hessList[i](9 + 2 * j + m1, 6 + k) });
+						hessT->push_back({ eid + 2 * nverts, 2 * vid1 + m1 + nOneGroup, hessList[i](6 + j, 9 + 2 * k + m1) });
+
+						hessT->push_back({ 2 * vid + m1 + nOneGroup, eid1 + 2 * nverts + nOneGroup,  hessList[i](9 + 2 * j + m1, 15 + k) });
+						hessT->push_back({ eid + 2 * nverts + nOneGroup, 2 * vid1 + m1 + nOneGroup,  hessList[i](15 + j, 9 + 2 * k + m1) });
 
 					}
-						
-					
+					hessT->push_back({eid + 2 * nverts, eid1 + 2 * nverts, hessList[i](6 + j, 6 + k)});
+					hessT->push_back({eid + 2 * nverts, eid1 + 2 * nverts + nOneGroup, hessList[i](6 + j, 15 + k)});
+					hessT->push_back({eid + 2 * nverts + nOneGroup, eid1 + 2 * nverts, hessList[i](15 + j, 6 + k)});
+					hessT->push_back({eid + 2 * nverts + nOneGroup, eid1 + 2 * nverts + nOneGroup, hessList[i](15 + j, 15 + k)});
 				}
 
 				
@@ -208,4 +225,130 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegration(const std::vector<std::c
 	}
 
 	return energy;
+}
+
+void ComputeZdotFromEdgeOmega::testZdotIntegrationFromQuad(const std::vector<std::complex<double>> &curZvals,
+                                                           const Eigen::VectorXd &curw,
+                                                           const std::vector<std::complex<double>> &nextZvals,
+                                                           const Eigen::VectorXd &nextw, int fid, int qid)
+{
+    Eigen::Matrix<double, 18, 1> deriv, deriv1;
+    Eigen::Matrix<double, 18, 18> hess;
+    double energy = computeZdotIntegrationFromQuad(curZvals, curw, nextZvals, nextw, fid, qid, &deriv, &hess);
+
+    auto backupcurZvals = curZvals, backupnextZvals = nextZvals;
+    auto backupcurw = curw, backupnextw = nextw;
+
+    auto dir = deriv;
+    dir.setRandom();
+
+    for(int i = 3; i < 10; i++)
+    {
+        double eps = std::pow(0.1, i);
+
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = _mesh.faceVertex(fid, j);
+            int eid = _mesh.faceEdge(fid, j);
+
+            backupcurZvals[vid] = std::complex<double>(curZvals[vid].real() + dir(2 * j) * eps, curZvals[vid].imag() + dir(2 * j + 1) * eps);
+            backupnextZvals[vid] = std::complex<double>(nextZvals[vid].real() + dir(2 * j + 9) * eps, nextZvals[vid].imag() + dir(2 * j + 1 + 9) * eps);
+
+            backupcurw(eid) = curw(eid) + eps * dir(j + 6);
+            backupnextw(eid) = nextw(eid) + eps * dir(j + 15);
+        }
+
+        double energy1 = computeZdotIntegrationFromQuad(backupcurZvals, backupcurw, backupnextZvals, backupnextw, fid, qid, &deriv1, NULL);
+        std::cout << "eps: " << eps << std::endl;
+        std::cout << "f-g: " << (energy1 - energy) / eps - dir.dot(deriv) << std::endl;
+        std::cout << "g-h: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+    }
+}
+
+void ComputeZdotFromEdgeOmega::testZdotIntegrationPerface(const std::vector<std::complex<double>> &curZvals,
+                                                          const Eigen::VectorXd &curw,
+                                                          const std::vector<std::complex<double>> &nextZvals,
+                                                          const Eigen::VectorXd &nextw, int fid)
+{
+    Eigen::Matrix<double, 18, 1> deriv, deriv1;
+    Eigen::Matrix<double, 18, 18> hess;
+    double energy = computeZdotIntegrationPerface(curZvals, curw, nextZvals, nextw, fid, &deriv, &hess);
+
+
+    auto backupcurZvals = curZvals, backupnextZvals = nextZvals;
+    auto backupcurw = curw, backupnextw = nextw;
+
+    auto dir = deriv;
+    dir.setRandom();
+
+    for(int i = 3; i < 10; i++)
+    {
+        double eps = std::pow(0.1, i);
+
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = _mesh.faceVertex(fid, j);
+            int eid = _mesh.faceEdge(fid, j);
+
+            backupcurZvals[vid] = std::complex<double>(curZvals[vid].real() + dir(2 * j) * eps, curZvals[vid].imag() + dir(2 * j + 1) * eps);
+            backupnextZvals[vid] = std::complex<double>(nextZvals[vid].real() + dir(2 * j + 9) * eps, nextZvals[vid].imag() + dir(2 * j + 1 + 9) * eps);
+
+            backupcurw(eid) = curw(eid) + eps * dir(j + 6);
+            backupnextw(eid) = nextw(eid) + eps * dir(j + 15);
+        }
+
+        double energy1 = computeZdotIntegrationPerface(backupcurZvals, backupcurw, backupnextZvals, backupnextw, fid, &deriv1, NULL);
+        std::cout << "eps: " << eps << std::endl;
+        std::cout << "f-g: " << (energy1 - energy) / eps - dir.dot(deriv) << std::endl;
+        std::cout << "g-h: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+    }
+}
+
+void ComputeZdotFromEdgeOmega::testZdotIntegration(const std::vector<std::complex<double>> &curZvals,
+                                                   const Eigen::VectorXd &curw,
+                                                   const std::vector<std::complex<double>> &nextZvals,
+                                                   const Eigen::VectorXd &nextw)
+{
+    Eigen::VectorXd deriv, deriv1;
+    std::vector<Eigen::Triplet<double>> hessT;
+    Eigen::SparseMatrix<double> hess;
+    double energy = computeZdotIntegration(curZvals, curw, nextZvals, nextw, &deriv, &hessT);
+    hess.resize(deriv.rows(), deriv.rows());
+    hess.setFromTriplets(hessT.begin(), hessT.end());
+
+    int nverts = curZvals.size();
+    int nedges = curw.rows();
+
+    std::cout << "deriv: \n" << deriv.segment(0, 2 * nverts + nedges) << std::endl;
+    std::cout << "hess: \n"  << hess.toDense().block(0, 0, 2 * nverts + nedges, 2 * nverts + nedges) << std::endl;
+    std::cout << "eid: " << _mesh.faceEdge(0, 0) << " " << _mesh.faceEdge(0, 1) << " " << _mesh.faceEdge(0, 2) << std::endl;
+
+    Eigen::VectorXd dir = deriv;
+    dir.setRandom();
+
+
+    auto backupcurZvals = curZvals, backupnextZvals = nextZvals;
+    auto backupcurw = curw, backupnextw = nextw;
+
+    for(int i = 3; i < 10; i++)
+    {
+        double eps = std::pow(0.1, i);
+
+        for(int j = 0; j < nverts; j++)
+        {
+            backupcurZvals[j] = std::complex<double>(curZvals[j].real() + dir(2 * j) * eps, curZvals[j].imag() + dir(2 * j + 1) * eps);
+            backupnextZvals[j] = std::complex<double>(nextZvals[j].real() + dir(2 * j + 2 * nverts + nedges) * eps, nextZvals[j].imag() + dir(2 * j + 1 + 2 * nverts + nedges) * eps);
+        }
+
+        backupcurw = curw + eps * dir.segment(2 * nverts, nedges);
+        backupnextw = nextw + eps * dir.segment(4 * nverts + nedges, nedges);
+
+        double energy1 = computeZdotIntegration(backupcurZvals, backupcurw, backupnextZvals, backupnextw, &deriv1, NULL);
+
+//        std::cout << "deriv1 - deriv: " << (deriv1 - deriv).transpose() << std::endl;
+
+        std::cout << "eps: " << eps << std::endl;
+        std::cout << "f-g: " << (energy1 - energy) / eps - dir.dot(deriv) << std::endl;
+        std::cout << "g-h: " << ((deriv1 - deriv)/ eps - (hess * dir)).norm() << std::endl;
+    }
 }

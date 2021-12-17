@@ -50,6 +50,7 @@
 #include "include/DynamicInterpolation/ComputeZandZdot.h"
 #include "include/DynamicInterpolation/ZdotIntegration.h"
 #include "include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
+#include "include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -97,7 +98,7 @@ bool isFixed = true;
 bool isFixedTar = true;
 
 bool isForceOptimize = false;
-bool isTwoTriangles = false;
+bool isTwoTriangles = true;
 
 PhaseInterpolation model;
 PaintGeometry mPaint;
@@ -1006,8 +1007,8 @@ void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZva
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
 	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shifty, const double& ampMax,
-	const Eigen::MatrixXd& vec, const Eigen::VectorXd& ampVec, const Eigen::VectorXd& phaseVec,
-	const Eigen::VectorXd& theoAmpVec, const Eigen::VectorXd& theoPhaseVec,
+	const Eigen::MatrixXd& vec,  Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec,
+	Eigen::VectorXd theoAmpVec, const Eigen::VectorXd& theoPhaseVec,
 	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderVec, Eigen::MatrixXd& renderColor)
 {
 	int nverts = basePos.rows();
@@ -1030,6 +1031,9 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	int curVerts = 0;
 	int curFaces = 0;
+
+	Eigen::VectorXd normalizedAmp = ampVec / ampMax, normalizedTheoAmp = theoAmpVec / ampMax;
+
 
 	Eigen::MatrixXd shiftV = basePos;
 	shiftV.col(0).setConstant(0);
@@ -1528,13 +1532,20 @@ void registerVecMesh()
 
 
 	Eigen::VectorXd theoTheta(nupverts);
+	Eigen::VectorXd theoAmp(nupverts);
+
 	for (int i = 0; i < nupverts; i++)
 	{
 	    theoTheta(i) = std::arg(upsampledTheoZVals[i]);
+	    theoAmp(i) = std::abs(upsampledTheoZVals[i]);
 	}
+
+	double ampMax = std::max(theoAmp.maxCoeff(), ampField.maxCoeff());
+
 	mPaint.setNormalization(false);
 	Eigen::MatrixXd phiColor;
-	phiColor = mPaint.paintPhi(theoTheta);
+	Eigen::VectorXd theoAmpNormlized = theoAmp / ampMax;
+	phiColor = mPaint.paintPhi(theoTheta, &theoAmpNormlized);
 
 	curColor.block(currentDataVerts, 0, nupverts, 3) = phiColor;
 
@@ -1552,16 +1563,10 @@ void registerVecMesh()
 	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
 	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
 
-	Eigen::VectorXd theoAmp(nupverts);
-	for (int i = 0; i < nupverts; i++)
-	{
-	    theoAmp(i) = std::abs(upsampledTheoZVals[i]);
-	}
 
-	double ampMax = std::max(theoAmp.maxCoeff(), ampField.maxCoeff());
 	mPaint.setNormalization(false);
 	Eigen::MatrixXd ampColor;
-	ampColor = mPaint.paintAmplitude(theoAmp / ampMax);
+	ampColor = mPaint.paintAmplitude(theoAmpNormlized);
 
 	curColor.block(currentDataVerts, 0, nupverts, 3) = ampColor;
 
@@ -1580,8 +1585,9 @@ void registerVecMesh()
 	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
 	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
 
+	Eigen::VectorXd ampNormlized = ampField / ampMax;
 	mPaint.setNormalization(false);
-	phiColor = mPaint.paintPhi(phaseField);
+	phiColor = mPaint.paintPhi(phaseField, &ampNormlized);
 
 	curColor.block(currentDataVerts, 0, nupverts, 3) = phiColor;
 	currentDataVerts += nupverts;
@@ -1599,7 +1605,7 @@ void registerVecMesh()
 	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
 
 	mPaint.setNormalization(false);
-	ampColor = mPaint.paintAmplitude(ampField / ampMax);
+	ampColor = mPaint.paintAmplitude(ampNormlized);
 
 	curColor.block(currentDataVerts, 0, nupverts, 3) = ampColor;
 	currentDataVerts += nupverts;
@@ -1655,18 +1661,36 @@ void vecCallback() {
 
 int main(int argc, char** argv)
 {
-	/*Eigen::Vector3d edgew;
-	edgew.setRandom();
-
-	Eigen::Vector3d testbary(0.45, 0.35, 0.2);
-	std::vector<std::complex<double>> testZvals(3);
-	testZvals[0] = std::complex<double>(0.1, 0.8);
-	testZvals[1] = std::complex<double>(0.7, 0.3);
-	testZvals[2] = std::complex<double>(0.34, 7.8);
-
-	IntrinsicFormula::testZvalsFromEdgeOmega(testbary, testZvals, edgew);*/
-
 	initialization();
+
+	MeshConnectivity triMesh = MeshConnectivity(triF2D);
+	Eigen::VectorXd edgew = Eigen::VectorXd::Random(triMesh.nEdges());
+	Eigen::VectorXd nextEdgew = edgew;
+	nextEdgew.setRandom();
+
+	std::vector<std::complex<double>> curZ, nexZ;
+
+	for(int i=0; i < triV2D.rows(); i++)
+	{
+	    Eigen::Vector2d rnd;
+	    rnd.setRandom();
+	    curZ.push_back(std::complex<double>(rnd(0), rnd(1)));
+
+	    rnd.setRandom();
+	    nexZ.push_back(std::complex<double>(rnd(0), rnd(1)));
+	}
+
+	Eigen::VectorXd doubleArea;
+	igl::doublearea(triV2D, triF2D, doubleArea);
+	doubleArea /= 2;
+
+	IntrinsicFormula::ComputeZdotFromEdgeOmega testmodel(triMesh, doubleArea, 4, 1);
+
+	int fid = std::rand() % triF2D.rows();
+	int qid = 3;
+
+	testmodel.testZdotIntegrationPerface(curZ, edgew, nexZ, nextEdgew, 0);
+	testmodel.testZdotIntegration(curZ, edgew, nexZ, nextEdgew);
     
 	// Options
     polyscope::options::autocenterStructures = true;
@@ -1679,6 +1703,8 @@ int main(int argc, char** argv)
 
     // Register the mesh with Polyscope
     polyscope::registerSurfaceMesh("input mesh", triV2D, triF2D);
+
+
 
     // Add the callback
     if(argc > 1)
