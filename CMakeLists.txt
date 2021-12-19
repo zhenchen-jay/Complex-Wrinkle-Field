@@ -94,31 +94,6 @@ option(LIBIGL_WITH_XML               "Use XML"            OFF)
 find_package(LIBIGL REQUIRED)
 include_directories(${LIBIGL_INCLUDE_DIR})
 
-# Create an executable
-file(GLOB SRCFILES  
-    include/*.h
-    include/*.hpp
-    include/InterpolationScheme/*.h 
-    include/MeshLib/*.h
-    include/Visualization/*.h
-    include/Optimization/*.h
-    include/DynamicInterpolation/*.h
-    include/IntrinsicFormula/*.h
-  
-    src/*.cpp
-    src/InterpolationScheme/*.cpp
-    src/MeshLib/*.cpp
-    src/Visualization/*.cpp
-    src/Optimization/*.cpp
-    src/DynamicInterpolation/*.cpp
-    src/IntrinsicFormula/*.cpp
-    *.cpp)
-    
-add_executable(
-        phaseInterp-polyscope-example
-        ${SRCFILES}
-        )
-
 
 # Include settings
 # target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
@@ -150,13 +125,11 @@ endif()
 find_package(SuiteSparse REQUIRED)
 include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 
-# Link settings
-target_link_libraries( phaseInterp-polyscope-example polyscope Eigen3::Eigen )
 
-if(BUILD_WITH_TBB)
-  target_link_libraries( phaseInterp-polyscope-example polyscope TBB::tbb igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})
-endif()
 
 # if(NASOQ)
 #   target_link_libraries(phaseInterp-polyscope-example ${MKL_LIBRARIES})
 # endif()
+
+# Binary executables
+add_subdirectory(app)

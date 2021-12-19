@@ -75,11 +75,11 @@ std::vector<std::complex<double>> IntrinsicFormula::upsamplingZvals(const MeshCo
 				int vid = mesh.faceVertex(fid, j);
 				int eid = mesh.faceEdge(fid, j);
 
-				vertzvals[i] = zvals[vid];
-				edgews(i) = w(eid); // defined as mesh.edgeVertex(eid, 1) - mesh.edgeVertex(eid, 0)
+				vertzvals[j] = zvals[vid];
+				edgews(j) = w(eid); // defined as mesh.edgeVertex(eid, 1) - mesh.edgeVertex(eid, 0)
 
-				if (mesh.edgeVertex(eid, 1) == mesh.faceVertex(fid, (j + 1) % 2))
-					edgews(i) *= -1;
+				if (mesh.edgeVertex(eid, 1) == mesh.faceVertex(fid, (j + 1) % 3))
+					edgews(j) *= -1;
 			}
 
 			upzvals[i] = getZvalsFromEdgeOmega(bary[i].second, vertzvals, edgews);
@@ -88,6 +88,7 @@ std::vector<std::complex<double>> IntrinsicFormula::upsamplingZvals(const MeshCo
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)size, GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeZvals);
+
 	return upzvals;
 }
 

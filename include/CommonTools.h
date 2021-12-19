@@ -3,6 +3,7 @@
 #include <Eigen/Sparse>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
+#include "MeshLib/MeshConnectivity.h"
 
 #ifndef GRAIN_SIZE
 #define GRAIN_SIZE 10
@@ -20,3 +21,5 @@ std::vector<QuadraturePoints> buildQuadraturePoints(int order); // this is based
 Eigen::Vector3d computeHatWeight(double u, double v);
 
 Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A);
+
+Eigen::VectorXd vertexVec2IntrinsicVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);

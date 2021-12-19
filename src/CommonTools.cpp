@@ -338,3 +338,19 @@ Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A)
 
     return posHess;
 }
+
+Eigen::VectorXd vertexVec2IntrinsicVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh)
+{
+    int nedges = mesh.nEdges();
+    Eigen::VectorXd edgeOmega(nedges);
+
+    for (int i = 0; i < nedges; i++)
+    {
+        int vid0 = mesh.edgeVertex(i, 0);
+        int vid1 = mesh.edgeVertex(i, 1);
+
+        Eigen::Vector3d e = pos.row(vid1) - pos.row(vid0);
+        edgeOmega(i) = (v.row(vid0) + v.row(vid1)).dot(e) / 2;
+    }
+    return edgeOmega;
+}

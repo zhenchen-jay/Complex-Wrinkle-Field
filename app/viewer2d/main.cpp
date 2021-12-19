@@ -36,21 +36,22 @@
 #endif
 
 
-#include "include/InterpolationScheme/PhaseInterpolation.h"
-#include "include/InterpolationScheme/PlaneWaveExtraction.h"
-#include "include/MeshLib/MeshConnectivity.h"
-#include "include/MeshLib/MeshUpsampling.h"
-#include "include/Visualization/PaintGeometry.h"
-#include "include/InterpolationScheme/VecFieldSplit.h"
-#include "include/Optimization/NewtonDescent.h"
-#include "include/Optimization/LinearConstrainedSolver.h"
-#include "include/DynamicInterpolation/GetInterpolatedValues.h"
-#include "include/DynamicInterpolation/InterpolateKeyFrames.h"
-#include "include/DynamicInterpolation/TimeIntegratedFrames.h"
-#include "include/DynamicInterpolation/ComputeZandZdot.h"
-#include "include/DynamicInterpolation/ZdotIntegration.h"
-#include "include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
-#include "include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include "../../include/InterpolationScheme/PhaseInterpolation.h"
+#include "../../include/InterpolationScheme/PlaneWaveExtraction.h"
+#include "../../include/MeshLib/MeshConnectivity.h"
+#include "../../include/MeshLib/MeshUpsampling.h"
+#include "../../include/Visualization/PaintGeometry.h"
+#include "../../include/InterpolationScheme/VecFieldSplit.h"
+#include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/Optimization/LinearConstrainedSolver.h"
+#include "../../include/DynamicInterpolation/GetInterpolatedValues.h"
+#include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
+#include "../../include/DynamicInterpolation/TimeIntegratedFrames.h"
+#include "../../include/DynamicInterpolation/ComputeZandZdot.h"
+#include "../../include/DynamicInterpolation/ZdotIntegration.h"
+#include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
+#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolation.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -1663,7 +1664,7 @@ int main(int argc, char** argv)
 {
 	initialization();
 
-	MeshConnectivity triMesh = MeshConnectivity(triF2D);
+	/*MeshConnectivity triMesh = MeshConnectivity(triF2D);
 	Eigen::VectorXd edgew = Eigen::VectorXd::Random(triMesh.nEdges());
 	Eigen::VectorXd nextEdgew = edgew;
 	nextEdgew.setRandom();
@@ -1691,6 +1692,11 @@ int main(int argc, char** argv)
 
 	testmodel.testZdotIntegrationPerface(curZ, edgew, nexZ, nextEdgew, 0);
 	testmodel.testZdotIntegration(curZ, edgew, nexZ, nextEdgew);
+
+	IntrinsicFormula::IntrinsicKeyFrameInterploation intrinsicInterpModel(triMesh, doubleArea, 3, 4, curZ, edgew, nexZ, nextEdgew);
+	Eigen::VectorXd x;
+	intrinsicInterpModel.convertList2Variable(x);
+	intrinsicInterpModel.testEnergy(x);*/
     
 	// Options
     polyscope::options::autocenterStructures = true;
