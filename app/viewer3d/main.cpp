@@ -35,8 +35,11 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
-#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
-#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolation.h"
+#include "../../include/DynamicInterpolation/ComputeZandZdot.h"
+//#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
+//#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
+#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
 
 
 
@@ -45,16 +48,16 @@ Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh, upsampledTriMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
-Eigen::VectorXd sourceOmegaFields, tarOmegaFields;
-Eigen::VectorXd theoOmega, tarTheoOmega;
+Eigen::MatrixXd sourceOmegaFields, tarOmegaFields;
+Eigen::MatrixXd theoOmega, tarTheoOmega;
 
 std::vector<std::complex<double>> sourceZvals, sourceTheoZVals, upsampledTheoZVals;
 std::vector<std::complex<double>> tarZvals, tarTheoZVals, upsampledTarTheoZVals;
 std::vector<Eigen::Vector2cd> sourceTheoGradZvals, tarTheoGradZvals;
 
 
-std::vector<Eigen::VectorXd> omegaList;
-std::vector<Eigen::VectorXd> theoOmegaList;
+std::vector<Eigen::MatrixXd> omegaList;
+std::vector<Eigen::MatrixXd> theoOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 std::vector<std::vector<std::complex<double>>> theoZList;
 
@@ -493,7 +496,7 @@ void initialization()
 }
 
 
-void generateValues(FunctionType funType, Eigen::VectorXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false, double fixedx = 0, double fixedy = 0, Eigen::Vector2d fixedv = Eigen::Vector2d::Constant(1.0))
+void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false, double fixedx = 0, double fixedy = 0, Eigen::Vector2d fixedv = Eigen::Vector2d::Constant(1.0))
 {
 	Eigen::MatrixXd vertFields;
 	if (funType == FunctionType::Whirlpool)
@@ -545,15 +548,15 @@ void generateValues(FunctionType funType, Eigen::VectorXd &vecFields, std::vecto
 	vertFields3D.block(0, 0, triV.rows(), 2) = vertFields;
 	vertFields3D.col(2).setZero();
 
-	vecFields = vertexVec2IntrinsicVec(vertFields3D, triV, MeshConnectivity(triF));
+	vecFields = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, MeshConnectivity(triF));
 }
 
-void solveKeyFrames(const Eigen::VectorXd& sourceVec, const Eigen::VectorXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	Eigen::VectorXd faceArea;
 	igl::doublearea(triV, triF, faceArea);
 	faceArea /= 2;
-	IntrinsicFormula::IntrinsicKeyFrameInterploation interpModel = IntrinsicFormula::IntrinsicKeyFrameInterploation(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
+	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
 	Eigen::VectorXd x;
 	interpModel.convertList2Variable(x);        // linear initialization
 
@@ -630,7 +633,7 @@ void solveKeyFrames(const Eigen::VectorXd& sourceVec, const Eigen::VectorXd& tar
 
 }
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
+void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
 {
 	std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
 	magList.resize(wFrames.size());
@@ -661,7 +664,7 @@ void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZva
                               const std::vector<Eigen::Vector2cd>& sourceGradZvals, const std::vector<Eigen::Vector2cd>& tarGradZvals,
                               const std::vector<std::complex<double>>& upSourceZvals, const std::vector<std::complex<double>>& upTarZvals,
                               const int num, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList,    // upsampled information
-                              std::vector<Eigen::VectorXd>& wList, std::vector<std::vector<std::complex<double>>> &zvalList        // raw information
+                              std::vector<Eigen::MatrixXd>& wList, std::vector<std::vector<std::complex<double>>> &zvalList        // raw information
                               )
 {
 	magList.resize(num + 2);
@@ -694,7 +697,7 @@ void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZva
 				vertOmega.row(j).segment<2>(0) = ((gradf * fbar) / (std::abs(fbar) * std::abs(fbar))).imag();
 			    zvalList[i][j] = (1 - w) * sourceZvals[j] + w * tarZvals[j];
 			}
-			wList[i] = vertexVec2IntrinsicVec(vertOmega, triV, triMesh);
+			wList[i] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);
 		}
 	};
 
@@ -1015,13 +1018,13 @@ void callback() {
 		    fixedv *= numWavesSource * 2 * M_PI;
 		}
 		generateValues(functionType, sourceOmegaFields, sourceZvals, sourceTheoGradZvals, upsampledTheoZVals, singIndSource, singIndSource1, isFixedSource, fixedx, fixedy, fixedv);
-		std::cout << "triV: \n" << triV << std::endl;
+		/*std::cout << "triV: \n" << triV << std::endl;
 
 		std::cout << fixedv.transpose() << std::endl;
 		for (int i = 0; i < sourceOmegaFields.rows(); i++)
 		{
 			std::cout << "edge id: " << i << ", vid: " << triMesh.edgeVertex(i, 0) << ", zval: " << sourceZvals[triMesh.edgeVertex(i, 0)] << ",  " << triMesh.edgeVertex(i, 1) << " " << sourceZvals[triMesh.edgeVertex(i, 1)] << ", w: " << sourceOmegaFields(i) << std::endl;
-		}
+		}*/
 		
 
 		if(isFixedTar)
@@ -1071,7 +1074,67 @@ void callback() {
 int main(int argc, char** argv)
 {
 	initialization();
-    
+
+	/*Eigen::MatrixXd testV(3, 3);
+	testV << 0, 0, 0,
+		1, 0, 0,
+		0, 1, 0;
+	Eigen::MatrixXi testF(1, 3);
+	testF << 0, 1, 2;
+	
+	MeshConnectivity testMesh(testF);
+
+	Eigen::MatrixXd testw(3, 3);
+	testw << 1, -1, 0,
+		1, 2, 0,
+		-1, 0, 0;
+
+	Eigen::Vector3d testbary;
+	std::vector<std::complex<double>> testZvals(3);
+	testZvals[0] = std::complex<double>(0.1, 0.8);
+	testZvals[1] = std::complex<double>(0.7, 0.3);
+	testZvals[2] = std::complex<double>(0.34, 7.8);
+	
+	
+	Eigen::Matrix<double, 3, 2> edgew = vertexVec2IntrinsicHalfEdgeVec(testw, testV, testMesh);
+	for (int i = 0; i < testMesh.nEdges(); i++)
+	{
+		std::cout << "eid: " << i << ", v0: " << testMesh.edgeVertex(i, 0) << ", v1: " << testMesh.edgeVertex(i, 1) << std::endl;
+		std::cout << "edge w: " << edgew.row(i) << std::endl;
+	}
+	int testqid = 3;
+	ComputeZandZdot preModel(testV, testF, 4);
+	testbary << 1 - preModel.getQuadPts()[testqid].u - preModel.getQuadPts()[testqid].v, preModel.getQuadPts()[testqid].u, preModel.getQuadPts()[testqid].v;
+
+	auto z1 = IntrinsicFormula::getZvalsFromHalfEdgeOmega(testbary, testZvals, edgew, NULL, NULL);
+	auto z2 = preModel.planeWaveValueFromQuad(testw.block<3, 2>(0, 0), testZvals, 0, testqid, NULL, NULL, NULL);
+
+	IntrinsicFormula::testZvalsFromHalfEdgeOmega(testbary, testZvals, edgew);
+	Eigen::VectorXd faceArea;
+
+	igl::doublearea(triV, triF, faceArea);
+	std::vector<std::complex<double>> testZvals0(triV.rows()), testZvals1(triV.rows());
+	for (int i = 0; i < triV.rows(); i++)
+	{
+		Eigen::Vector2d randvec;
+		randvec.setRandom();
+		testZvals0[i] = std::complex<double>(randvec(0), randvec(1));
+
+		randvec.setRandom();
+		testZvals1[i] = std::complex<double>(randvec(0), randvec(1));
+	}
+	Eigen::MatrixXd edgew0, edgew1;
+	edgew0.setRandom(triMesh.nEdges(), 2);
+	edgew1.setRandom(triMesh.nEdges(), 2);
+
+	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega testmodel(triMesh, faceArea, 4, 1);
+	testmodel.testZdotIntegrationPerface(testZvals0, edgew0, testZvals1, edgew1, 0);
+
+	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfedgemodel(triMesh, faceArea, 3, 4, testZvals0, edgew0, testZvals1, edgew1);
+	Eigen::VectorXd testx;
+	halfedgemodel.convertList2Variable(testx);
+	halfedgemodel.testEnergy(testx);
+    */
 	// Options
     polyscope::options::autocenterStructures = true;
     polyscope::view::windowWidth = 1024;

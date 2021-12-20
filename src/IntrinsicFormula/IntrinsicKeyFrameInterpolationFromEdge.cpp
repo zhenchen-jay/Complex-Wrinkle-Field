@@ -1,9 +1,9 @@
-#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolation.h"
+#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
 #include <iostream>
 
 using namespace IntrinsicFormula;
 
-void IntrinsicKeyFrameInterploation::convertList2Variable(Eigen::VectorXd& x)
+void IntrinsicKeyFrameInterpolationFromEdge::convertList2Variable(Eigen::VectorXd& x)
 {
 	int nverts = _zList[0].size();
 	int nedges = _wList[0].rows();
@@ -31,7 +31,7 @@ void IntrinsicKeyFrameInterploation::convertList2Variable(Eigen::VectorXd& x)
 	}
 }
 
-void IntrinsicKeyFrameInterploation::convertVariable2List(const Eigen::VectorXd& x)
+void IntrinsicKeyFrameInterpolationFromEdge::convertVariable2List(const Eigen::VectorXd& x)
 {
 	int nverts = _zList[0].size();
 	int nedges = _wList[0].rows();
@@ -53,7 +53,7 @@ void IntrinsicKeyFrameInterploation::convertVariable2List(const Eigen::VectorXd&
 	}
 }
 
-double IntrinsicKeyFrameInterploation::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
+double IntrinsicKeyFrameInterpolationFromEdge::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
 	int nverts = _zList[0].size();
 	int nedges = _wList[0].rows();
@@ -121,7 +121,7 @@ double IntrinsicKeyFrameInterploation::computeEnergy(const Eigen::VectorXd& x, E
 	return energy;
 }
 
-void IntrinsicKeyFrameInterploation::testEnergy(Eigen::VectorXd x)
+void IntrinsicKeyFrameInterpolationFromEdge::testEnergy(Eigen::VectorXd x)
 {
 	Eigen::VectorXd deriv;
 	Eigen::SparseMatrix<double> hess;

@@ -3,11 +3,11 @@
 
 namespace IntrinsicFormula
 {
-	class IntrinsicKeyFrameInterploation
+	class IntrinsicKeyFrameInterpolationFromEdge
 	{
 	public:
-		IntrinsicKeyFrameInterploation() {}
-		IntrinsicKeyFrameInterploation(const MeshConnectivity& mesh, const Eigen::VectorXd& faceArea, const int numFrames, const int quadOrder, const std::vector<std::complex<double>>& startZvals, const Eigen::VectorXd& startOmega, const std::vector<std::complex<double>>& endZvals, const Eigen::VectorXd& endOmega)
+		IntrinsicKeyFrameInterpolationFromEdge() {}
+		IntrinsicKeyFrameInterpolationFromEdge(const MeshConnectivity& mesh, const Eigen::VectorXd& faceArea, const int numFrames, const int quadOrder, const std::vector<std::complex<double>>& startZvals, const Eigen::VectorXd& startOmega, const std::vector<std::complex<double>>& endZvals, const Eigen::VectorXd& endOmega)
 		{
 			double dt = 1.0 / (numFrames + 1);
 			_zdotModel = ComputeZdotFromEdgeOmega(mesh, faceArea, quadOrder, dt);

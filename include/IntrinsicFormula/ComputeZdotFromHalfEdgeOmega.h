@@ -1,0 +1,41 @@
+#pragma once
+#include "InterpolateZvalsFromEdgeOmega.h"
+
+namespace IntrinsicFormula
+{
+    class ComputeZdotFromHalfEdgeOmega
+            {
+            public:
+                ComputeZdotFromHalfEdgeOmega() {}
+                ComputeZdotFromHalfEdgeOmega(const MeshConnectivity& mesh, const Eigen::VectorXd& faceArea, int quadOrder, double dt = 1)
+                {
+                    _mesh = mesh;
+                    _faceArea = faceArea;
+                    _quadpts = buildQuadraturePoints(quadOrder);
+                    _dt = dt;
+                }
+
+                void resetQuadpts(int quadOrder)
+                {
+                    _quadpts = buildQuadraturePoints(quadOrder);
+                }
+
+                double computeZdotIntegration(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj = false);
+
+                // test functions (for debug usage)
+                void testZdotIntegration(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw);
+                void testZdotIntegrationFromQuad(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw,int fid, int qid);
+                void testZdotIntegrationPerface(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw, int fid);
+
+            private:
+                double computeZdotIntegrationFromQuad(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw,int fid, int qid, Eigen::Matrix<double, 24, 1>* deriv, Eigen::Matrix<double, 24, 24>* hess);
+
+                double computeZdotIntegrationPerface(const std::vector<std::complex<double>>& curZvals, const Eigen::MatrixXd& curw, const std::vector<std::complex<double>>& nextZvals, const Eigen::MatrixXd& nextw, int fid, Eigen::Matrix<double, 24, 1>* deriv, Eigen::Matrix<double, 24, 24>* hess, bool isProj = false);
+
+            private:
+                MeshConnectivity _mesh;
+                Eigen::VectorXd _faceArea;
+                double _dt;
+                std::vector<QuadraturePoints> _quadpts;
+            };
+}

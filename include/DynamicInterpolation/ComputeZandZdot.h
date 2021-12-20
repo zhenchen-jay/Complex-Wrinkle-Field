@@ -36,6 +36,11 @@ public:
         return p;
     }
 
+    std::vector<QuadraturePoints> getQuadPts()
+    {
+        return _quadPoints;
+    }
+
     std::complex<double> planeWaveBasis(Eigen::Vector3d p, Eigen::Vector3d pi, Eigen::Vector2d omega, Eigen::Vector2cd* deriv, Eigen::Matrix2cd* hess, std::vector<Eigen::Matrix2cd>* derivHess);
 
     std::complex<double> planeWaveValueFromQuad(const Eigen::MatrixXd& w,
