@@ -1,2 +1,3 @@
+add_subdirectory(viewer2d_vertexversion)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)

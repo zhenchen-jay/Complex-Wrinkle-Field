@@ -16,6 +16,7 @@
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/boundary_loop.h>
+#include <igl/cotmatrix_entries.h>
 #include <igl/triangle/triangulate.h>
 #include <filesystem>
 #include "polyscope/messages.h"
@@ -27,54 +28,42 @@
 #include <unordered_set>
 #include <utility>
 
-
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
-
-#ifndef GRAIN_SIZE
-#define GRAIN_SIZE 10
-#endif
-
-
-#include "../../include/InterpolationScheme/PhaseInterpolation.h"
-#include "../../include/InterpolationScheme/PlaneWaveExtraction.h"
+#include "../../include/CommonTools.h"
 #include "../../include/MeshLib/MeshConnectivity.h"
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/InterpolationScheme/VecFieldSplit.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
-#include "../../include/DynamicInterpolation/GetInterpolatedValues.h"
-#include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
-#include "../../include/DynamicInterpolation/TimeIntegratedFrames.h"
-#include "../../include/DynamicInterpolation/ComputeZandZdot.h"
-#include "../../include/DynamicInterpolation/ZdotIntegration.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
-#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include "../../include/DynamicInterpolation/ComputeZandZdot.h"
+#include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
+//#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
+#include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
+//#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
+#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 
 
-Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
-Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
+
+Eigen::MatrixXd triV, upsampledTriV;
+Eigen::MatrixXi triF, upsampledTriF;
+MeshConnectivity triMesh, upsampledTriMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
-Eigen::MatrixXd omegaFields, tarOmegaFields;
+Eigen::MatrixXd sourceOmegaFields, tarOmegaFields;
 Eigen::MatrixXd theoOmega, tarTheoOmega;
 
-std::vector<std::complex<double>> zvals, theoZVals, upsampledTheoZVals;
-std::vector<std::complex<double>> tarZvals, tarTheoZVals, upsampledTarTheoZVals;
 
-std::vector<Eigen::Vector2cd> theoGradZvals, tarTheoGradZvals;
+std::vector<std::complex<double>> sourceZvals, sourceTheoZVals, upsampledTheoZVals;
+std::vector<std::complex<double>> tarZvals, tarTheoZVals, upsampledTarTheoZVals;
+std::vector<Eigen::Vector2cd> sourceTheoGradZvals, tarTheoGradZvals;
+
 
 std::vector<Eigen::MatrixXd> omegaList;
 std::vector<Eigen::MatrixXd> theoOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 std::vector<std::vector<std::complex<double>>> theoZList;
-
-Eigen::MatrixXd planeFields;
-Eigen::MatrixXd whirlFields;
-
-Eigen::VectorXd phaseField(0), tarPhaseField(0);
-Eigen::VectorXd ampField(0), tarAmpField(0);
 
 std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
@@ -88,29 +77,21 @@ Eigen::MatrixXi dataF;
 Eigen::MatrixXd dataVec;
 Eigen::MatrixXd curColor;
 
-int loopLevel = 2;
-int uplevelForComputing = 2;
-
-bool isShowOnlyWhirlPool = false;
-bool isShowOnlyPlaneWave = false;
-
-bool isFixed = true;
+int loopLevel = 1;
+bool isFixedSource = true;
 bool isFixedTar = true;
 
 bool isForceOptimize = false;
-bool isTwoTriangles = true;
+bool isTwoTriangles = false;
 
-PhaseInterpolation model;
 PaintGeometry mPaint;
 
 int numFrames = 50;
 int curFrame = 0;
-int sigIndex1 = 1;
-int sigIndex2 = 1;
 
-int singInd = 1, singInd1 = 1;
+int singIndSource = 1, singIndSource1 = 1;
 int singIndTar = 1, singIndTar1 = 1;
-int numWaves = 2, numWaveTar = 4;
+int numWavesSource = 2, numWaveTar = 4;
 
 double globalAmpMax = 1;
 
@@ -119,10 +100,6 @@ double dragSpeed = 0.5;
 double triarea = 0.04;
 
 float vecratio = 0.1;
-
-double fixedx = 0;
-double fixedy = 0;
-Eigen::Vector2d fixedv(1.0, -0.5);
 
 double sourceCenter1x = 0, sourceCenter1y = 0, sourceCenter2x = 0.8, sourceCenter2y = -0.2, targetCenter1x = 0, targetCenter1y = 0, targetCenter2x = 0.3, targetCenter2y = -0.7;
 double sourceDirx = 1.0, sourceDiry = 0, targetDirx = 1, targetDiry = 0;
@@ -140,21 +117,6 @@ enum FunctionType {
 	Summation = 2,
 	YShape = 3,
 	TwoWhirlPool = 4,
-	PeroidicWave = 5
-};
-
-// this is just use for vecCallback functions
-enum InterpolationType {
-	PureWhirlpool = 0,
-	PurePlaneWave = 1,
-	NaiveSplit = 2,
-	NewSplit = 3,
-	JustLinear = 4
-};
-
-enum IntermediateFrameType{
-    Geodesic = 0,
-    IEDynamic = 1
 };
 
 enum InitializationType{
@@ -168,9 +130,6 @@ bool isUseUpMesh = false;
 FunctionType functionType = FunctionType::PlaneWave;
 FunctionType tarFunctionType = FunctionType::PlaneWave;
 InitializationType initializationType = InitializationType::Linear;
-IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
-
-InterpolationType interType = InterpolationType::NewSplit;
 
 
 void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
@@ -263,8 +222,8 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
 {
-	z.resize(triV2D.rows());
-	w.resize(triV2D.rows(), 2);
+	z.resize(triV.rows());
+	w.resize(triV.rows(), 2);
 	std::cout << "whirl pool center: " << centerx << ", " << centery << std::endl;
 	bool isnegative = false;
 	if(pow < 0)
@@ -275,8 +234,8 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 
 	for (int i = 0; i < z.size(); i++)
 	{
-		double x = triV2D(i, 0) - centerx;
-		double y = triV2D(i, 1) - centery;
+		double x = triV(i, 0) - centerx;
+		double y = triV(i, 1) - centery;
 		double rsquare = x * x + y * y;
 
 		if(isnegative)
@@ -302,11 +261,11 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 
 	if(upsampledZ)
 	{
-	    upsampledZ->resize(upsampledTriV2D.rows());
+	    upsampledZ->resize(upsampledTriV.rows());
 	    for(int i = 0; i < upsampledZ->size(); i++)
 	    {
-	        double x = upsampledTriV2D(i, 0) - centerx;
-	        double y = upsampledTriV2D(i, 1) - centery;
+	        double x = upsampledTriV(i, 0) - centerx;
+	        double y = upsampledTriV(i, 1) - centery;
 	        double rsquare = x * x + y * y;
 
 			upsampledZ->at(i) = std::pow(std::complex<double>(x, y), pow);
@@ -316,11 +275,11 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 	}
 	if(gradZ)
 	{
-	    gradZ->resize(triV2D.rows());
+	    gradZ->resize(triV.rows());
 	    for(int i = 0; i < gradZ->size(); i++)
 	    {
-	        double x = upsampledTriV2D(i, 0) - centerx;
-	        double y = upsampledTriV2D(i, 1) - centery;
+	        double x = upsampledTriV(i, 0) - centerx;
+	        double y = upsampledTriV(i, 1) - centery;
 
 	        Eigen::Vector2cd tmpGrad;
 	        tmpGrad << 1, std::complex<double>(0, 1);
@@ -337,13 +296,13 @@ void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::
 
 void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
 {
-    z.resize(triV2D.rows());
-    w.resize(triV2D.rows(), 2);
+    z.resize(triV.rows());
+    w.resize(triV.rows(), 2);
     std::cout << "plane wave direction: " << v.transpose() << std::endl;
 
     for (int i = 0; i < z.size(); i++)
     {
-        double theta = v.dot(triV2D.row(i).segment<2>(0));
+        double theta = v.dot(triV.row(i).segment<2>(0));
         double x = std::cos(theta);
         double y = std::sin(theta);
         z[i] = std::complex<double>(x, y);
@@ -352,10 +311,10 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
 
     if(upsampledZ)
     {
-        upsampledZ->resize(upsampledTriV2D.rows());
+        upsampledZ->resize(upsampledTriV.rows());
         for(int i = 0; i < upsampledZ->size(); i++)
         {
-            double theta = v.dot(upsampledTriV2D.row(i).segment<2>(0));
+            double theta = v.dot(upsampledTriV.row(i).segment<2>(0));
             double x = std::cos(theta);
             double y = std::sin(theta);
             upsampledZ->at(i) = std::complex<double>(x, y);
@@ -363,10 +322,10 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
     }
     if(gradZ)
     {
-        gradZ->resize(triV2D.rows());
+        gradZ->resize(triV.rows());
         for(int i = 0; i < gradZ->size(); i++)
         {
-            double theta = v.dot(triV2D.row(i).segment<2>(0));
+            double theta = v.dot(triV.row(i).segment<2>(0));
             double x = std::cos(theta);
             double y = std::sin(theta);
             std::complex<double> tmpZ = std::complex<double>(x, y);
@@ -396,8 +355,8 @@ void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, dou
 	std::cout << "whirl pool center: " << centerx0 << ", " << centery0 << std::endl;
 	std::cout << "whirl pool center: " << centerx1 << ", " << centery1 << std::endl;
 
-	z.resize(triV2D.rows());
-	w.resize(triV2D.rows(), 2);
+	z.resize(triV.rows());
+	w.resize(triV.rows(), 2);
 
 	w = w0 + w1;
 
@@ -408,7 +367,7 @@ void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, dou
 
 	if (upsampledZ)
 	{
-		upsampledZ->resize(upsampledTriV2D.rows());
+		upsampledZ->resize(upsampledTriV.rows());
 		for (int i = 0; i < upsampledZ->size(); i++)
 		{
 			upsampledZ->at(i) = upsampledZ0[i] * upsampledZ1[i];
@@ -427,8 +386,8 @@ void generateTwoWhirlPool(double centerx0, double centery0, double centerx1, dou
 
 void generatePlaneSumWhirl(double centerx, double centery, Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
 {
-    z.resize(triV2D.rows());
-    w.resize(triV2D.rows(), 2);
+    z.resize(triV.rows());
+    w.resize(triV.rows(), 2);
     std::cout << "whirl pool center: " << centerx << ", " << centery << std::endl;
     std::cout << "plane wave direction: " << v.transpose() << std::endl;
 
@@ -449,7 +408,7 @@ void generatePlaneSumWhirl(double centerx, double centery, Eigen::Vector2d v, Ei
 
     if(upsampledZ)
     {
-        upsampledZ->resize(upsampledTriV2D.rows());
+        upsampledZ->resize(upsampledTriV.rows());
 
         for(int i = 0; i < upsampledZ->size(); i++)
         {
@@ -470,11 +429,11 @@ void generatePlaneSumWhirl(double centerx, double centery, Eigen::Vector2d v, Ei
 
 void generateYshape(Eigen::Vector2d w1, Eigen::Vector2d w2, Eigen::MatrixXd &w, std::vector<std::complex<double>> &z, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
 {
-    z.resize(triV2D.rows());
-    w.resize(triV2D.rows(), 2);
+    z.resize(triV.rows());
+    w.resize(triV.rows(), 2);
 
     if(gradZ)
-        gradZ->resize(triV2D.rows());
+        gradZ->resize(triV.rows());
 
     std::cout << "w1: " << w1.transpose() << std::endl;
     std::cout << "w2: " << w2.transpose() << std::endl;
@@ -487,13 +446,13 @@ void generateYshape(Eigen::Vector2d w1, Eigen::Vector2d w2, Eigen::MatrixXd &w, 
     generatePlaneWave(w1, pw1, pz1, gradZ ? & gradPZ1 : NULL, upsampledZ? &upsampledPZ1 : NULL);
     generatePlaneWave(w2, pw2, pz2, gradZ ? & gradPZ2 : NULL, upsampledZ? &upsampledPZ2 : NULL);
 
-    double ymax = triV2D.col(1).maxCoeff();
-    double ymin = triV2D.col(1).minCoeff();
+    double ymax = triV.col(1).maxCoeff();
+    double ymin = triV.col(1).minCoeff();
 
     for (int i = 0; i < z.size(); i++)
     {
 
-        double weight = (triV2D(i, 1) - triV2D.col(1).minCoeff()) / (triV2D.col(1).maxCoeff() - triV2D.col(1).minCoeff());
+        double weight = (triV(i, 1) - triV.col(1).minCoeff()) / (triV.col(1).maxCoeff() - triV.col(1).minCoeff());
         z[i] = (1 - weight) * pz1[i] + weight * pz2[i];
         Eigen::Vector2cd dz = (1 - weight) * gradPZ1[i] + weight * gradPZ2[i];
         if(gradZ)
@@ -507,20 +466,20 @@ void generateYshape(Eigen::Vector2d w1, Eigen::Vector2d w2, Eigen::MatrixXd &w, 
 
     if(upsampledZ)
     {
-        upsampledZ->resize(upsampledTriV2D.rows());
+        upsampledZ->resize(upsampledTriV.rows());
         for(int i = 0; i < upsampledZ->size(); i++)
         {
-            double theta = w1.dot(upsampledTriV2D.row(i).segment<2>(0));
+            double theta = w1.dot(upsampledTriV.row(i).segment<2>(0));
             double x = std::cos(theta);
             double y = std::sin(theta);
             std::complex<double> z1 = std::complex<double>(x, y);
 
-            theta = w2.dot(upsampledTriV2D.row(i).segment<2>(0));
+            theta = w2.dot(upsampledTriV.row(i).segment<2>(0));
             x = std::cos(theta);
             y = std::sin(theta);
             std::complex<double> z2 = std::complex<double>(x, y);
 
-            double weight = (upsampledTriV2D(i, 1) - upsampledTriV2D.col(1).minCoeff()) / (upsampledTriV2D.col(1).maxCoeff() - upsampledTriV2D.col(1).minCoeff());
+            double weight = (upsampledTriV(i, 1) - upsampledTriV.col(1).minCoeff()) / (upsampledTriV.col(1).maxCoeff() - upsampledTriV.col(1).minCoeff());
             upsampledZ->at(i) = (1 - weight) * z1 + weight * z2;
         }
     }
@@ -528,82 +487,122 @@ void generateYshape(Eigen::Vector2d w1, Eigen::Vector2d w2, Eigen::MatrixXd &w, 
 
 void initialization()
 {
-	generateSquare(2.0, 2.0, triarea, triV2D, triF2D);
-
-	triV3D = triV2D;
-	triF3D = triF2D;
+	generateSquare(2.0, 2.0, triarea, triV, triF);
 
 	Eigen::SparseMatrix<double> S;
 	std::vector<int> facemap;
 
-	meshUpSampling(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, loopLevel, &S, &facemap, &bary);
-	meshUpSampling(triV3D, triF3D, upsampledTriV3D, upsampledTriF3D, loopLevel);
+	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
 	std::cout << "upsampling finished" << std::endl;
 
-	MeshConnectivity mesh3D(triF3D), upsampledMesh3D(upsampledTriF3D);
-	MeshConnectivity mesh2D(triF2D), upsampledMesh2D(upsampledTriF2D);
-
-	model = PhaseInterpolation(triV2D, mesh2D, upsampledTriV2D, upsampledMesh2D, triV3D, mesh3D, upsampledTriV3D, upsampledMesh3D, &bary);
+	triMesh = MeshConnectivity(triF);
+	upsampledTriMesh = MeshConnectivity(upsampledTriF);
 }
 
-void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen::MatrixXd& whirlPoolPart)
+
+void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false, double fixedx = 0, double fixedy = 0, Eigen::Vector2d fixedv = Eigen::Vector2d::Constant(1.0))
 {
-	if (interType == InterpolationType::PurePlaneWave)
+	Eigen::MatrixXd vertFields;
+	if (funType == FunctionType::Whirlpool)
 	{
-		std::cout << "pure plane wave" << std::endl;
-		planePart = vecfields;
-		whirlPoolPart = vecfields;
-		whirlPoolPart.setZero();
+		Eigen::Vector2d center = Eigen::Vector2d::Random();
+		if (isFixedGenerator)
+			center << fixedx, fixedy;
+		generateWhirlPool(center(0), center(1), vertFields, zvalues, singularityInd1, &gradZvals, &upZvals);
 	}
-	else if (interType == InterpolationType::PureWhirlpool)
+	else if (funType == FunctionType::PlaneWave)
 	{
-		std::cout << "pure whirl pool" << std::endl;
-		planePart = vecfields;
-		whirlPoolPart = vecfields;
-		planePart.setZero();
+		Eigen::Vector2d v = Eigen::Vector2d::Random();
+		if (isFixedGenerator)
+			v = fixedv;
+		generatePlaneWave(v, vertFields, zvalues, &gradZvals, &upZvals);
 	}
-	else if (interType == InterpolationType::NaiveSplit)
+	else if (funType == FunctionType::Summation)
 	{
-		std::cout << "naive split" << std::endl;
-		Eigen::Vector2d aveVec;
-		aveVec.setZero();
-
-		for (int i = 0; i < vecfields.rows(); i++)
+		Eigen::Vector2d center = Eigen::Vector2d::Random();
+		Eigen::Vector2d v = Eigen::Vector2d::Random();
+		if (isFixedGenerator)
 		{
-			aveVec += vecfields.row(i);
+			v = fixedv;
+			center << fixedx, fixedy;
 		}
-		aveVec /= vecfields.rows();
-
-		planePart = vecfields;
-		for (int i = 0; i < vecfields.rows(); i++)
-		{
-			planePart.row(i) = aveVec;
-		}
-
-		whirlPoolPart = vecfields - planePart;
-
+		generatePlaneSumWhirl(center(0), center(1), v, vertFields, zvalues, singularityInd1, &gradZvals, &upZvals);
 	}
-	else if (interType == InterpolationType::NewSplit)
+	else if (funType == FunctionType::YShape)
 	{
-		std::cout << "new split" << std::endl;
-		VecFieldsSplit testModel = VecFieldsSplit(triV2D, MeshConnectivity(triF2D), vecfields);
-		Eigen::Vector2d aveVec;
-		aveVec.setZero();
+		Eigen::Vector2d w1(1, 0);
+		Eigen::Vector2d w2(1, 0);
 
-		for (int i = 0; i < vecfields.rows(); i++)
-			aveVec += vecfields.row(i);
-		aveVec /= vecfields.rows();
+		w1(0) = 2 * 3.1415926;
+		w2(0) = 4 * 3.1415926;
+		generateYshape(w1, w2, vertFields, zvalues, &gradZvals, &upZvals);
+	}
+	else if (funType == FunctionType::TwoWhirlPool)
+	{
+		Eigen::Vector2d center0 = Eigen::Vector2d::Random();
+		Eigen::Vector2d center1 = Eigen::Vector2d::Random();
+		if (isFixedGenerator)
+		{
+			center0 << fixedx, fixedy;
+			center1 << 0.8, -0.3;
+		}
+		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), vertFields, zvalues, singularityInd1, singularityInd2, &gradZvals, &upZvals);
+	}
+	Eigen::MatrixXd vertFields3D(triV.rows(), 3);
+	vertFields3D.block(0, 0, triV.rows(), 2) = vertFields;
+	vertFields3D.col(2).setZero();
 
-		Eigen::VectorXd x(2 * vecfields.rows());
+	vecFields = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, MeshConnectivity(triF));
+}
+
+void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+{
+	Eigen::VectorXd faceArea;
+	igl::doublearea(triV, triF, faceArea);
+	faceArea /= 2;
+	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
+	Eigen::VectorXd x;
+	interpModel.convertList2Variable(x);        // linear initialization
+
+    std::vector<std::complex<double>> testzvals;
+    Eigen::MatrixXd cotEntries;
+    igl::cotmatrix_entries(triV, triF, cotEntries);
+    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
+    IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
+	for (auto& z : testzvals)
+	{
+		Eigen::Vector2d rndvec;
+		rndvec.setRandom();
+		z = std::complex<double>(rndvec(0), rndvec(1));
+	}
+	IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
+
+	//interpModel.testEnergy(x);
+	//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
+	if (initializationType == InitializationType::Theoretical)
+	{
+		interpModel.setwzLists(theoZList, theoOmegaList);
+		interpModel.convertList2Variable(x);
+	}
+	else if (initializationType == InitializationType::Random)
+	{
 		x.setRandom();
+		interpModel.convertVariable2List(x);
+		interpModel.convertList2Variable(x);
+	}
+	else
+	{
+		// do nothing, since it is initialized as the linear interpolation.
+	}
 
-		/*for(int i = 0; i < vecfields.rows(); i++)
-			x.segment<2>(2 * i) = aveVec;*/
-
+	auto initWFrames = interpModel.getWList();
+	auto initZFrames = interpModel.getVertValsList();
+	if (isForceOptimize)
+	{
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv;
 			Eigen::SparseMatrix<double> H;
-			double E = testModel.optEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+			double E = interpModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
 			if (grad)
 			{
@@ -621,287 +620,48 @@ void doSplit(const Eigen::MatrixXd& vecfields, Eigen::MatrixXd& planePart, Eigen
 			return 1.0;
 		};
 
-		OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+		auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
+			interpModel.getComponentNorm(x, znorm, wnorm);
+		};
 
-		planePart = vecfields;
-		for (int i = 0; i < planePart.rows(); i++)
-		{
-			planePart.row(i) = x.segment<2>(2 * i);
-		}
 
-		whirlPoolPart = vecfields - planePart;
+
+		OptSolver::testFuncGradHessian(funVal, x);
+
+		auto x0 = x;
+		OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
+		std::cout << "x norm: " << x.norm() << std::endl;
 	}
-	else
+	interpModel.convertVariable2List(x);
+
+	wFrames = interpModel.getWList();
+	zFrames = interpModel.getVertValsList();
+
+	for (int i = 0; i < wFrames.size() - 1; i++)
 	{
-		planePart = vecfields;
-		whirlPoolPart = vecfields;
-		whirlPoolPart.setZero();
-		planePart.setZero();
+		double zdotNorm = interpModel._zdotModel.computeZdotIntegration(zFrames[i], wFrames[i], zFrames[i + 1], wFrames[i + 1], NULL, NULL);
+
+		double initZdotNorm = interpModel._zdotModel.computeZdotIntegration(initZFrames[i], initWFrames[i], initZFrames[i + 1], initWFrames[i + 1], NULL, NULL);
+
+		std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
 	}
-	if (isShowOnlyPlaneWave)
-		whirlPoolPart.setZero();
-	else if (isShowOnlyWhirlPool)
-		planePart.setZero();
-}
 
-
-void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vector<std::complex<double>> &zvalues, std::vector<Eigen::Vector2cd> &gradZvals, std::vector<std::complex<double>> &upZvals, int singularityInd1 = 1, int singularityInd2 = 1, bool isFixedGenerator = false, int waveNum = 2)
-{
-	if (funType == FunctionType::Whirlpool)
-	{
-		Eigen::Vector2d center = Eigen::Vector2d::Random();
-		if (isFixedGenerator)
-			center << fixedx, fixedy;
-		generateWhirlPool(center(0), center(1), vecFields, zvalues, singularityInd1, &gradZvals, &upZvals);
-	}
-	else if (funType == FunctionType::PlaneWave)
-	{
-		Eigen::Vector2d v = Eigen::Vector2d::Random();
-		if (isFixedGenerator)
-			v = fixedv;
-		generatePlaneWave(v, vecFields, zvalues, &gradZvals, &upZvals);
-	}
-	else if (funType == FunctionType::Summation)
-	{
-		Eigen::Vector2d center = Eigen::Vector2d::Random();
-		Eigen::Vector2d v = Eigen::Vector2d::Random();
-		if (isFixedGenerator)
-		{
-			v = fixedv;
-			center << fixedx, fixedy;
-		}
-		generatePlaneSumWhirl(center(0), center(1), v, vecFields, zvalues, singularityInd1, &gradZvals, &upZvals);
-	}
-	else if (funType == FunctionType::YShape)
-	{
-		Eigen::Vector2d w1(1, 0);
-		Eigen::Vector2d w2(1, 0);
-
-		w1(0) = 2 * 3.1415926;
-		w2(0) = 4 * 3.1415926;
-		generateYshape(w1, w2, vecFields, zvalues, &gradZvals, &upZvals);
-	}
-	else if (funType == FunctionType::TwoWhirlPool)
-	{
-		Eigen::Vector2d center0 = Eigen::Vector2d::Random();
-		Eigen::Vector2d center1 = Eigen::Vector2d::Random();
-		if (isFixedGenerator)
-		{
-			center0 << fixedx, fixedy;
-			center1 << 0.8, -0.3;
-		}
-		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), vecFields, zvalues, singularityInd1, singularityInd2, &gradZvals, &upZvals);
-	}
-	else if (funType == FunctionType::PeroidicWave)
-	{
-	    generatePeriodicWave(waveNum, vecFields, zvalues, &gradZvals, &upZvals);
-	}
-}
-
-void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
-{
-	//ComputeZandZdot zdotModel = ComputeZandZdot(triV2D, triF2D, 6);
-	//zdotModel.testPlaneWaveValueDotFromQuad(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0, 2);
-	//zdotModel.testZDotSquarePerface(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0);
-	//zdotModel.testZDotSquareIntegration(sourceVec, tarVec, sourceZvals, tarZvals, 1);
-
-	Eigen::MatrixXd upV;
-	Eigen::MatrixXi upF;
-	std::vector<std::pair<int, Eigen::Vector3d>> upbary;
-	Eigen::SparseMatrix<double> S;
-	std::vector<int> facemap;
-	meshUpSampling(triV2D, triF2D, upV, upF, uplevelForComputing,  &S, &facemap, &upbary);
-
-	if(frameType == IntermediateFrameType::Geodesic)
-	{
-		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh);
-	    Eigen::VectorXd x;
-	    interpModel.convertList2Variable(x);        // linear initialization
-
-	    //interpModel.testEnergy(x);
-	    //		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
-	    if(initializationType == InitializationType::Theoretical)
-	    {
-	        interpModel._wList = theoOmegaList;
-	        interpModel._vertValsList = theoZList;
-	        interpModel.convertList2Variable(x);
-	    }
-	    else if(initializationType == InitializationType::Random)
-	    {
-	        x.setRandom();
-	        interpModel.convertVariable2List(x);
-	        interpModel.convertList2Variable(x);
-	    }
-	    else
-	    {
-	        // do nothing, since it is initialized as the linear interpolation.
-	    }
-
-	    auto initWFrames = interpModel.getWList();
-	    auto initZFrames = interpModel.getVertValsList();
-	    if(isForceOptimize)
-	    {
-	        auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-	            Eigen::VectorXd deriv;
-	            Eigen::SparseMatrix<double> H;
-	            double E = interpModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
-
-	            if (grad)
-	            {
-	                (*grad) = deriv;
-	            }
-
-	            if (hess)
-	            {
-	                (*hess) = H;
-	            }
-
-	            return E;
-	        };
-	        auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
-	            return 1.0;
-	        };
-
-	        auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm){
-	            interpModel.getComponentNorm(x, znorm, wnorm);
-	        };
-
-	        if(functionType == FunctionType::PeroidicWave && tarFunctionType == FunctionType::PeroidicWave)
-	        {
-	            // build constraints
-	            std::vector<int> bnds;
-	            igl::boundary_loop(triF2D, bnds);
-
-	            std::vector<std::pair<int, int>> bndPairs;
-	            double minX = triV2D.col(0).minCoeff();
-	            double maxX = triV3D.col(0).maxCoeff();
-	            Eigen::VectorXi flagVec(triV2D.rows());
-	            flagVec.setZero();
-
-	            for(int i = 0; i < bnds.size(); i++)
-	            {
-	               int vid = bnds[i];
-	               if(triV2D(vid, 0) - minX < 1e-6)
-	               {
-	                   int vid1 = -1;
-	                   for(int j = 0; j < bnds.size(); j++)
-	                   {
-	                       vid1 = bnds[j];
-	                       if(maxX - triV2D(vid1, 0) < 1e-6 && std::abs(triV2D(vid, 1) - triV2D(vid1, 1)) < 1e-6)
-	                       {
-	                           std::cout << "left vid: " << vid << ", right pair: " << vid1 << std::endl;
-	                           bndPairs.push_back({vid, vid1});
-	                           flagVec(vid) = 1;
-	                           flagVec(vid1) = 1;
-	                       }
-	                   }
-	               }
-	            }
-	            std::cout << "total pair size: " << bndPairs.size() << std::endl;
-
-
-	            // equality
-	            std::vector<Eigen::Triplet<double>> T;
-	            int row = 0;
-	            int nverts = triV2D.rows();
-	            for(int i = 0; i < bndPairs.size(); i++)
-	            {
-	                T.push_back({row, 2 * bndPairs[i].first, 1});
-	                T.push_back({row, 2 * bndPairs[i].second, -1});
-
-	                T.push_back({row + 1, 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 1, 2 * bndPairs[i].second + 1, -1});
-
-
-	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].first, 1});
-	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].second, -1});
-
-	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-
-	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].first, 1});
-	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].second, -1});
-
-	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                row += 8;
-	            }
-
-	            Eigen::SparseMatrix<double> Aeq(row, x.rows()), Aineq(0, x.rows());
-	            Aeq.setFromTriplets(T.begin(), T.end());
-
-	            Eigen::VectorXd beq(row), bineq(0);
-	            beq.setZero();
-
-	            auto x0 = x;
-	            OptSolver::linearConstSolver(funVal, maxStep, Aeq, beq, Aineq, bineq, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
-	            std::cout << "x norm: " << x.norm() << std::endl;
-
-
-	        }
-	        else
-	        {
-	            OptSolver::testFuncGradHessian(funVal, x);
-
-	            auto x0 = x;
-	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
-	            std::cout << "x norm: " << x.norm() << std::endl;
-	        }
-	    }
-	    interpModel.convertVariable2List(x);
-
-	    wFrames = interpModel.getWList();
-	    zFrames = interpModel.getVertValsList();
-
-	    for (int i = 0; i < wFrames.size() - 1; i++)
-	    {
-	        double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-	        double actualZdotNorm = interpModel._newmodel.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-
-	        double initZdotNorm = interpModel._model.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-	        double initActualZdotNorm = interpModel._newmodel.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-
-	        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << std::endl;
-	    }
-	}
-	else if(frameType == IntermediateFrameType::IEDynamic)
-	{
-	    TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames);
-	    frameModel.solveInterpFrames();
-
-	    wFrames = frameModel.getWList();
-	    zFrames = frameModel.getVertValsList();
-	}
 
 }
 
 void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
 {
-	GetInterpolatedValues interpModel = GetInterpolatedValues(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary);
-
 	std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
 	magList.resize(wFrames.size());
 	phaseList.resize(wFrames.size());
 
+	MeshConnectivity mesh(triF);
+
 	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			interpZList[i] = interpModel.getZValues(wFrames[i], zFrames[i], NULL, NULL);
-			/*Eigen::MatrixXd upsampledW;
-			Eigen::MatrixXd NV;
-			Eigen::MatrixXi NF;
-			upsampleMeshZvals(triV2D, triF2D, wFrames[i], zFrames[i], NV, NF, upsampledW, interpZList[i], loopLevel);*/
+			interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
 			magList[i].setZero(interpZList[i].size());
 			phaseList[i].setZero(interpZList[i].size());
 
@@ -915,24 +675,6 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
-
-	/*Eigen::MatrixXd upsampledW;
-	upsampleMeshZvals(triV2D, triF2D, wFrames[0], zFrames[0], upsampledTriV2D, upsampledTriF2D, upsampledW, interpZList[0], loopLevel);*/
-
-	/*for (int i = 0; i < interpZList.size(); i++)
-	{
-		Eigen::MatrixXd upsampledW;
-		upsampleMeshZvals(triV2D, triF2D, wFrames[i], zFrames[i], upsampledTriV2D, upsampledTriF2D, upsampledW, interpZList[i], loopLevel);
-		magList[i].setZero(interpZList[i].size());
-		phaseList[i].setZero(interpZList[i].size());
-
-		for (int j = 0; j < magList[i].size(); j++)
-		{
-			magList[i](j) = std::abs(interpZList[i][j]);
-			phaseList[i](j) = std::arg(interpZList[i][j]);
-		}
-	}*/
-	
 }
 
 void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals,
@@ -961,8 +703,7 @@ void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZva
 			    magList[i][j] = std::abs(z);
 			    phaseList[i][j] = std::arg(z);
 			}
-
-			wList[i].setZero(sourceZvals.size(), 2);
+			Eigen::MatrixXd vertOmega = Eigen::MatrixXd::Zero(sourceZvals.size(), 3);
 			zvalList[i].resize(sourceZvals.size());
 
 			for(int j = 0; j < sourceZvals.size(); j++)
@@ -970,46 +711,22 @@ void updateTheoMagnitudePhase(const std::vector<std::complex<double>>& sourceZva
 			    Eigen::Vector2cd gradf = (1 - w) * sourceGradZvals[j] + w * tarGradZvals[j];
 			    std::complex<double> fbar = (1 - w) * std::conj(sourceZvals[j]) + w * std::conj(tarZvals[j]);
 
-			    wList[i].row(j) = ((gradf * fbar) / (std::abs(fbar) * std::abs(fbar))).imag();
+				vertOmega.row(j).segment<2>(0) = ((gradf * fbar) / (std::abs(fbar) * std::abs(fbar))).imag();
 			    zvalList[i][j] = (1 - w) * sourceZvals[j] + w * tarZvals[j];
 			}
+			wList[i] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);
 		}
 	};
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)(num + 2), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
-
-//	for (int i = 0; i < num + 2; i++)
-//	{
-//	    double w = i * dt;
-//	    magList[i].setZero(upSourceZvals.size());
-//	    phaseList[i].setZero(upSourceZvals.size());
-//	    for (int j = 0; j < upSourceZvals.size(); j++)
-//	    {
-//	        std::complex<double> z = (1 - w) * upSourceZvals[j] + w * upTarZvals[j];
-//	        magList[i][j] = std::abs(z);
-//	        phaseList[i][j] = std::arg(z);
-//	    }
-//
-//	    wList[i].setZero(sourceZvals.size(), 2);
-//	    zvalList[i].resize(sourceZvals.size());
-//
-//	    for(int j = 0; j < sourceZvals.size(); j++)
-//	    {
-//	        Eigen::Vector2cd gradf = (1 - w) * sourceGradZvals[j] + w * tarGradZvals[j];
-//	        std::complex<double> fbar = (1 - w) * std::conj(sourceZvals[j]) + w * std::conj(tarZvals[j]);
-//
-//	        wList[i].row(j) = ((gradf * fbar) / (std::abs(fbar) * std::abs(fbar))).imag();
-//	        zvalList[i][j] = (1 - w) * sourceZvals[j] + w * tarZvals[j];
-//	    }
-//	}
 }
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
 	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shifty, const double& ampMax,
-	const Eigen::MatrixXd& vec,  Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec,
+	Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec,
 	Eigen::VectorXd theoAmpVec, const Eigen::VectorXd& theoPhaseVec,
-	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderVec, Eigen::MatrixXd& renderColor)
+	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderColor)
 {
 	int nverts = basePos.rows();
 	int nfaces = baseF.rows();
@@ -1023,7 +740,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	renderV.resize(ndataVerts, 3);
 	renderF.resize(ndataFaces, 3);
 	renderColor.setZero(ndataVerts, 3);
-	renderVec.setZero(ndataVerts, 3);
 
 	renderColor.col(0).setConstant(1.0);
 	renderColor.col(1).setConstant(1.0);
@@ -1042,8 +758,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	renderV.block(0, 0, nverts, 3) = basePos - shiftV;
 	renderF.block(0, 0, nfaces, 3) = baseF;
-	for (int i = 0; i < nverts; i++)
-		renderVec.row(i) << vec(i, 0), vec(i, 1), 0;
 	curVerts += nverts; 
 	curFaces += nfaces;
 
@@ -1111,62 +825,53 @@ void registerMesh(int frameId)
 {
 	Eigen::MatrixXd sourceP, tarP, interpP;
 	Eigen::MatrixXi sourceF, tarF, interpF;
-
-	Eigen::MatrixXd sourceVec, tarVec, interpVec;
 	Eigen::MatrixXd sourceColor, tarColor, interpColor;
-	double shiftx = 1.5 * (triV2D.col(0).maxCoeff() - triV2D.col(0).minCoeff());
-	double shifty = 1.5 * (triV2D.col(1).maxCoeff() - triV2D.col(1).minCoeff());
+
+	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+	double shifty = 1.5 * (triV.col(1).maxCoeff() - triV.col(1).minCoeff());
 	int totalfames = ampFieldsList.size();
-	registerMeshByPart(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, 0, globalAmpMax, omegaList[0], ampFieldsList[0], phaseFieldsList[0], theoAmpFieldsList[0], theoPhaseFieldsList[0], sourceP, sourceF, sourceVec, sourceColor);
-	registerMeshByPart(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, shifty, globalAmpMax, omegaList[totalfames - 1], ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], theoAmpFieldsList[totalfames - 1], theoPhaseFieldsList[totalfames - 1], tarP, tarF, tarVec, tarColor);
-	registerMeshByPart(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, 2 * shifty, globalAmpMax, omegaList[frameId], ampFieldsList[frameId], phaseFieldsList[frameId], theoAmpFieldsList[frameId], theoPhaseFieldsList[frameId], interpP, interpF, interpVec, interpColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMax, ampFieldsList[0], phaseFieldsList[0], theoAmpFieldsList[0], theoPhaseFieldsList[0], sourceP, sourceF, sourceColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shifty, globalAmpMax, ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], theoAmpFieldsList[totalfames - 1], theoPhaseFieldsList[totalfames - 1], tarP, tarF, tarColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shifty, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], theoAmpFieldsList[frameId], theoPhaseFieldsList[frameId], interpP, interpF, interpColor);
 
 	
 	Eigen::MatrixXi shifF = sourceF;
 
 	int nPartVerts = sourceP.rows();
 	int nPartFaces = sourceF.rows();
-	int nverts = triV2D.rows();
-	int nfaces = triF2D.rows();
+	int nverts = triV.rows();
+	int nfaces = triF.rows();
 
 
 	dataV.setZero(3 * nPartVerts + nverts, 3);
-	dataVec.setZero(3 * nPartVerts + nverts, 3);
 	curColor.setZero(3 * nPartVerts + nverts, 3);
 	dataF.setZero(3 * nPartFaces + nfaces, 3);
 
 	shifF.setConstant(nPartVerts);
 
 	dataV.block(0, 0, nPartVerts, 3) = sourceP;
-	dataVec.block(0, 0, nPartVerts, 3) = sourceVec;
 	curColor.block(0, 0, nPartVerts, 3) = sourceColor;
 	dataF.block(0, 0, nPartFaces, 3) = sourceF;
 
 	dataV.block(nPartVerts, 0, nPartVerts, 3) = tarP;
-	dataVec.block(nPartVerts, 0, nPartVerts, 3) = tarVec;
 	curColor.block(nPartVerts, 0, nPartVerts, 3) = tarColor;
 	dataF.block(nPartFaces, 0, nPartFaces, 3) = tarF + shifF;
 
 	dataV.block(nPartVerts * 2, 0, nPartVerts, 3) = interpP;
-	dataVec.block(nPartVerts * 2, 0, nPartVerts, 3) = interpVec;
 	curColor.block(nPartVerts * 2, 0, nPartVerts, 3) = interpColor;
 	dataF.block(nPartFaces * 2, 0, nPartFaces, 3) = interpF + 2 * shifF;
 
-	Eigen::MatrixXd shiftV = triV2D;
+	Eigen::MatrixXd shiftV = triV;
 	shiftV.col(0).setConstant(shiftx);
 	shiftV.col(1).setConstant(-2 * shifty);
 	shiftV.col(2).setZero();
 
-	shifF = triF2D;
+	shifF = triF;
 	shifF.setConstant(3 * nPartVerts);
 
-	dataV.block(nPartVerts * 3, 0, nverts, 3) = triV2D + shiftV;
+	dataV.block(nPartVerts * 3, 0, nverts, 3) = triV + shiftV;
 	curColor.block(nPartVerts * 3, 0, nverts, 3).setConstant(1.0);
-	for(int i = 0; i < nverts; i++)
-	{
-	    dataVec.row(nPartVerts * 3 + i) << theoOmegaList[frameId](i, 0), theoOmegaList[frameId](i, 1), 0;
-	}
-	dataF.block(nPartFaces * 3, 0, nfaces, 3) = triF2D + shifF;
+	dataF.block(nPartFaces * 3, 0, nfaces, 3) = triF + shifF;
 
 	polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
 
@@ -1178,8 +883,8 @@ void updateFieldsInView(int frameId)
 	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
 
-	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
-	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
+	/*polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
+	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);*/
 }
 
 
@@ -1209,16 +914,16 @@ void callback() {
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
-		if (ImGui::Checkbox("Fixed source center and dir", &isFixed)) {}
+		if (ImGui::Checkbox("Fixed source center and dir", &isFixedSource)) {}
 
 		if (ImGui::CollapsingHeader("source whirl  pool Info"))
 		{
-		    if (ImGui::InputInt("source singularity index 1", &singInd)){}
+		    if (ImGui::InputInt("source singularity index 1", &singIndSource)){}
 		    if (ImGui::InputDouble("source center 1 x: ", &sourceCenter1x)) {}
 		    ImGui::SameLine();
 		    if (ImGui::InputDouble("source center 1 y: ", &sourceCenter1y)) {}
 
-		    if (ImGui::InputInt("source singularity index 2", &singInd1)){}
+		    if (ImGui::InputInt("source singularity index 2", &singIndSource1)){}
 		    if (ImGui::InputDouble("source center 2 x: ", &sourceCenter2x)) {}
 		    ImGui::SameLine();
 		    if (ImGui::InputDouble("source center 2 y: ", &sourceCenter2y)) {}
@@ -1226,7 +931,7 @@ void callback() {
 
 		if (ImGui::CollapsingHeader("source plane wave Info"))
 		{
-		    if (ImGui::InputInt("source num waves", &numWaves)){}
+		    if (ImGui::InputInt("source num waves", &numWavesSource)){}
 		    if (ImGui::InputDouble("source dir x: ", &sourceDirx)) {}
 		    ImGui::SameLine();
 		    if (ImGui::InputDouble("source dir y: ", &sourceDiry)) {}
@@ -1310,32 +1015,34 @@ void callback() {
 		        quadOrder = 4;
 		}
 		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
-		if (ImGui::InputInt("underline upsampled times", &uplevelForComputing))
-		{
-		    if (uplevelForComputing < 0)
-		        uplevelForComputing = 2;
-		}
 
 	}
-	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
 	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
 
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
 	if (ImGui::Button("update values", ImVec2(-1, 0)))
 	{
-	    double backupx = fixedx, backupy = fixedy;
-	    Eigen::Vector2d backupv = fixedv;
-
+		double fixedx = 0;
+		double fixedy = 0;
+		Eigen::Vector2d fixedv(1, 0);
 		// source vector fields
-		if(isFixed)
+		if(isFixedSource)
 		{
 		    fixedx = sourceCenter1x;
 		    fixedy = sourceCenter1y;
 		    fixedv << sourceDirx, sourceDiry;
-		    fixedv *= numWaves * 2 * M_PI;
+		    fixedv *= numWavesSource * 2 * M_PI;
 		}
-		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
+		generateValues(functionType, sourceOmegaFields, sourceZvals, sourceTheoGradZvals, upsampledTheoZVals, singIndSource, singIndSource1, isFixedSource, fixedx, fixedy, fixedv);
+		/*std::cout << "triV: \n" << triV << std::endl;
+
+		std::cout << fixedv.transpose() << std::endl;
+		for (int i = 0; i < sourceOmegaFields.rows(); i++)
+		{
+			std::cout << "edge id: " << i << ", vid: " << triMesh.edgeVertex(i, 0) << ", zval: " << sourceZvals[triMesh.edgeVertex(i, 0)] << ",  " << triMesh.edgeVertex(i, 1) << " " << sourceZvals[triMesh.edgeVertex(i, 1)] << ", w: " << sourceOmegaFields(i) << std::endl;
+		}*/
+		
 
 		if(isFixedTar)
 		{
@@ -1345,17 +1052,13 @@ void callback() {
 		   fixedv *= numWaveTar * 2 * M_PI;
 		}
 		// target vector fields
-		generateValues(tarFunctionType, tarOmegaFields, tarZvals, tarTheoGradZvals, upsampledTarTheoZVals, singIndTar, singIndTar1, isFixedTar);
-
-		fixedx = backupx;
-		fixedy = backupy;
-		fixedv = backupv;
+		generateValues(tarFunctionType, tarOmegaFields, tarZvals, tarTheoGradZvals, upsampledTarTheoZVals, singIndTar, singIndTar1, isFixedTar, fixedx, fixedy, fixedv);
 
 		// update the theoretic ones
-		updateTheoMagnitudePhase(zvals, tarZvals, theoGradZvals, tarTheoGradZvals, upsampledTheoZVals, upsampledTarTheoZVals, numFrames, theoAmpFieldsList, theoPhaseFieldsList, theoOmegaList, theoZList);
+		updateTheoMagnitudePhase(sourceZvals, tarZvals, sourceTheoGradZvals, tarTheoGradZvals, upsampledTheoZVals, upsampledTarTheoZVals, numFrames, theoAmpFieldsList, theoPhaseFieldsList, theoOmegaList, theoZList);
 
 		// solve for the path from source to target
-		solveKeyFrames(omegaFields, tarOmegaFields, zvals, tarZvals, numFrames, omegaList, zList);
+		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
 		// get interploated amp and phase frames
 		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
 
@@ -1384,319 +1087,104 @@ void callback() {
 
 
 
-void generateTargetVals()
-{
-	if (functionType == FunctionType::Whirlpool)
-	{
-		Eigen::Vector2d center = Eigen::Vector2d::Random();
-		if(isFixed)
-		    center << fixedx, fixedy;
-		generateWhirlPool(center(0), center(1), omegaFields, zvals, sigIndex1, NULL, &upsampledTheoZVals);
-		doSplit(omegaFields, planeFields, whirlFields);
-	}
-	else if (functionType == FunctionType::PlaneWave)
-	{
-		Eigen::Vector2d v = Eigen::Vector2d::Random();
-		if(isFixed)
-		    v = fixedv;
-		generatePlaneWave(v, omegaFields, zvals, NULL, &upsampledTheoZVals);
-		doSplit(omegaFields, planeFields, whirlFields);
-	}
-	else if (functionType == FunctionType::Summation)
-	{
-		Eigen::Vector2d center = Eigen::Vector2d::Random();
-		Eigen::Vector2d v = Eigen::Vector2d::Random();
-		if(isFixed)
-		{
-		    v = fixedv;
-		    center << fixedx, fixedy;
-		}
-
-
-		generatePlaneSumWhirl(center(0), center(1), v, omegaFields, zvals, sigIndex1, NULL, &upsampledTheoZVals);
-		doSplit(omegaFields, planeFields, whirlFields);
-	}
-	else if (functionType == FunctionType::YShape)
-	{
-		Eigen::Vector2d w1(1, 0);
-		Eigen::Vector2d w2(1, 0);
-
-		w1(0) = 2 * 3.1415926;
-		w2(0) = 4 * 3.1415926;
-		generateYshape(w1, w2, omegaFields, zvals, NULL, &upsampledTheoZVals);
-		doSplit(omegaFields, planeFields, whirlFields);
-	}
-	else if (functionType == FunctionType::TwoWhirlPool)
-	{
-		Eigen::Vector2d center0 = Eigen::Vector2d::Random();
-		Eigen::Vector2d center1 = Eigen::Vector2d::Random();
-		if(isFixed)
-		{
-		    center0 << fixedx, fixedy;
-		    center1 << 0.8, -0.3;
-		}
-		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), omegaFields, zvals, sigIndex1, sigIndex2, NULL, &upsampledTheoZVals);
-		doSplit(omegaFields, planeFields, whirlFields);
-	}
-
-	std::vector<std::complex<double>> upsampledZvals;
-	model.estimatePhase(planeFields, whirlFields, zvals, upsampledZvals);
-	model.getAngleMagnitude(upsampledZvals, phaseField, ampField);
-	
-}
-
-void registerVecMesh()
-{
-	int ndataVerts = triV2D.rows();
-	int ndataFaces = triF2D.rows();
-
-	int nverts = ndataVerts;
-	int nfaces = ndataFaces;
-
-	int nupverts = upsampledTriV2D.rows();
-	int nupfaces = upsampledTriF2D.rows();
-
-	ndataVerts = 3 * nverts + 4 * nupverts;
-	ndataFaces = 3 * nfaces + 4 * nupfaces;
-	//    ndataVerts = 3 * nverts + 6 * nupverts;
-	//    ndataFaces = 3 * nfaces + 6 * nupfaces;
-
-
-	int currentDataVerts = nverts;
-	int currentDataFaces = nfaces;
-
-	// vector fields
-	dataV.resize(ndataVerts, 3);
-	dataF.resize(ndataFaces, 3);
-
-	dataV.block(0, 0, nverts, 3) = triV2D;
-	dataF.block(0, 0, nfaces, 3) = triF2D;
-
-	Eigen::MatrixXd shiftV = triV2D;
-	double shiftx = 1.5 * (triV2D.col(0).maxCoeff() - triV2D.col(0).minCoeff());
-	double shifty = 1.5 * (triV2D.col(1).maxCoeff() - triV2D.col(1).minCoeff());
-	shiftV.col(0).setConstant(0.5 * shiftx);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
-
-
-	Eigen::MatrixXi shiftF = triF2D;
-	shiftF.setConstant(currentDataVerts);
-
-	dataV.block(currentDataVerts, 0, nverts, 3) = triV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nfaces, 3) = triF2D + shiftF;
-
-	currentDataVerts += nverts;
-	currentDataFaces += nfaces;
-
-
-	shiftV.col(0).setConstant(-0.5 * shiftx);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
-	shiftF.setConstant(currentDataVerts);
-	dataV.block(currentDataVerts, 0, nverts, 3) = triV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nfaces, 3) = triF2D + shiftF;
-	currentDataVerts += nverts;
-	currentDataFaces += nfaces;
-
-	curColor.resize(ndataVerts, 3);
-
-
-	dataVec = dataV;
-	dataVec.setZero();
-
-	for (int i = 0; i < triV2D.rows(); i++)
-	{
-		dataVec.row(i) << omegaFields(i, 0), omegaFields(i, 1), 0;
-		dataVec.row(i + nverts) << planeFields(i, 0), planeFields(i, 1), 0;
-		dataVec.row(i + 2 * nverts) << whirlFields(i, 0), whirlFields(i, 1), 0;
-	}
-
-	curColor.col(0).setConstant(1.0);
-	curColor.col(1).setConstant(1.0);
-	curColor.col(2).setConstant(1.0);
-
-
-
-	// theo zvals
-	shiftV = upsampledTriV2D;
-	shiftV.col(0).setConstant(2 * shiftx);
-	shiftV.col(1).setConstant(0);
-	shiftV.col(2).setConstant(0);
-
-	shiftF = upsampledTriF2D;
-	shiftF.setConstant(currentDataVerts);
-
-	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
-
-
-	Eigen::VectorXd theoTheta(nupverts);
-	Eigen::VectorXd theoAmp(nupverts);
-
-	for (int i = 0; i < nupverts; i++)
-	{
-	    theoTheta(i) = std::arg(upsampledTheoZVals[i]);
-	    theoAmp(i) = std::abs(upsampledTheoZVals[i]);
-	}
-
-	double ampMax = std::max(theoAmp.maxCoeff(), ampField.maxCoeff());
-
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd phiColor;
-	Eigen::VectorXd theoAmpNormlized = theoAmp / ampMax;
-	phiColor = mPaint.paintPhi(theoTheta, &theoAmpNormlized);
-
-	curColor.block(currentDataVerts, 0, nupverts, 3) = phiColor;
-
-	currentDataVerts += nupverts;
-	currentDataFaces += nupfaces;
-
-	shiftV = upsampledTriV2D;
-	shiftV.col(0).setConstant(3 * shiftx);
-	shiftV.col(1).setConstant(0);
-	shiftV.col(2).setConstant(0);
-
-	shiftF = upsampledTriF2D;
-	shiftF.setConstant(currentDataVerts);
-
-	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
-
-
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd ampColor;
-	ampColor = mPaint.paintAmplitude(theoAmpNormlized);
-
-	curColor.block(currentDataVerts, 0, nupverts, 3) = ampColor;
-
-	currentDataVerts += nupverts;
-	currentDataFaces += nupfaces;
-
-	// interpolated part
-	shiftV = upsampledTriV2D;
-	shiftV.col(0).setConstant(2 * shiftx);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
-
-	shiftF = upsampledTriF2D;
-	shiftF.setConstant(currentDataVerts);
-
-	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
-
-	Eigen::VectorXd ampNormlized = ampField / ampMax;
-	mPaint.setNormalization(false);
-	phiColor = mPaint.paintPhi(phaseField, &ampNormlized);
-
-	curColor.block(currentDataVerts, 0, nupverts, 3) = phiColor;
-	currentDataVerts += nupverts;
-	currentDataFaces += nupfaces;
-
-	shiftV = upsampledTriV2D;
-	shiftV.col(0).setConstant(3 * shiftx);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
-
-	shiftF = upsampledTriF2D;
-	shiftF.setConstant(currentDataVerts);
-
-	dataV.block(currentDataVerts, 0, nupverts, 3) = upsampledTriV2D - shiftV;
-	dataF.block(currentDataFaces, 0, nupfaces, 3) = upsampledTriF2D + shiftF;
-
-	mPaint.setNormalization(false);
-	ampColor = mPaint.paintAmplitude(ampNormlized);
-
-	curColor.block(currentDataVerts, 0, nupverts, 3) = ampColor;
-	currentDataVerts += nupverts;
-	currentDataFaces += nupfaces;
-
-
-	polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
-}
-
-void updateVecFieldsInView()
-{
-	std::cout << "update view" << std::endl;
-	registerVecMesh();
-	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
-	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
-
-	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec);
-	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
-}
-
-void vecCallback() {
-    ImGui::PushItemWidth(100);
-	if (ImGui::InputDouble("triangle area", &triarea))
-	{
-	    if(triarea > 0)
-		    initialization();
-	}
-	if (ImGui::InputInt("upsampled times", &loopLevel))
-	{
-	    if(loopLevel >= 0)
-		    initialization();
-	}
-	if (ImGui::InputInt("Singularity index 1", &sigIndex1))
-	{}
-	if (ImGui::InputInt("Singularity index 2", &sigIndex2))
-	{}
-    if (ImGui::Combo("vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0\0")){}
-    if (ImGui::Combo("interpolation types", (int*)&interType, "Pure Whirl pool\0Pure plane wave\0Naive Split\0New Split\0Just linear\0\0")) {}
-    if (ImGui::Checkbox("Show Only Plane wave", &isShowOnlyPlaneWave)){}
-    if(ImGui::Checkbox("Show Only Whirl pool", &isShowOnlyWhirlPool)){}
-    if(ImGui::Checkbox("Fixed center and dir", &isFixed)){}
-	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
-	{
-		generateTargetVals();
-		updateVecFieldsInView();
-	}
-
-    ImGui::PopItemWidth();
-}
-
-
-
 
 int main(int argc, char** argv)
 {
 	initialization();
+//
+//	Eigen::MatrixXd testV(3, 3);
+//	testV << 0, 0, 0,
+//		1, 0, 0,
+//		0, 1, 0;
+//	Eigen::MatrixXi testF(1, 3);
+//	testF << 0, 1, 2;
+//
+//	MeshConnectivity testMesh(testF);
+//
+//	Eigen::MatrixXd testw(3, 3), testw1;
+//	testw << 1, -1, 0,
+//		1, 2, 0,
+//		-1, 0, 0;
+//
+//	testw1 = testw;
+//	testw1.block<3, 2>(0, 0).setRandom();
+//
+//	Eigen::Vector3d testbary;
+//	std::vector<std::complex<double>> testZvals(3), testZvals1(3);
+//	testZvals[0] = std::complex<double>(0.1, 0.8);
+//	testZvals[1] = std::complex<double>(0.7, 0.3);
+//	testZvals[2] = std::complex<double>(0.34, 7.8);
+//
+//	testZvals1[0] = std::complex<double>(0.5, 0.6);
+//	testZvals1[1] = std::complex<double>(0.7, 0.4);
+//	testZvals1[2] = std::complex<double>(0.4, 0.8);
+//
+//
+//	Eigen::Matrix<double, 3, 2> edgew = vertexVec2IntrinsicHalfEdgeVec(testw, testV, testMesh);
+//	Eigen::Matrix<double, 3, 2> edgew1 = vertexVec2IntrinsicHalfEdgeVec(testw1, testV, testMesh);
+//
+//	for (int i = 0; i < 3; i++)
+//	{
+//	    int eid = testMesh.faceEdge(0, i);
+//		std::cout << "eid: " << eid << ", v0: " << testMesh.edgeVertex(eid, 0) << ", v1: " << testMesh.edgeVertex(eid, 1) << std::endl;
+//		std::cout << "edge w: " << edgew.row(eid) << std::endl;
+//	}
+//	int testqid = 3;
+//	ComputeZandZdot preModel(testV, testF, 4);
+//	testbary << 1 - preModel.getQuadPts()[testqid].u - preModel.getQuadPts()[testqid].v, preModel.getQuadPts()[testqid].u, preModel.getQuadPts()[testqid].v;
+//
+//	Eigen::VectorXd testFaceArea;
+//	igl::doublearea(testV, testF, testFaceArea);
+//	testFaceArea /= 2;
+//	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega zdotmodel1(MeshConnectivity(testF), testFaceArea, 4, 0.1);
+//
+//	double zdotnorm = zdotmodel1.computeZdotIntegration(testZvals, edgew, testZvals1, edgew1, NULL, NULL);
+//	double zdotnorm1 = preModel.zDotSquareIntegration(testw.block<3, 2>(0, 0), testw1.block<3, 2>(0, 0), testZvals, testZvals1, 0.1, NULL, NULL);
+//
+//	std::cout << "zdot: " << zdotnorm << ", " << "zdot1: " << zdotnorm1 << std::endl;
+//
+//	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfEdgeFormula(testMesh, testFaceArea, 50, 4, testZvals, edgew, testZvals1, edgew1);
+//	Eigen::VectorXd x;
+//	halfEdgeFormula.convertList2Variable(x);
+//	zdotnorm = halfEdgeFormula.computeEnergy(x);
+//
+//	Eigen::MatrixXd uptestV;
+//	Eigen::MatrixXi uptestF;
+//
+//	std::vector<std::pair<int, Eigen::Vector3d>> testBary;
+//    meshUpSampling(testV, testF, uptestV, uptestF, 2, NULL, NULL, &testBary);
+//
+//    InterpolateKeyFrames interpModelTest(testV, testF, uptestV, uptestF, testBary, testw.block<3, 2>(0, 0), testw1.block<3, 2>(0, 0), testZvals, testZvals1, 50, 4, false);
+//    interpModelTest.convertList2Variable(x);
+//    zdotnorm1 = interpModelTest.computeEnergy(x);
 
-	/*MeshConnectivity triMesh = MeshConnectivity(triF2D);
-	Eigen::VectorXd edgew = Eigen::VectorXd::Random(triMesh.nEdges());
-	Eigen::VectorXd nextEdgew = edgew;
-	nextEdgew.setRandom();
+//    std::cout << "zdot: " << zdotnorm << ", " << "zdot1: " << zdotnorm1 << std::endl;
+//	IntrinsicFormula::testZvalsFromHalfEdgeOmega(testbary, testZvals, edgew);
+//	Eigen::VectorXd faceArea;
+//
+//	igl::doublearea(triV, triF, faceArea);
+//	std::vector<std::complex<double>> testZvals0(triV.rows()), testZvals1(triV.rows());
+//	for (int i = 0; i < triV.rows(); i++)
+//	{
+//		Eigen::Vector2d randvec;
+//		randvec.setRandom();
+//		testZvals0[i] = std::complex<double>(randvec(0), randvec(1));
+//
+//		randvec.setRandom();
+//		testZvals1[i] = std::complex<double>(randvec(0), randvec(1));
+//	}
+//	Eigen::MatrixXd edgew0, edgew1;
+//	edgew0.setRandom(triMesh.nEdges(), 2);
+//	edgew1.setRandom(triMesh.nEdges(), 2);
+//
+//	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega testmodel(triMesh, faceArea, 4, 1);
+//	testmodel.testZdotIntegrationPerface(testZvals0, edgew0, testZvals1, edgew1, 0);
+//
+//	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfedgemodel(triMesh, faceArea, 3, 4, testZvals0, edgew0, testZvals1, edgew1);
+//	Eigen::VectorXd testx;
+//	halfedgemodel.convertList2Variable(testx);
+//	halfedgemodel.testEnergy(testx);
 
-	std::vector<std::complex<double>> curZ, nexZ;
-
-	for(int i=0; i < triV2D.rows(); i++)
-	{
-	    Eigen::Vector2d rnd;
-	    rnd.setRandom();
-	    curZ.push_back(std::complex<double>(rnd(0), rnd(1)));
-
-	    rnd.setRandom();
-	    nexZ.push_back(std::complex<double>(rnd(0), rnd(1)));
-	}
-
-	Eigen::VectorXd doubleArea;
-	igl::doublearea(triV2D, triF2D, doubleArea);
-	doubleArea /= 2;
-
-	IntrinsicFormula::ComputeZdotFromEdgeOmega testmodel(triMesh, doubleArea, 4, 1);
-
-	int fid = std::rand() % triF2D.rows();
-	int qid = 3;
-
-	testmodel.testZdotIntegrationPerface(curZ, edgew, nexZ, nextEdgew, 0);
-	testmodel.testZdotIntegration(curZ, edgew, nexZ, nextEdgew);
-
-	IntrinsicFormula::IntrinsicKeyFrameInterploation intrinsicInterpModel(triMesh, doubleArea, 3, 4, curZ, edgew, nexZ, nextEdgew);
-	Eigen::VectorXd x;
-	intrinsicInterpModel.convertList2Variable(x);
-	intrinsicInterpModel.testEnergy(x);*/
-    
 	// Options
     polyscope::options::autocenterStructures = true;
     polyscope::view::windowWidth = 1024;
@@ -1707,22 +1195,12 @@ int main(int argc, char** argv)
 
 
     // Register the mesh with Polyscope
-    polyscope::registerSurfaceMesh("input mesh", triV2D, triF2D);
+    polyscope::registerSurfaceMesh("input mesh", triV, triF);
 
 
 
     // Add the callback
-    if(argc > 1)
-    {
-        std::cout << argv[1] << std::endl;
-        if(std::string(argv[1]) =="static")
-            polyscope::state::userCallback = vecCallback;
-        else
-            polyscope::state::userCallback = callback;
-    }
-    else
-        polyscope::state::userCallback = callback;
-//    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
+    polyscope::state::userCallback = callback;
 
     polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
     // Show the gui

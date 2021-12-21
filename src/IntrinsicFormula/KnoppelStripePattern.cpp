@@ -6,7 +6,7 @@
 
 using namespace IntrinsicFormula;
 
-void IntrinsicFormula::computeMatriA(const MeshConnectivity &mesh, const Eigen::MatrixXd &edgew,
+void IntrinsicFormula::computeMatrixA(const MeshConnectivity &mesh, const Eigen::MatrixXd &edgew,
                                      const Eigen::VectorXd &faceArea, const Eigen::MatrixXd &cotEntries,
                                      const int nverts, Eigen::SparseMatrix<double> &A)
 {
@@ -74,7 +74,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(const MeshConnectivity 
         }
     }
     Eigen::SparseMatrix<double> A;
-    computeMatriA(mesh, edgew, faceArea, cotEntries, nverts, A);
+    computeMatrixA(mesh, edgew, faceArea, cotEntries, nverts, A);
 
     Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
     B.setFromTriplets(BT.begin(), BT.end());
@@ -110,7 +110,7 @@ void IntrinsicFormula::testRoundingEnergy(const MeshConnectivity &mesh, const Ei
                                           const int nverts, std::vector<std::complex<double>> zvals)
 {
     Eigen::SparseMatrix<double> A;
-    computeMatriA(mesh, edgew, faceArea, cotEntries, nverts, A);
+    computeMatrixA(mesh, edgew, faceArea, cotEntries, nverts, A);
     int nfaces = mesh.nFaces();
     int nedges = mesh.nEdges();
 

@@ -3,7 +3,7 @@
 ################################################################################
 
 cmake_minimum_required(VERSION 3.1)
-project(phaseInterp_viewer2d)
+project(phaseInterp_viewer2d_vertexversion)
 
 # Add your project files
 # Create an executable
