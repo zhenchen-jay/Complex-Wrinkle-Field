@@ -31,11 +31,11 @@ void IntrinsicFormula::computeMatriA(const MeshConnectivity &mesh, const Eigen::
         int vid0 = mesh.edgeVertex(i, 0);
         int vid1 = mesh.edgeVertex(i, 1);
 
-        AT.push_back({2 * vid0, 2 * vid0, edgeWeight(i)});
-        AT.push_back({2 * vid0 + 1, 2 * vid0 + 1, edgeWeight(i)});
+        AT.push_back({2 * vid0, 2 * vid0, 2 * edgeWeight(i)});
+        AT.push_back({2 * vid0 + 1, 2 * vid0 + 1, 2 * edgeWeight(i)});
 
-        AT.push_back({2 * vid1, 2 * vid1, edgeWeight(i)});
-        AT.push_back({2 * vid1 + 1, 2 * vid1 + 1, edgeWeight(i)});
+        AT.push_back({2 * vid1, 2 * vid1, 2 * edgeWeight(i)});
+        AT.push_back({2 * vid1 + 1, 2 * vid1 + 1, 2 * edgeWeight(i)});
 
         std::complex<double> expw0 = std::complex<double>(std::cos(edgew(i, 0)), std::sin(edgew(i, 0)));
         std::complex<double> expw1 = std::complex<double>(std::cos(edgew(i, 1)), std::sin(edgew(i, 1)));
@@ -44,6 +44,11 @@ void IntrinsicFormula::computeMatriA(const MeshConnectivity &mesh, const Eigen::
         AT.push_back({2 * vid0 + 1, 2 * vid1, -edgeWeight(i) * (-expw0.imag() + expw1.imag())});
         AT.push_back({2 * vid0, 2 * vid1 + 1, -edgeWeight(i) * (expw0.imag() - expw1.imag())});
         AT.push_back({2 * vid0 + 1, 2 * vid1 + 1, -edgeWeight(i) * (expw0.real() + expw1.real())});
+
+        AT.push_back({ 2 * vid1, 2 * vid0, -edgeWeight(i) * (expw0.real() + expw1.real()) });
+        AT.push_back({ 2 * vid1, 2 * vid0 + 1, -edgeWeight(i) * (-expw0.imag() + expw1.imag()) });
+        AT.push_back({ 2 * vid1 + 1, 2 * vid0, -edgeWeight(i) * (expw0.imag() - expw1.imag()) });
+        AT.push_back({ 2 * vid1 + 1, 2 * vid0 + 1, -edgeWeight(i) * (expw0.real() + expw1.real()) });
 
     }
     A.resize(2 * nverts, 2 * nverts);
@@ -73,6 +78,8 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(const MeshConnectivity 
 
     Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
     B.setFromTriplets(BT.begin(), BT.end());
+   /* std::cout << A.toDense() << std::endl;
+    std::cout << B.toDense() << std::endl;*/
 
     Spectra::SymShiftInvert<double> op(A, B);
     Spectra::SparseSymMatProd<double> Bop(B);
@@ -127,7 +134,19 @@ void IntrinsicFormula::testRoundingEnergy(const MeshConnectivity &mesh, const Ei
         std::complex<double> expw0 = std::complex<double>(std::cos(edgew(i, 0)), std::sin(edgew(i, 0)));
         std::complex<double> expw1 = std::complex<double>(std::cos(edgew(i, 1)), std::sin(edgew(i, 1)));
 
-        energy += 0.5 * (norm((zvals[vid0] * expw0 - zvals[vid1])) * norm((zvals[vid0] * expw0 - zvals[vid1])) + norm((zvals[vid1] * expw1 - zvals[vid0])) * norm((zvals[vid1] * expw1 - zvals[vid0]))) * edgeWeight(i);
+        Eigen::Matrix2d tmpMat;
+
+        tmpMat(0, 0) = expw0.real();
+        tmpMat(0, 1) = expw0.imag();
+        tmpMat(1, 0) = -expw0.imag();
+        tmpMat(1, 1) = expw0.real();
+        Eigen::Vector2d aibi(zvals[vid0].real(), zvals[vid0].imag());
+        Eigen::Vector2d ajbj(zvals[vid1].real(), zvals[vid1].imag());
+
+        double part1 = 2 * aibi.dot(tmpMat * ajbj) + aibi.squaredNorm() + ajbj.squaredNorm();
+        double part2 = ((zvals[vid0] * expw0 - zvals[vid1])).real() * ((zvals[vid0] * expw0 - zvals[vid1])).real() + ((zvals[vid0] * expw0 - zvals[vid1])).imag() * ((zvals[vid0] * expw0 - zvals[vid1])).imag();
+
+        energy += 0.5 * (norm((zvals[vid0] * expw0 - zvals[vid1])) + norm((zvals[vid1] * expw1 - zvals[vid0]))) * edgeWeight(i);
 
     }
 
@@ -137,6 +156,4 @@ void IntrinsicFormula::testRoundingEnergy(const MeshConnectivity &mesh, const Ei
         x(2 * i) = zvals[i].real();
         x(2 * i + 1) = zvals[i].imag();
     }
-
-    std::cout << x.dot(A * x) << " " << energy << std::endl;
 }

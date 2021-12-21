@@ -569,6 +569,13 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
     igl::cotmatrix_entries(triV, triF, cotEntries);
     IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
     IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
+	for (auto& z : testzvals)
+	{
+		Eigen::Vector2d rndvec;
+		rndvec.setRandom();
+		z = std::complex<double>(rndvec(0), rndvec(1));
+	}
+	IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
 
 	//interpModel.testEnergy(x);
 	//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
