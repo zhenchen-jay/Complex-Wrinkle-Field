@@ -24,7 +24,7 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 		edgewcur.row(j) = curw.row(eid);
 		edgewnext.row(j) = nextw.row(eid);
 
-		if (_mesh.edgeVertex(eid, 1) == _mesh.faceVertex(fid, (j + 1) % 2))  // defined as mesh.edgeVertex(eid, 1) - mesh.edgeVertex(eid, 0), while we want vid_next_next - vid_next
+		if (_mesh.edgeVertex(eid, 1) == _mesh.faceVertex(fid, (j + 1) % 3))  // defined as mesh.edgeVertex(eid, 1) - mesh.edgeVertex(eid, 0), while we want vid_next_next - vid_next
 		{
 			wflag(j) = 1;
 			edgewcur(j, 1) = curw(eid, 0);
@@ -40,9 +40,10 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 
 	std::complex<double> zcur = IntrinsicFormula::getZvalsFromHalfEdgeOmega(bary, vertZvalcur, edgewcur, (deriv || hess) ? &derivCur : NULL, hess ? &hessCur : NULL);
 	std::complex<double> znext = IntrinsicFormula::getZvalsFromHalfEdgeOmega(bary, vertZvalnext, edgewnext, (deriv || hess) ? &derivNext : NULL, hess ? &hessNext : NULL);
+
 	std::complex<double> deltaz = znext - zcur;
 
-	double componentWeights = 0.5 * _faceArea[fid] * _quadpts[qid].weight / _dt;
+	double componentWeights = 0.5 * _faceArea[fid] * _quadpts[qid].weight / (_dt * _dt);
 	energy = componentWeights * (deltaz.real() * deltaz.real() + deltaz.imag() * deltaz.imag());
 
 	if (deriv || hess)

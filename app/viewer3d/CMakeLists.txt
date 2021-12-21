@@ -37,6 +37,7 @@ set_target_properties(${PROJECT_NAME}_bin PROPERTIES CXX_STANDARD_REQUIRED ON)
 
 # Link settings
 target_link_libraries( ${PROJECT_NAME}_bin polyscope Eigen3::Eigen )
+target_include_directories(${PROJECT_NAME}_bin PUBLIC ${SPECTRA_INCLUDE_DIRS})
 
 if(BUILD_WITH_TBB)
   target_link_libraries( ${PROJECT_NAME}_bin polyscope TBB::tbb igl::core igl::opengl_glfw igl::opengl_glfw_imgui igl::png igl::triangle ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})

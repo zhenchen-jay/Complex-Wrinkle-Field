@@ -147,6 +147,8 @@ std::complex<double> ComputeZandZdot::planeWaveValueDotFromQuad(const Eigen::Mat
 	std::complex<double> z1 = planeWaveValueFromQuad(w1, vertVals1, faceId, quadId, (deriv || hess) ? &z1Deriv : NULL, hess ? &z1Hess : NULL, NULL);
 	std::complex<double> z2 = planeWaveValueFromQuad(w2, vertVals2, faceId, quadId, (deriv || hess) ? &z2Deriv : NULL, hess ? &z2Hess : NULL, NULL);
 
+	
+
 	std::complex<double> zdot = (z2 - z1) / dt;
 	if (deriv)
 	{

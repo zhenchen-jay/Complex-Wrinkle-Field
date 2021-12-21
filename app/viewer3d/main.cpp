@@ -16,6 +16,7 @@
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/boundary_loop.h>
+#include <igl/cotmatrix_entries.h>
 #include <igl/triangle/triangulate.h>
 #include <filesystem>
 #include "polyscope/messages.h"
@@ -36,10 +37,12 @@
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 #include "../../include/DynamicInterpolation/ComputeZandZdot.h"
+#include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
 //#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
 //#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
 #include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 
 
 
@@ -50,6 +53,7 @@ std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
 Eigen::MatrixXd sourceOmegaFields, tarOmegaFields;
 Eigen::MatrixXd theoOmega, tarTheoOmega;
+
 
 std::vector<std::complex<double>> sourceZvals, sourceTheoZVals, upsampledTheoZVals;
 std::vector<std::complex<double>> tarZvals, tarTheoZVals, upsampledTarTheoZVals;
@@ -559,6 +563,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
 	Eigen::VectorXd x;
 	interpModel.convertList2Variable(x);        // linear initialization
+
+    std::vector<std::complex<double>> testzvals;
+    Eigen::MatrixXd cotEntries;
+    igl::cotmatrix_entries(triV, triF, cotEntries);
+    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
+    IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
 
 	//interpModel.testEnergy(x);
 	//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
@@ -1074,67 +1084,100 @@ void callback() {
 int main(int argc, char** argv)
 {
 	initialization();
+//
+//	Eigen::MatrixXd testV(3, 3);
+//	testV << 0, 0, 0,
+//		1, 0, 0,
+//		0, 1, 0;
+//	Eigen::MatrixXi testF(1, 3);
+//	testF << 0, 1, 2;
+//
+//	MeshConnectivity testMesh(testF);
+//
+//	Eigen::MatrixXd testw(3, 3), testw1;
+//	testw << 1, -1, 0,
+//		1, 2, 0,
+//		-1, 0, 0;
+//
+//	testw1 = testw;
+//	testw1.block<3, 2>(0, 0).setRandom();
+//
+//	Eigen::Vector3d testbary;
+//	std::vector<std::complex<double>> testZvals(3), testZvals1(3);
+//	testZvals[0] = std::complex<double>(0.1, 0.8);
+//	testZvals[1] = std::complex<double>(0.7, 0.3);
+//	testZvals[2] = std::complex<double>(0.34, 7.8);
+//
+//	testZvals1[0] = std::complex<double>(0.5, 0.6);
+//	testZvals1[1] = std::complex<double>(0.7, 0.4);
+//	testZvals1[2] = std::complex<double>(0.4, 0.8);
+//
+//
+//	Eigen::Matrix<double, 3, 2> edgew = vertexVec2IntrinsicHalfEdgeVec(testw, testV, testMesh);
+//	Eigen::Matrix<double, 3, 2> edgew1 = vertexVec2IntrinsicHalfEdgeVec(testw1, testV, testMesh);
+//
+//	for (int i = 0; i < 3; i++)
+//	{
+//	    int eid = testMesh.faceEdge(0, i);
+//		std::cout << "eid: " << eid << ", v0: " << testMesh.edgeVertex(eid, 0) << ", v1: " << testMesh.edgeVertex(eid, 1) << std::endl;
+//		std::cout << "edge w: " << edgew.row(eid) << std::endl;
+//	}
+//	int testqid = 3;
+//	ComputeZandZdot preModel(testV, testF, 4);
+//	testbary << 1 - preModel.getQuadPts()[testqid].u - preModel.getQuadPts()[testqid].v, preModel.getQuadPts()[testqid].u, preModel.getQuadPts()[testqid].v;
+//
+//	Eigen::VectorXd testFaceArea;
+//	igl::doublearea(testV, testF, testFaceArea);
+//	testFaceArea /= 2;
+//	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega zdotmodel1(MeshConnectivity(testF), testFaceArea, 4, 0.1);
+//
+//	double zdotnorm = zdotmodel1.computeZdotIntegration(testZvals, edgew, testZvals1, edgew1, NULL, NULL);
+//	double zdotnorm1 = preModel.zDotSquareIntegration(testw.block<3, 2>(0, 0), testw1.block<3, 2>(0, 0), testZvals, testZvals1, 0.1, NULL, NULL);
+//
+//	std::cout << "zdot: " << zdotnorm << ", " << "zdot1: " << zdotnorm1 << std::endl;
+//
+//	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfEdgeFormula(testMesh, testFaceArea, 50, 4, testZvals, edgew, testZvals1, edgew1);
+//	Eigen::VectorXd x;
+//	halfEdgeFormula.convertList2Variable(x);
+//	zdotnorm = halfEdgeFormula.computeEnergy(x);
+//
+//	Eigen::MatrixXd uptestV;
+//	Eigen::MatrixXi uptestF;
+//
+//	std::vector<std::pair<int, Eigen::Vector3d>> testBary;
+//    meshUpSampling(testV, testF, uptestV, uptestF, 2, NULL, NULL, &testBary);
+//
+//    InterpolateKeyFrames interpModelTest(testV, testF, uptestV, uptestF, testBary, testw.block<3, 2>(0, 0), testw1.block<3, 2>(0, 0), testZvals, testZvals1, 50, 4, false);
+//    interpModelTest.convertList2Variable(x);
+//    zdotnorm1 = interpModelTest.computeEnergy(x);
 
-	/*Eigen::MatrixXd testV(3, 3);
-	testV << 0, 0, 0,
-		1, 0, 0,
-		0, 1, 0;
-	Eigen::MatrixXi testF(1, 3);
-	testF << 0, 1, 2;
-	
-	MeshConnectivity testMesh(testF);
+//    std::cout << "zdot: " << zdotnorm << ", " << "zdot1: " << zdotnorm1 << std::endl;
+//	IntrinsicFormula::testZvalsFromHalfEdgeOmega(testbary, testZvals, edgew);
+//	Eigen::VectorXd faceArea;
+//
+//	igl::doublearea(triV, triF, faceArea);
+//	std::vector<std::complex<double>> testZvals0(triV.rows()), testZvals1(triV.rows());
+//	for (int i = 0; i < triV.rows(); i++)
+//	{
+//		Eigen::Vector2d randvec;
+//		randvec.setRandom();
+//		testZvals0[i] = std::complex<double>(randvec(0), randvec(1));
+//
+//		randvec.setRandom();
+//		testZvals1[i] = std::complex<double>(randvec(0), randvec(1));
+//	}
+//	Eigen::MatrixXd edgew0, edgew1;
+//	edgew0.setRandom(triMesh.nEdges(), 2);
+//	edgew1.setRandom(triMesh.nEdges(), 2);
+//
+//	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega testmodel(triMesh, faceArea, 4, 1);
+//	testmodel.testZdotIntegrationPerface(testZvals0, edgew0, testZvals1, edgew1, 0);
+//
+//	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfedgemodel(triMesh, faceArea, 3, 4, testZvals0, edgew0, testZvals1, edgew1);
+//	Eigen::VectorXd testx;
+//	halfedgemodel.convertList2Variable(testx);
+//	halfedgemodel.testEnergy(testx);
 
-	Eigen::MatrixXd testw(3, 3);
-	testw << 1, -1, 0,
-		1, 2, 0,
-		-1, 0, 0;
-
-	Eigen::Vector3d testbary;
-	std::vector<std::complex<double>> testZvals(3);
-	testZvals[0] = std::complex<double>(0.1, 0.8);
-	testZvals[1] = std::complex<double>(0.7, 0.3);
-	testZvals[2] = std::complex<double>(0.34, 7.8);
-	
-	
-	Eigen::Matrix<double, 3, 2> edgew = vertexVec2IntrinsicHalfEdgeVec(testw, testV, testMesh);
-	for (int i = 0; i < testMesh.nEdges(); i++)
-	{
-		std::cout << "eid: " << i << ", v0: " << testMesh.edgeVertex(i, 0) << ", v1: " << testMesh.edgeVertex(i, 1) << std::endl;
-		std::cout << "edge w: " << edgew.row(i) << std::endl;
-	}
-	int testqid = 3;
-	ComputeZandZdot preModel(testV, testF, 4);
-	testbary << 1 - preModel.getQuadPts()[testqid].u - preModel.getQuadPts()[testqid].v, preModel.getQuadPts()[testqid].u, preModel.getQuadPts()[testqid].v;
-
-	auto z1 = IntrinsicFormula::getZvalsFromHalfEdgeOmega(testbary, testZvals, edgew, NULL, NULL);
-	auto z2 = preModel.planeWaveValueFromQuad(testw.block<3, 2>(0, 0), testZvals, 0, testqid, NULL, NULL, NULL);
-
-	IntrinsicFormula::testZvalsFromHalfEdgeOmega(testbary, testZvals, edgew);
-	Eigen::VectorXd faceArea;
-
-	igl::doublearea(triV, triF, faceArea);
-	std::vector<std::complex<double>> testZvals0(triV.rows()), testZvals1(triV.rows());
-	for (int i = 0; i < triV.rows(); i++)
-	{
-		Eigen::Vector2d randvec;
-		randvec.setRandom();
-		testZvals0[i] = std::complex<double>(randvec(0), randvec(1));
-
-		randvec.setRandom();
-		testZvals1[i] = std::complex<double>(randvec(0), randvec(1));
-	}
-	Eigen::MatrixXd edgew0, edgew1;
-	edgew0.setRandom(triMesh.nEdges(), 2);
-	edgew1.setRandom(triMesh.nEdges(), 2);
-
-	IntrinsicFormula::ComputeZdotFromHalfEdgeOmega testmodel(triMesh, faceArea, 4, 1);
-	testmodel.testZdotIntegrationPerface(testZvals0, edgew0, testZvals1, edgew1, 0);
-
-	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge halfedgemodel(triMesh, faceArea, 3, 4, testZvals0, edgew0, testZvals1, edgew1);
-	Eigen::VectorXd testx;
-	halfedgemodel.convertList2Variable(testx);
-	halfedgemodel.testEnergy(testx);
-    */
 	// Options
     polyscope::options::autocenterStructures = true;
     polyscope::view::windowWidth = 1024;

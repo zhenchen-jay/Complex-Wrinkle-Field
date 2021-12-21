@@ -126,6 +126,8 @@ find_package(SuiteSparse REQUIRED)
 include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 
 
+find_package(SPECTRA REQUIRED)
+
 
 # if(NASOQ)
 #   target_link_libraries(phaseInterp-polyscope-example ${MKL_LIBRARIES})

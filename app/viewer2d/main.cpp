@@ -51,7 +51,6 @@
 #include "../../include/DynamicInterpolation/ZdotIntegration.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
-#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolation.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
