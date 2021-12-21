@@ -13,6 +13,7 @@
 #include <igl/readOBJ.h>
 #include <igl/writeOBJ.h>
 #include <igl/doublearea.h>
+#include <igl/decimate.h>
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/boundary_loop.h>
@@ -552,7 +553,7 @@ int main(int argc, char** argv)
 	std::string meshPath;
 	if (argc < 2)
 	{
-		meshPath = "../../../data/bunny.obj";
+		meshPath = "../../../data/bunny_lowres.obj";
 	}
 	else
 		meshPath = argv[1];
@@ -575,6 +576,11 @@ int main(int argc, char** argv)
 
     // Register the mesh with Polyscope
     polyscope::registerSurfaceMesh("input mesh", triV, triF);
+	//Eigen::MatrixXd U;
+	//Eigen::MatrixXi G;
+	//Eigen::VectorXi J;
+	//igl::decimate(triV, triF, 1000, U, G, J);
+	//igl::writeOBJ("test.obj", U, G);
 
 
 
