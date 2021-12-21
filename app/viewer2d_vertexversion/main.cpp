@@ -1254,9 +1254,9 @@ void callback() {
 		if (ImGui::CollapsingHeader("target plane wave Info"))
 		{
 		    if (ImGui::InputInt("target num waves", &numWaveTar)){}
-		    if (ImGui::InputDouble("target dir x: ", &sourceDirx)) {}
+		    if (ImGui::InputDouble("target dir x: ", &targetDirx)) {}
 		    ImGui::SameLine();
-		    if (ImGui::InputDouble("target dir y: ", &sourceDiry)) {}
+		    if (ImGui::InputDouble("target dir y: ", &targetDiry)) {}
 		}
 
 

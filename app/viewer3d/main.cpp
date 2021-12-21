@@ -43,6 +43,7 @@
 //#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
 #include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
+#include <igl/cylinder.h>
 
 
 
@@ -60,7 +61,7 @@ std::vector<std::complex<double>> tarZvals;
 
 
 std::vector<Eigen::MatrixXd> omegaList;
-std::vector<Eigen::MatrixXd> theoOmegaList;
+std::vector<Eigen::MatrixXd> vertexOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
 
@@ -329,7 +330,7 @@ void registerMesh(int frameId)
 	int totalfames = ampFieldsList.size();
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMax, ampFieldsList[0], phaseFieldsList[0], &sourceVertexOmegaFields, sourceP, sourceF, sourceVec, sourceColor);
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shifty, globalAmpMax, ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP, tarF, tarVec, tarColor);
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shifty, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], NULL, interpP, interpF, interpVec, interpColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shifty, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec, interpColor);
 
 	
 	Eigen::MatrixXi shifF = sourceF;
@@ -483,14 +484,17 @@ void callback() {
 		combField(triF, PD1, PD1);
 		combField(triF, PD2, PD2);
 
-		sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+        sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
 		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+//        tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
 
-		sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+        sourceOmegaFields *= 2 * M_PI * numSourceWaves;
 		tarOmegaFields *= 2 * M_PI * numTarWaves;
+//        tarOmegaFields *= 2 * M_PI * numTarWaves;
 
-		sourceVertexOmegaFields = 2 * M_PI * PD1;
-		tarVertexOmegaFields = 2 * M_PI * PD2;
+        sourceVertexOmegaFields = 2 * M_PI * numSourceWaves * PD1;
+//        tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD1;
+		tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD2;
 
 		Eigen::VectorXd faceArea;
 		Eigen::MatrixXd cotEntries;
@@ -506,6 +510,11 @@ void callback() {
 		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
 		// get interploated amp and phase frames
 		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+        vertexOmegaList.resize(omegaList.size());
+        for(int i = 0; i < omegaList.size(); i++)
+        {
+            vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
+        }
 		updateFieldsInView(curFrame);
 	}
 
@@ -516,13 +525,16 @@ void callback() {
 		igl::principal_curvature(triV, triF, PD1, PD2, PV1, PV2);
 
 		sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+//		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+        tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
 
 		sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-		tarOmegaFields *= 2 * M_PI * numTarWaves;
+//		tarOmegaFields *= 2 * M_PI * numTarWaves;
+        tarOmegaFields *= 2 * M_PI * numTarWaves;
 
-		sourceVertexOmegaFields = 2 * M_PI * PD1;
-		tarVertexOmegaFields = 2 * M_PI * PD2;
+		sourceVertexOmegaFields = 2 * M_PI * numSourceWaves * PD1;
+        tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD1;
+//		tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD2;
 
 		Eigen::VectorXd faceArea;
 		Eigen::MatrixXd cotEntries;
@@ -538,6 +550,11 @@ void callback() {
 		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
 		// get interploated amp and phase frames
 		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+        vertexOmegaList.resize(omegaList.size());
+        for(int i = 0; i < omegaList.size(); i++)
+        {
+            vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
+        }
 		updateFieldsInView(curFrame);
 			
 	}
@@ -576,12 +593,16 @@ int main(int argc, char** argv)
 
     // Register the mesh with Polyscope
     polyscope::registerSurfaceMesh("input mesh", triV, triF);
-	//Eigen::MatrixXd U;
-	//Eigen::MatrixXi G;
+	Eigen::MatrixXd U;
+	Eigen::MatrixXi G;
 	//Eigen::VectorXi J;
 	//igl::decimate(triV, triF, 1000, U, G, J);
 	//igl::writeOBJ("test.obj", U, G);
-
+    igl::cylinder(40, 12, U, G);
+    U.col(0) *= 0.5;
+    U.col(1) *= 0.5;
+    U.col(2) *= 2;
+    igl::writeOBJ("test.obj", U, G);
 
 
     // Add the callback

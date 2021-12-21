@@ -2,6 +2,7 @@
 #include <iostream>
 #include <deque>
 #include <queue>
+#include <Eigen/SPQRSupport>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
 {
@@ -469,4 +470,41 @@ void combField(const Eigen::MatrixXi& F, const Eigen::MatrixXd& w, Eigen::Matrix
 		combedW.row(i) = w.row(i) * sign;
 	}
 
+}
+
+Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh)
+{
+    int nedges = mesh.nEdges();
+    int nverts = pos.rows();
+    Eigen::MatrixXd vertOmega(nverts, 3);
+
+    Eigen::SparseMatrix<double> A;
+    std::vector<Eigen::Triplet<double>> T;
+
+    Eigen::VectorXd edgeVec(2 * nedges);
+
+    for (int i = 0; i < nedges; i++)
+    {
+        int vid0 = mesh.edgeVertex(i, 0);
+        int vid1 = mesh.edgeVertex(i, 1);
+
+        Eigen::Vector3d e = pos.row(vid1) - pos.row(vid0);
+        edgeVec.segment<2>(2 * i) = v.row(i);
+        for(int j = 0; j < 3; j++)
+        {
+            T.push_back({2 * i, 3 * vid0 + j, e(j)});
+            T.push_back({2 * i + 1, 3 * vid1 + j, -e(j)});
+        }
+    }
+    A.resize(2 * nedges, 3 * nverts);
+    A.setFromTriplets(T.begin(), T.end());
+
+    Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
+    Eigen::VectorXd sol = solver.solve(edgeVec);
+
+    for(int i = 0; i < nverts; i++)
+    {
+        vertOmega.row(i) = sol.segment<3>(3 * i);
+    }
+    return vertOmega;
 }
