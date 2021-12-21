@@ -88,7 +88,7 @@ double globalAmpMax = 1;
 
 double dragSpeed = 0.5;
 
-float vecratio = 0.1;
+float vecratio = 0.01;
 
 double gradTol = 1e-6;
 double xTol = 0;
@@ -472,6 +472,41 @@ void callback() {
 	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
 
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
+
+	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
+	{
+		Eigen::MatrixXd PD1, PD2;
+		Eigen::VectorXd PV1, PV2;
+		igl::principal_curvature(triV, triF, PD1, PD2, PV1, PV2);
+
+		combField(triF, PD1, PD1);
+		combField(triF, PD2, PD2);
+
+		sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+
+		sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+		tarOmegaFields *= 2 * M_PI * numTarWaves;
+
+		sourceVertexOmegaFields = 2 * M_PI * PD1;
+		tarVertexOmegaFields = 2 * M_PI * PD2;
+
+		Eigen::VectorXd faceArea;
+		Eigen::MatrixXd cotEntries;
+		igl::doublearea(triV, triF, faceArea);
+		faceArea /= 2;
+		igl::cotmatrix_entries(triV, triF, cotEntries);
+		int nverts = triV.rows();
+
+		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
+		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
+
+		// solve for the path from source to target
+		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
+		// get interploated amp and phase frames
+		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+		updateFieldsInView(curFrame);
+	}
 
 	if (ImGui::Button("update values", ImVec2(-1, 0)))
 	{
