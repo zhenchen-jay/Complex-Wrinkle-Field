@@ -97,15 +97,23 @@ double xTol = 0;
 double fTol = 0;
 int numIter = 1000;
 int quadOrder = 4;
+int numComb = 2;
 
 
 enum InitializationType{
   Random = 0,
   Linear = 1,
 };
+enum DirectionType
+{
+    DIRPV1 = 0,
+    DIRPV2 = 1
+};
 
 bool isUseUpMesh = false;
 InitializationType initializationType = InitializationType::Linear;
+DirectionType sourceDir = DIRPV1;
+DirectionType tarDir = DIRPV2;
 
 void initialization()
 {
@@ -402,6 +410,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+        if (ImGui::Combo("source direction", (int*)&sourceDir, "PV1\0PV2\0")) {}
 		if (ImGui::InputInt("num source waves", &numSourceWaves))
 		{
 			if (numSourceWaves < 0)
@@ -410,6 +419,7 @@ void callback() {
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+        if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0")) {}
 		if (ImGui::InputInt("num target waves", &numTarWaves))
 		{
 			if (numTarWaves < 0)
@@ -468,6 +478,11 @@ void callback() {
 		    if (quadOrder <= 0 || quadOrder > 20)
 		        quadOrder = 4;
 		}
+        if (ImGui::InputInt("comb times", &numComb))
+        {
+            if (numComb < 0)
+                numComb = 0;
+        }
 		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
 
 	}
@@ -481,12 +496,21 @@ void callback() {
 		Eigen::VectorXd PV1, PV2;
 		igl::principal_curvature(triV, triF, PD1, PD2, PV1, PV2);
 
-		combField(triF, PD1, PD1);
-		combField(triF, PD2, PD2);
+        for(int i = 0; i < numComb; i++)
+        {
+            combField(triF, PD1, PD1);
+            combField(triF, PD2, PD2);
+        }
 
-        sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
-//        tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+        if(sourceDir == DirectionType::DIRPV1)
+            sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+        else
+            sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+
+        if(tarDir == DirectionType::DIRPV1)
+		    tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+        else
+            tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
 
         sourceOmegaFields *= 2 * M_PI * numSourceWaves;
 		tarOmegaFields *= 2 * M_PI * numTarWaves;
@@ -516,47 +540,6 @@ void callback() {
             vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
         }
 		updateFieldsInView(curFrame);
-	}
-
-	if (ImGui::Button("update values", ImVec2(-1, 0)))
-	{
-		Eigen::MatrixXd PD1, PD2;
-		Eigen::VectorXd PV1, PV2;
-		igl::principal_curvature(triV, triF, PD1, PD2, PV1, PV2);
-
-		sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-//		tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
-        tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-
-		sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-//		tarOmegaFields *= 2 * M_PI * numTarWaves;
-        tarOmegaFields *= 2 * M_PI * numTarWaves;
-
-		sourceVertexOmegaFields = 2 * M_PI * numSourceWaves * PD1;
-        tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD1;
-//		tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD2;
-
-		Eigen::VectorXd faceArea;
-		Eigen::MatrixXd cotEntries;
-		igl::doublearea(triV, triF, faceArea);
-		faceArea /= 2;
-		igl::cotmatrix_entries(triV, triF, cotEntries);
-		int nverts = triV.rows();
-
-		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
-		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
-
-		// solve for the path from source to target
-		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
-		// get interploated amp and phase frames
-		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
-        vertexOmegaList.resize(omegaList.size());
-        for(int i = 0; i < omegaList.size(); i++)
-        {
-            vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
-        }
-		updateFieldsInView(curFrame);
-			
 	}
 
 	ImGui::PopItemWidth();
