@@ -82,7 +82,7 @@ bool isFixedSource = true;
 bool isFixedTar = true;
 
 bool isForceOptimize = false;
-bool isTwoTriangles = false;
+bool isTwoTriangles = true;
 
 PaintGeometry mPaint;
 
