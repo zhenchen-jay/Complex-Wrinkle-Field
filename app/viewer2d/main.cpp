@@ -201,7 +201,7 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 	if (isTwoTriangles)
 	{
-		V2d.resize(4, 3);
+		/*V2d.resize(4, 3);
 		V2d << -1, -1, 0,
 			1, -1, 0,
 			1, 1, 0,
@@ -209,7 +209,15 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 		F.resize(2, 3);
 		F << 0, 1, 2,
-			2, 3, 0;
+			2, 3, 0;*/
+
+		V2d.resize(3, 3);
+		V2d << 0, 0, 0,
+			1, 0, 0,
+			0, 1, 0;
+
+		F.resize(1, 3);
+		F << 0, 1, 2;
 	}
 
 	irregularV.resize(V2d.rows(), 3);
@@ -632,6 +640,19 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 		OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 		std::cout << "x norm: " << x.norm() << std::endl;
+
+		Eigen::VectorXd deriv;
+		Eigen::SparseMatrix<double> H;
+		double E = interpModel.computeEnergy(x, &deriv, &H, false);
+
+		std::cout << deriv.norm() << std::endl;
+		std::cout << "hessian: \n" << H.toDense() << std::endl;
+
+		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
+		es.compute(H.toDense());
+		Eigen::VectorXd evals = es.eigenvalues();
+		std::cout << "evals: " << evals.transpose() << std::endl;
+
 	}
 	interpModel.convertVariable2List(x);
 
