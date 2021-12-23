@@ -103,7 +103,7 @@ bool isTwoTriangles = true;
 PhaseInterpolation model;
 PaintGeometry mPaint;
 
-int numFrames = 50;
+int numFrames = 2;
 int curFrame = 0;
 int sigIndex1 = 1;
 int sigIndex2 = 1;
@@ -242,7 +242,7 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 	if (isTwoTriangles)
 	{
-		V2d.resize(4, 3);
+		/*V2d.resize(4, 3);
 		V2d << -1, -1, 0,
 			1, -1, 0,
 			1, 1, 0,
@@ -250,7 +250,15 @@ void generateSquare(double length, double width, double triarea, Eigen::MatrixXd
 
 		F.resize(2, 3);
 		F << 0, 1, 2,
-			2, 3, 0;
+			2, 3, 0;*/
+
+		V2d.resize(3, 3);
+		V2d << 0, 0, 0,
+			1, 0, 0,
+			0, 1, 0;
+
+		F.resize(1, 3);
+		F << 0, 1, 2;
 	}
 
 	irregularV.resize(V2d.rows(), 3);
