@@ -19,6 +19,7 @@
 #include <igl/boundary_loop.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/triangle/triangulate.h>
+#include <igl/cylinder.h>
 #include <igl/principal_curvature.h>
 #include <filesystem>
 #include "polyscope/messages.h"
@@ -37,6 +38,7 @@
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/InterpolationScheme/VecFieldSplit.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/Optimization/LBFGSSolver.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 //#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
@@ -112,11 +114,17 @@ enum DirectionType
     DIRPV2 = 1,
     LOADFROMFILE = 2
 };
+enum OptSolverType
+{
+	Newton = 0,
+	LBFGS = 1,
+	Composite = 2	// use lbfgs to get a warm start
+};
 
-bool isUseUpMesh = false;
 InitializationType initializationType = InitializationType::Linear;
 DirectionType sourceDir = DIRPV1;
 DirectionType tarDir = DIRPV2;
+OptSolverType solverType = Newton;
 
 
 bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
@@ -231,7 +239,15 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 		OptSolver::testFuncGradHessian(funVal, x);
 
 		auto x0 = x;
-		OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+		if(solverType == Newton)
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+		else if (solverType == LBFGS)
+			OptSolver::lbfgsSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+		else if (solverType = Composite)
+		{
+			OptSolver::lbfgsSolver(funVal, maxStep, x, 1000, 1e-4, 1e-5, 1e-5, true, getVecNorm);
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+		}
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 		std::cout << "x norm: " << x.norm() << std::endl;
 	}
@@ -499,7 +515,8 @@ void callback() {
 		}
 		if (ImGui::DragInt("current frame", &curFrame, dragSpeed, 0, numFrames + 1))
 		{
-			updateFieldsInView(curFrame);
+			if(curFrame >= 0 && curFrame <= numFrames + 1)
+				updateFieldsInView(curFrame);
 		}
 		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.0005, 0, 1))
 		{
@@ -546,10 +563,11 @@ void callback() {
             if (numComb < 0)
                 numComb = 0;
         }
-		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
+		if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
+		if (ImGui::Combo("Solver types", (int*)&solverType, "Newton\0L-BFGS\0Composite\0")) {}
 
 	}
-	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
+	
 
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
@@ -597,13 +615,6 @@ void callback() {
             tarOmegaFields *= 2 * M_PI * numTarWaves;
             tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
         }
-
-
-
-
-
-
-
 
 		Eigen::VectorXd faceArea;
 		Eigen::MatrixXd cotEntries;
@@ -668,11 +679,11 @@ int main(int argc, char** argv)
 	//Eigen::VectorXi J;
 	//igl::decimate(triV, triF, 1000, U, G, J);
 	//igl::writeOBJ("test.obj", U, G);
-    igl::cylinder(40, 12, U, G);
-    U.col(0) *= 0.5;
-    U.col(1) *= 0.5;
-    U.col(2) *= 2;
-    igl::writeOBJ("test.obj", U, G);
+    // igl::cylinder(40, 12, U, G);
+    // U.col(0) *= 0.5;
+    // U.col(1) *= 0.5;
+    // U.col(2) *= 2;
+    // igl::writeOBJ("test.obj", U, G);
 
 
     // Add the callback

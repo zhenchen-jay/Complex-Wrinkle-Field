@@ -40,6 +40,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		Eigen::SparseMatrix<double> I(DIM, DIM);
 		I.setIdentity();
 		hessian = H;
+		std::cout << "num of nonzeros: " << hessian.nonZeros() << ", rows: " << hessian.rows() << ", cols: " << hessian.cols() << std::endl;
 		Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(hessian);
 
 //		Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solver(hessian);
