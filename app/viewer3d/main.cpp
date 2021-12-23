@@ -24,6 +24,7 @@
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/surface_mesh.h"
+#include "polyscope/view.h"
 
 #include <iostream>
 #include <fstream>
@@ -77,6 +78,7 @@ Eigen::MatrixXd curColor;
 int loopLevel = 2;
 
 bool isForceOptimize = false;
+bool isShowVectorFields = true;
 
 PaintGeometry mPaint;
 
@@ -90,7 +92,7 @@ double globalAmpMax = 1;
 
 double dragSpeed = 0.5;
 
-float vecratio = 0.01;
+float vecratio = 0.001;
 
 double gradTol = 1e-6;
 double xTol = 0;
@@ -107,13 +109,46 @@ enum InitializationType{
 enum DirectionType
 {
     DIRPV1 = 0,
-    DIRPV2 = 1
+    DIRPV2 = 1,
+    LOADFROMFILE = 2
 };
 
 bool isUseUpMesh = false;
 InitializationType initializationType = InitializationType::Linear;
 DirectionType sourceDir = DIRPV1;
 DirectionType tarDir = DIRPV2;
+
+
+bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
+{
+    std::ifstream infile(filename);
+    if(!infile)
+    {
+        std::cerr << "invalid file name" << std::endl;
+        return false;
+    }
+    else
+    {
+        edgeOmega.setZero(nlines, 2);
+        for (int i = 0; i < nlines; i++)
+        {
+            std::string line;
+            std::getline(infile, line);
+            std::stringstream ss(line);
+
+            std::string x, y;
+            ss >> x;
+            ss >> y;
+            if (!ss)
+            {
+                edgeOmega.row(i) << std::stod(x), -std::stod(x);
+            }
+            else
+                edgeOmega.row(i) << std::stod(x), std::stod(y);
+        }
+    }
+    return true;
+}
 
 void initialization()
 {
@@ -245,7 +280,7 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 }
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
-	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shifty, const double& ampMax,
+	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shiftz, const double& ampMax,
 	Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, Eigen::MatrixXd* omegaVec,
 	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderVec, Eigen::MatrixXd& renderColor)
 {
@@ -257,6 +292,12 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	int ndataVerts = nverts + 2 * nupverts;
 	int ndataFaces = nfaces + 2 * nupfaces;
+
+    if(!isShowVectorFields)
+    {
+        ndataVerts = 2 * nupverts;
+        ndataFaces = 2 * nupfaces;
+    }
 	
 	renderV.resize(ndataVerts, 3);
 	renderVec.setZero(ndataVerts, 3);
@@ -275,26 +316,30 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	Eigen::MatrixXd shiftV = basePos;
 	shiftV.col(0).setConstant(0);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
+	shiftV.col(1).setConstant(0);
+	shiftV.col(2).setConstant(shiftz);
 
-	renderV.block(0, 0, nverts, 3) = basePos - shiftV;
-	renderF.block(0, 0, nfaces, 3) = baseF;
-	if (omegaVec)
-	{
-		for (int i = 0; i < nverts; i++)
-			renderVec.row(i) = omegaVec->row(i);
-	}
-	
-	curVerts += nverts; 
-	curFaces += nfaces;
+    if(isShowVectorFields)
+    {
+        renderV.block(0, 0, nverts, 3) = basePos - shiftV;
+        renderF.block(0, 0, nfaces, 3) = baseF;
+        if (omegaVec)
+        {
+            for (int i = 0; i < nverts; i++)
+                renderVec.row(i) = omegaVec->row(i);
+        }
+
+        curVerts += nverts;
+        curFaces += nfaces;
+    }
+
 
 	double shiftx = 1.5 * (basePos.col(0).maxCoeff() - basePos.col(0).minCoeff());
 
 	shiftV = upPos;
 	shiftV.col(0).setConstant(shiftx);
-	shiftV.col(1).setConstant(shifty);
-	shiftV.col(2).setConstant(0);
+	shiftV.col(1).setConstant(0);
+	shiftV.col(2).setConstant(shiftz);
 
 
 	Eigen::MatrixXi shiftF = upF;
@@ -334,20 +379,17 @@ void registerMesh(int frameId)
 	Eigen::MatrixXd sourceColor, tarColor, interpColor;
 
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-	double shifty = 1.5 * (triV.col(1).maxCoeff() - triV.col(1).minCoeff());
+	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMax, ampFieldsList[0], phaseFieldsList[0], &sourceVertexOmegaFields, sourceP, sourceF, sourceVec, sourceColor);
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shifty, globalAmpMax, ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP, tarF, tarVec, tarColor);
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shifty, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec, interpColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shiftz, globalAmpMax, ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP, tarF, tarVec, tarColor);
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec, interpColor);
 
 	
 	Eigen::MatrixXi shifF = sourceF;
 
 	int nPartVerts = sourceP.rows();
 	int nPartFaces = sourceF.rows();
-	int nverts = triV.rows();
-	int nfaces = triF.rows();
-
 
 	dataV.setZero(3 * nPartVerts, 3);
 	curColor.setZero(3 * nPartVerts, 3);
@@ -407,19 +449,40 @@ void callback() {
 		}
 			
 	}
+    if (ImGui::Checkbox("is show vector fields", &isShowVectorFields))
+    {
+        updateFieldsInView(curFrame);
+    }
 
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-        if (ImGui::Combo("source direction", (int*)&sourceDir, "PV1\0PV2\0")) {}
+        if (ImGui::Combo("source direction", (int*)&sourceDir, "PV1\0PV2\0Load From File\0"))
+        {
+            if(sourceDir == LOADFROMFILE)
+            {
+                std::string filename = igl::file_dialog_open();
+                loadEdgeOmega(filename, triMesh.nEdges(), sourceOmegaFields);
+                sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
+            }
+        }
 		if (ImGui::InputInt("num source waves", &numSourceWaves))
 		{
 			if (numSourceWaves < 0)
 				numSourceWaves = 2;
 		}
+
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-        if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0")) {}
+        if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0Load From File\0"))
+        {
+            if(tarDir == LOADFROMFILE)
+            {
+                std::string filename = igl::file_dialog_open();
+                loadEdgeOmega(filename, triMesh.nEdges(), tarOmegaFields);
+                tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
+            }
+        }
 		if (ImGui::InputInt("num target waves", &numTarWaves))
 		{
 			if (numTarWaves < 0)
@@ -438,7 +501,7 @@ void callback() {
 		{
 			updateFieldsInView(curFrame);
 		}
-		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.005, 0, 1))
+		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.0005, 0, 1))
 		{
 			updateFieldsInView(curFrame);
 		}
@@ -503,22 +566,44 @@ void callback() {
         }
 
         if(sourceDir == DirectionType::DIRPV1)
+        {
             sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-        else
+            sourceVertexOmegaFields = PD1;
+            sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+            sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+        }
+
+        else if(sourceDir == DirectionType::DIRPV2)
+        {
             sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+            sourceVertexOmegaFields = PD2;
+            sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+            sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+        }
+
 
         if(tarDir == DirectionType::DIRPV1)
-		    tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
-        else
+        {
+            tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
+            tarVertexOmegaFields = PD1;
+            tarOmegaFields *= 2 * M_PI * numTarWaves;
+            tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+        }
+
+        else if(tarDir == DirectionType::DIRPV2)
+        {
             tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
+            tarVertexOmegaFields = PD2;
+            tarOmegaFields *= 2 * M_PI * numTarWaves;
+            tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+        }
 
-        sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-		tarOmegaFields *= 2 * M_PI * numTarWaves;
-//        tarOmegaFields *= 2 * M_PI * numTarWaves;
 
-        sourceVertexOmegaFields = 2 * M_PI * numSourceWaves * PD1;
-//        tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD1;
-		tarVertexOmegaFields = 2 * M_PI * numTarWaves * PD2;
+
+
+
+
+
 
 		Eigen::VectorXd faceArea;
 		Eigen::MatrixXd cotEntries;
@@ -576,6 +661,8 @@ int main(int argc, char** argv)
 
     // Register the mesh with Polyscope
     polyscope::registerSurfaceMesh("input mesh", triV, triF);
+    polyscope::view::upDir = polyscope::view::UpDir::ZUp;
+
 	Eigen::MatrixXd U;
 	Eigen::MatrixXi G;
 	//Eigen::VectorXi J;

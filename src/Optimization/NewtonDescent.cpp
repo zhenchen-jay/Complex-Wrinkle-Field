@@ -2,6 +2,7 @@
 
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/timer.h"
 
 void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc)
 {
@@ -14,6 +15,12 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	double reg = 1e-8;
 
 	bool isProj = true;
+    Timer<std::chrono::high_resolution_clock> totalTimer;
+    double totalAssemblingTime = 0;
+    double totalSolvingTime = 0;
+    double totalLineSearchTime = 0;
+
+    totalTimer.start();
 
     // bool isProj = false;
 	int i = 0;
@@ -21,8 +28,14 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	{
 		if(disPlayInfo)
 			std::cout << "\niter: " << i << std::endl;
+        Timer<std::chrono::high_resolution_clock> localTimer;
+        localTimer.start();
 		double f = objFunc(x0, &grad, &hessian, isProj);
+        localTimer.stop();
+        double localAssTime = localTimer.elapsed<std::chrono::milliseconds>() * 1e-3;
+        totalAssemblingTime += localAssTime;
 
+        localTimer.start();
 		Eigen::SparseMatrix<double> H = hessian;
 		Eigen::SparseMatrix<double> I(DIM, DIM);
 		I.setIdentity();
@@ -50,9 +63,18 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		neggrad = -grad;
 		delta_x = solver.solve(neggrad);
 
+        localTimer.stop();
+        double localSolvingTime = localTimer.elapsed<std::chrono::milliseconds>() * 1e-3;
+        totalSolvingTime += localSolvingTime;
+
+
 		maxStepSize = findMaxStep(x0, delta_x);
 
+        localTimer.start();
 		double rate = LineSearch::backtrackingArmijo(x0, grad, delta_x, objFunc, maxStepSize);
+        localTimer.stop();
+        double localLinesearchTime = localTimer.elapsed<std::chrono::milliseconds>() * 1e-3;
+        totalLineSearchTime += localLinesearchTime;
 
 		if (!isProj)
 		{
@@ -76,6 +98,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 				getNormFunc(rate * delta_x, updatez, updatew);
 				std::cout << "z grad: " << gradz << ", w grad: " << gradw << ", z change: " << updatez << ", w change: " << updatew  << std::endl;
 			}
+            std::cout << "timing info (in total seconds): " << std::endl;
+            std::cout << "assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
 		}
 		
 		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
@@ -84,29 +108,35 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		if (rate < 1e-8)
 		{
 			std::cout << "terminate with small line search rate (<1e-8): L2-norm = " << grad.norm() << std::endl;
-			return;
+			break;
 		}
 
 		if (grad.norm() < gradTol)
 		{
 			std::cout << "terminate with gradient L2-norm = " << grad.norm() << std::endl;
-			return;
+			break;
 		}
 			
 		if (rate * delta_x.norm() < xTol)
 		{
 			std::cout << "terminate with small variable change, gradient L2-norm = " << grad.norm() << std::endl;
-			return;
+			break;
 		}
 			
 		if (f - fnew < fTol)
 		{ 
 			std::cout << "terminate with small energy change, gradient L2-norm = " << grad.norm() << std::endl;
-			return;
+			break;
 		}
 	}
 	if (i >= numIter)
 		std::cout << "terminate with reaching the maximum iteration, with gradient L2-norm = " << grad.norm() << std::endl;
+
+    totalTimer.stop();
+    if(disPlayInfo)
+    {
+        std::cout << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
+    }
 		
 }
 
