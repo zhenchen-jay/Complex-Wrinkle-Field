@@ -86,7 +86,7 @@ bool isTwoTriangles = true;
 
 PaintGeometry mPaint;
 
-int numFrames = 50;
+int numFrames = 2;
 int curFrame = 0;
 
 int singIndSource = 1, singIndSource1 = 1;
