@@ -598,6 +598,11 @@ void callback() {
             sourceOmegaFields *= 2 * M_PI * numSourceWaves;
             sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
         }
+		else
+		{
+			sourceOmegaFields *= numSourceWaves;
+			sourceVertexOmegaFields *= numSourceWaves;
+		}
 
 
         if(tarDir == DirectionType::DIRPV1)
@@ -615,6 +620,11 @@ void callback() {
             tarOmegaFields *= 2 * M_PI * numTarWaves;
             tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
         }
+		else
+		{
+			tarOmegaFields *= numSourceWaves;
+			tarVertexOmegaFields *= numSourceWaves;
+		}
 
 		Eigen::VectorXd faceArea;
 		Eigen::MatrixXd cotEntries;
@@ -649,7 +659,7 @@ int main(int argc, char** argv)
 	std::string meshPath;
 	if (argc < 2)
 	{
-		meshPath = "../../../data/bunny_lowres.obj";
+		meshPath = "../../../data/dress/dress_simulated.obj";
 	}
 	else
 		meshPath = argv[1];
