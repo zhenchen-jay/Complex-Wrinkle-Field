@@ -1,4 +1,5 @@
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
+#include "../../include/IntrinsicFormula/AmpSolver.h"
 #include <SymGEigsShiftSolver.h>
 #include <MatOp/SparseCholesky.h>
 #include <MatOp/SparseSymShiftSolve.h>
@@ -98,6 +99,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(const MeshConnectivity 
     }
 
     std::cout << "Eigenvalue is " << evalues[0] << std::endl;
+
     zvals.clear();
     for(int i = 0; i < nverts; i++)
     {

@@ -9,6 +9,7 @@ namespace IntrinsicFormula
 		IntrinsicKeyFrameInterpolationFromHalfEdge() {}
 		IntrinsicKeyFrameInterpolationFromHalfEdge(const MeshConnectivity& mesh, const Eigen::VectorXd& faceArea, const int numFrames, const int quadOrder, const std::vector<std::complex<double>>& startZvals, const Eigen::MatrixXd& startOmega, const std::vector<std::complex<double>>& endZvals, const Eigen::MatrixXd& endOmega)
 		{
+			_quadOrd = quadOrder;
 			double dt = 1.0 / (numFrames + 1);
 			_zdotModel = ComputeZdotFromHalfEdgeOmega(mesh, faceArea, quadOrder, dt);
 			
@@ -75,10 +76,13 @@ namespace IntrinsicFormula
 		double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 		void testEnergy(Eigen::VectorXd x);
 
-	public:
+		bool save(const std::string& fileName, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
+		bool load(const std::string& fileName, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
+
+	public:	// should be private, when publishing
 		ComputeZdotFromHalfEdgeOmega _zdotModel;
 	private:
-		
+		int _quadOrd;
 		MeshConnectivity _mesh;
 		std::vector<std::vector<std::complex<double>>> _zList;
 		std::vector<Eigen::MatrixXd> _wList;

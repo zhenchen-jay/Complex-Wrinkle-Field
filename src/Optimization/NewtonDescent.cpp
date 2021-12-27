@@ -1,10 +1,11 @@
 #include <Eigen/CholmodSupport>
-
+#include <fstream>
+#include <iomanip>
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/timer.h"
 
-void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc)
+void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder)
 {
 	const int DIM = x0.rows();
 	Eigen::VectorXd grad = Eigen::VectorXd::Zero(DIM);
@@ -21,13 +22,21 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
     double totalLineSearchTime = 0;
 
     totalTimer.start();
-
+	std::ofstream optInfo;
+	if (savingFolder)
+	{
+		optInfo = std::ofstream((*savingFolder) + "_optInfo.txt");
+		optInfo << "Newton solver with termination criterion: " << std::endl;
+		std::cout << "gradient tol: " << gradTol << ", function update tol: " << fTol << ", variable update tol: " << xTol << ", maximum iteration: " << numIter << std::endl << std::endl;
+	}
     // bool isProj = false;
 	int i = 0;
 	for (; i < numIter; i++)
 	{
 		if(disPlayInfo)
 			std::cout << "\niter: " << i << std::endl;
+		if(savingFolder)
+			optInfo << "\niter: " << i << std::endl;
         Timer<std::chrono::high_resolution_clock> localTimer;
         localTimer.start();
 		double f = objFunc(x0, &grad, &hessian, isProj);
@@ -102,6 +111,33 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
             std::cout << "timing info (in total seconds): " << std::endl;
             std::cout << "assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
 		}
+
+		if (savingFolder)
+		{
+			optInfo << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
+			optInfo << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
+			if (getNormFunc)
+			{
+				double gradz, gradw;
+				getNormFunc(grad, gradz, gradw);
+
+				double updatez, updatew;
+				getNormFunc(rate * delta_x, updatez, updatew);
+				optInfo << "z grad: " << gradz << ", w grad: " << gradw << ", z change: " << updatez << ", w change: " << updatew << std::endl;
+			}
+			optInfo << "timing info (in total seconds): " << std::endl;
+			optInfo << "assembling took: " << totalAssemblingTime << ", LLT solver took: " << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
+
+			if (i % 100 == 0)
+			{
+				std::string fileName = (*savingFolder) + "intermediate.txt";
+				std::ofstream ofs(fileName);
+				if (ofs)
+				{
+					ofs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << x0 << std::endl;
+				}
+			}
+		}
 		
 		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
 			isProj = false;
@@ -138,6 +174,20 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
     {
         std::cout << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
     }
+
+	if (savingFolder)
+	{
+		optInfo << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: " << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
+
+		std::string fileName = (*savingFolder) + "final_res.txt";
+		std::ofstream ofs(fileName);
+		if (ofs)
+		{
+			ofs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << x0 << std::endl;
+		}
+
+
+	}
 		
 }
 

@@ -28,7 +28,6 @@ public:
     std::vector<std::vector<int>> edgeParentID;
     //int oppositeFace(int face, int vertidx) const;
 
-private:
     int oppositeVertexIndex(int edge, int faceidx) const; // index i so that F(edgeFace(edge, faceidx), i) is *not* part of the edge
     int oppositeVertex(int edge, int faceidx) const;
     

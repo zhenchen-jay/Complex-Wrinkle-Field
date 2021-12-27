@@ -78,49 +78,41 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 		    hess->setZero();
 			Eigen::Matrix<std::complex<double>, 24, 24> hessDeltaZ;
 
-			Eigen::Matrix<double, 12, 12> swapMat;
-			swapMat.setIdentity();
-
-			for (int i = 0; i < 3; i++)
-			{
-				if (wflag(i) == 1)	// do swap
-				{
-					swapMat.block<2, 2>(6 + 2 * i, 6 + 2 * i) << 0, 1, 1, 0;
-				}
-			}
-
-			hessDeltaZ.block<12, 12>(0, 0) = -swapMat * hessCur * swapMat.transpose();
-			hessDeltaZ.block<12, 12>(12, 12) = swapMat * hessNext * swapMat.transpose();
+			//Eigen::Matrix<double, 12, 12> swapMat;
+			//swapMat.setIdentity();
 
 			//for (int i = 0; i < 3; i++)
 			//{
 			//	if (wflag(i) == 1)	// do swap
 			//	{
-			//		auto c = hessDeltaZ.row(6 + 2 * i);
-
-			//		hessDeltaZ.row(6 + 2 * i) = hessDeltaZ.row(6 + 2 * i + 1);
-			//		hessDeltaZ.row(6 + 2 * i + 1) = c;
-
-			//		c = hessDeltaZ.row(18 + 2 * i);
-			//		hessDeltaZ.row(18 + 2 * i) = hessDeltaZ.row(18 + 2 * i + 1);
-			//		hessDeltaZ.row(18 + 2 * i + 1) = c;
+			//		swapMat.block<2, 2>(6 + 2 * i, 6 + 2 * i) << 0, 1, 1, 0;
 			//	}
 			//}
-			//for (int j = 0; j < 3; j++)
-			//{
-			//	if (wflag(j) == 1) // do swap
-			//	{
-			//		auto c = hessDeltaZ.col(6 + 2 * j);
 
-			//		hessDeltaZ.col(6 + 2 * j) = hessDeltaZ.col(6 + 2 * j + 1);
-			//		hessDeltaZ.col(6 + 2 * j + 1) = c;
+			//hessDeltaZ.block<12, 12>(0, 0) = -swapMat * hessCur * swapMat.transpose();
+			//hessDeltaZ.block<12, 12>(12, 12) = swapMat * hessNext * swapMat.transpose();
 
-			//		c = hessDeltaZ.col(18 + 2 * j);
-			//		hessDeltaZ.col(18 + 2 * j) = hessDeltaZ.col(18 + 2 * j + 1);
-			//		hessDeltaZ.col(18 + 2 * j + 1) = c;
-			//	}
+			hessDeltaZ.block<12, 12>(0, 0) = -hessCur;
+			hessDeltaZ.block<12, 12>(12, 12) = hessNext;
 
-			//}
+			for (int i = 0; i < 3; i++)
+			{
+				if (wflag(i) == 1)	// do swap
+				{
+					hessDeltaZ.row(6 + 2 * i).swap(hessDeltaZ.row(6 + 2 * i + 1));
+					hessDeltaZ.row(18 + 2 * i).swap(hessDeltaZ.row(18 + 2 * i + 1));
+				}
+			}
+			
+			for (int j = 0; j < 3; j++)
+			{
+				if (wflag(j) == 1) // do swap
+				{
+					hessDeltaZ.col(6 + 2 * j).swap(hessDeltaZ.col(6 + 2 * j + 1));
+					hessDeltaZ.col(18 + 2 * j).swap(hessDeltaZ.col(18 + 2 * j + 1));
+				}
+
+			}
 
 			(*hess) = gradDeltaZ.real() * (gradDeltaZ.real()).transpose() + gradDeltaZ.imag() * gradDeltaZ.imag().transpose();
 			(*hess) += deltaz.real() * hessDeltaZ.real() + deltaz.imag() * hessDeltaZ.imag();
@@ -198,6 +190,11 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegration(const std::vector<st
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nfaces, GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeEnergy);
+
+	/*for (uint32_t i = 0; i < nfaces; ++i)
+	{
+		energyList[i] = computeZdotIntegrationPerface(curZvals, curw, nextZvals, nextw, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
+	}*/
 
 	int nOneGroup = 2 * nverts + 2 * nedges;
 

@@ -1,5 +1,11 @@
 #include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
+#include "../../include/json.hpp"
 #include <iostream>
+#include <fstream>
+
+#include <igl/readOBJ.h>
+#include <igl/writeOBJ.h>
+#include <igl/doublearea.h>
 
 using namespace IntrinsicFormula;
 
@@ -121,6 +127,147 @@ double IntrinsicKeyFrameInterpolationFromHalfEdge::computeEnergy(const Eigen::Ve
 		hess->setFromTriplets(T.begin(), T.end());
 	}
 	return energy;
+}
+
+bool IntrinsicKeyFrameInterpolationFromHalfEdge::save(const std::string& fileName, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
+{
+	using json = nlohmann::json;
+	json jval;
+	jval["mesh_name"] = "mesh.obj";
+	jval["num_frame"] = _zList.size() - 2;
+	jval["quad_order"] = _quadOrd;
+
+	std::string filePath = fileName;
+	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+	int id = filePath.rfind("/");
+	std::string workingFolder = filePath.substr(0, id + 1);
+
+	igl::writeOBJ(workingFolder + "mesh.obj", V, F);
+	for (int i = 0; i < _zList.size(); i++)
+	{
+		std::ofstream zfs(workingFolder + "zvals_" + std::to_string(i) + ".txt");
+		std::ofstream wfs(workingFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
+		wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << _wList[i] << std::endl;
+		for (int j = 0; j < _zList[i].size(); j++)
+		{
+			zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << _zList[i][j].real() << " " << _zList[i][j].imag() << std::endl;
+		}
+	}
+	std::ofstream o(workingFolder + "data.json");
+	o << std::setw(4) << jval << std::endl;
+	std::cout << "save file in: " << workingFolder + "data.json" << std::endl;
+	return true;
+}
+
+bool IntrinsicKeyFrameInterpolationFromHalfEdge::load(const std::string& fileName, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
+{
+	std::cout << "load file in: " << fileName << std::endl;
+	using json = nlohmann::json;
+	std::ifstream inputJson(fileName);
+	if (!inputJson)
+	{
+		std::cerr << "missing json file in " << fileName << std::endl;
+		return false;
+	}
+
+	std::string filePath = fileName;
+	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+	int id = filePath.rfind("/");
+	std::string workingFolder = filePath.substr(0, id + 1);
+
+	json jval;
+	inputJson >> jval;
+
+	std::string meshFile =jval["mesh_name"];
+	meshFile = workingFolder + meshFile;
+	igl::readOBJ(meshFile, V, F);
+
+	Eigen::VectorXd faceArea;
+	igl::doublearea(V, F, faceArea);
+	faceArea /= 2;
+
+	int quadOrder = jval["quad_order"];
+	int numFrames = jval["num_frame"];
+
+	_wList.resize(numFrames + 2);
+	_zList.resize(numFrames + 2);
+
+	MeshConnectivity mesh(F);
+
+	auto loadZandOmega = [&](const tbb::blocked_range<uint32_t>& range) {
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
+			//std::cout << i << std::endl;
+			std::ifstream zfs(workingFolder + "zvals_" + std::to_string(i) + ".txt");
+			_zList[i].resize(V.rows());
+			for (int j = 0; j < _zList[i].size(); j++)
+			{
+				//std::cout << j << std::endl;
+				std::string line;
+				std::getline(zfs, line);
+				//std::cout << line << std::endl;
+				std::stringstream ss(line);
+				std::string x, y;
+				ss >> x;
+				ss >> y;
+				//std::cout << x << " " << y << std::endl;
+				_zList[i][j] = std::complex<double>(std::stod(x), std::stod(y));
+			}
+
+			std::ifstream wfs(workingFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
+
+			_wList[i].resize(mesh.nEdges(), 2);
+			for (int j = 0; j < _wList[i].rows(); j++)
+			{
+				std::string line;
+				std::getline(wfs, line);
+				std::stringstream ss(line);
+				std::string x, y;
+				ss >> x;
+				ss >> y;
+				_wList[i].row(j) << std::stod(x), std::stod(y);
+			}
+		}
+	};
+
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)(numFrames + 2), GRAIN_SIZE);
+	tbb::parallel_for(rangex, loadZandOmega);
+
+	//for (int i = 0; i < numFrames + 2; i++)
+	//{
+	//	//std::cout << i << std::endl;
+	//	std::ifstream zfs(workingFolder + "zvals_" + std::to_string(i) + ".txt");
+	//	_zList[i].resize(V.rows());
+	//	for (int j = 0; j < _zList[i].size(); j++)
+	//	{
+	//		//std::cout << j << std::endl;
+	//		std::string line;
+	//		std::getline(zfs, line);
+	//		//std::cout << line << std::endl;
+	//		std::stringstream ss(line);
+	//		std::string x, y;
+	//		ss >> x;
+	//		ss >> y;
+	//		//std::cout << x << " " << y << std::endl;
+	//		_zList[i][j] = std::complex<double>(std::stod(x), std::stod(y));
+	//	}
+	//	
+	//	std::ifstream wfs(workingFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
+	//	
+	//	_wList[i].resize(mesh.nEdges(), 2);
+	//	for (int j = 0; j < _wList[i].rows(); j++)
+	//	{
+	//		std::string line;
+	//		std::getline(wfs, line);
+	//		std::stringstream ss(line);
+	//		std::string x, y;
+	//		ss >> x;
+	//		ss >> y;
+	//		_wList[i].row(j) << std::stod(x), std::stod(y);
+	//	}
+	//}
+	return true;
+
 }
 
 void IntrinsicKeyFrameInterpolationFromHalfEdge::testEnergy(Eigen::VectorXd x)
