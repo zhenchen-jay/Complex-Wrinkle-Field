@@ -29,6 +29,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <unordered_set>
 #include <utility>
 
@@ -41,6 +42,7 @@
 #include "../../include/Optimization/LBFGSSolver.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
+#include "../../include/IntrinsicFormula/AmpSolver.h"
 //#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
 //#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
@@ -103,6 +105,8 @@ int numIter = 1000;
 int quadOrder = 4;
 int numComb = 2;
 
+std::string workingFolder;
+IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel;
 
 enum InitializationType{
   Random = 0,
@@ -175,25 +179,9 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	Eigen::VectorXd faceArea;
 	igl::doublearea(triV, triF, faceArea);
 	faceArea /= 2;
-	IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
+	interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
 	Eigen::VectorXd x;
 	interpModel.convertList2Variable(x);        // linear initialization
-
-    std::vector<std::complex<double>> testzvals;
-    Eigen::MatrixXd cotEntries;
-    igl::cotmatrix_entries(triV, triF, cotEntries);
-    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
-    IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
-	for (auto& z : testzvals)
-	{
-		Eigen::Vector2d rndvec;
-		rndvec.setRandom();
-		z = std::complex<double>(rndvec(0), rndvec(1));
-	}
-	IntrinsicFormula::testRoundingEnergy(triMesh, sourceVec, faceArea, cotEntries, triV.rows(), testzvals);
-
-	//interpModel.testEnergy(x);
-	//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 	if (initializationType == InitializationType::Random)
 	{
 		x.setRandom();
@@ -240,13 +228,13 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 		auto x0 = x;
 		if(solverType == Newton)
-			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
 		else if (solverType == LBFGS)
 			OptSolver::lbfgsSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 		else if (solverType = Composite)
 		{
 			OptSolver::lbfgsSolver(funVal, maxStep, x, 1000, 1e-4, 1e-5, 1e-5, true, getVecNorm);
-			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
 		}
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 		std::cout << "x norm: " << x.norm() << std::endl;
@@ -264,6 +252,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 		std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
 	}
+	interpModel.save(workingFolder + "/data.json", triV, triF);
 
 
 }
@@ -446,6 +435,42 @@ void updateFieldsInView(int frameId)
 
 void callback() {
 	ImGui::PushItemWidth(100);
+	float w = ImGui::GetContentRegionAvailWidth();
+	float p = ImGui::GetStyle().FramePadding.x;
+	if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
+	{
+		std::string loadJson = igl::file_dialog_open();
+		if (interpModel.load(loadJson, triV, triF))
+		{
+			
+			initialization();
+			omegaList = interpModel.getWList();
+			zList = interpModel.getVertValsList();
+
+			numFrames = omegaList.size() - 2;
+			updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+			
+			vertexOmegaList.resize(omegaList.size());
+			for (int i = 0; i < omegaList.size(); i++)
+			{
+				vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
+			}
+			
+			sourceOmegaFields = omegaList[0];
+			sourceVertexOmegaFields = vertexOmegaList[0];
+
+			tarOmegaFields = omegaList[omegaList.size() - 1];
+			tarVertexOmegaFields = vertexOmegaList[omegaList.size() - 1];
+
+			updateFieldsInView(curFrame);
+		}
+	}
+	ImGui::SameLine(0, p);
+	if (ImGui::Button("Save", ImVec2((w - p) / 2.f, 0)))
+	{
+		std::string saveFolder = igl::file_dialog_save();
+		interpModel.save(saveFolder, triV, triF);
+	}
 	if (ImGui::Button("Reset", ImVec2(-1, 0)))
 	{
 		curFrame = 0;
@@ -636,6 +661,20 @@ void callback() {
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
 
+		Eigen::VectorXd sourceAmp, tarAmp;
+		ampSolver(triV, triMesh, sourceOmegaFields, sourceAmp);
+		ampSolver(triV, triMesh, tarOmegaFields, tarAmp);
+
+		for (int i = 0; i < triV.rows(); i++)
+		{
+			double sourceNorm = std::abs(sourceZvals[i]);
+			double tarNorm = std::abs(tarZvals[i]);
+			if(sourceNorm)
+				sourceZvals[i] = sourceAmp(i) / sourceNorm * sourceZvals[i];
+			if(tarNorm)
+				tarZvals[i] = tarAmp(i) / tarNorm * tarZvals[i];
+		}
+
 		// solve for the path from source to target
 		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
 		// get interploated amp and phase frames
@@ -659,10 +698,13 @@ int main(int argc, char** argv)
 	std::string meshPath;
 	if (argc < 2)
 	{
-		meshPath = "../../../data/dress/dress_simulated.obj";
+		meshPath = "../../../data/teddy/teddy_simulated.obj";
 	}
 	else
 		meshPath = argv[1];
+	int id = meshPath.rfind("/");
+	workingFolder = meshPath.substr(0, id + 1); // include "/"
+	//std::cout << workingFolder << std::endl;
 
 	if (!igl::readOBJ(meshPath, triV, triF))
 	{
