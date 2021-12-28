@@ -1,0 +1,10 @@
+Newton solver with termination criterion: 
+
+iter: 0
+line search rate : 1, actual hessian : 0, reg = 1e-08
+f_old: 6.71043, f_new: 6.69542, grad norm: 0.00933858, delta x: 35.8431, delta_f: 0.0150062
+z grad: 0.00474818, w grad: 0.00222509, z change: 2.07726, w change: 2.03987
+timing info (in total seconds): 
+assembling took: 3.605, LLT solver took: 101.266, line search took: 0.105
+
+iter: 1

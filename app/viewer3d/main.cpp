@@ -19,6 +19,7 @@
 #include <igl/boundary_loop.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/triangle/triangulate.h>
+#include <igl/colormap.h>
 #include <igl/cylinder.h>
 #include <igl/principal_curvature.h>
 #include <filesystem>
@@ -83,6 +84,7 @@ int loopLevel = 2;
 
 bool isForceOptimize = false;
 bool isShowVectorFields = true;
+bool isShowWrinkels = true;
 
 PaintGeometry mPaint;
 
@@ -104,6 +106,7 @@ double fTol = 0;
 int numIter = 1000;
 int quadOrder = 4;
 int numComb = 2;
+double wrinkleAmpScalingRatio = 0.0;
 
 std::string workingFolder;
 IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel;
@@ -122,7 +125,8 @@ enum OptSolverType
 {
 	Newton = 0,
 	LBFGS = 1,
-	Composite = 2	// use lbfgs to get a warm start
+	Composite = 2,	// use lbfgs to get a warm start
+    MultilevelNewton = 3 // use multilevel newton solver on the time
 };
 
 InitializationType initializationType = InitializationType::Linear;
@@ -231,13 +235,35 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
 		else if (solverType == LBFGS)
 			OptSolver::lbfgsSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-		else if (solverType = Composite)
+		else if (solverType == Composite)
 		{
 			OptSolver::lbfgsSolver(funVal, maxStep, x, 1000, 1e-4, 1e-5, 1e-5, true, getVecNorm);
 			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
 		}
-		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
-		std::cout << "x norm: " << x.norm() << std::endl;
+        else if (solverType == MultilevelNewton)    // we use 4-level approach
+        {
+            int N = numKeyFrames + 2;
+            int base = std::ceil(std::exp(std::log(N) / 2));
+            std::cout << "base: " << base << std::endl;
+            std::vector<std::vector<std::complex<double>>> zvalsList(2);
+            zvalsList[0] = sourceZvals;
+            zvalsList[1] = tarZvals;
+            std::vector<Eigen::MatrixXd> omegaList(2);
+            omegaList[0] = sourceOmegaFields;
+            omegaList[1] = tarOmegaFields;
+
+            for(int i = 1; i <= 2; i++)
+            {
+                interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, base - 1, quadOrder, zvalsList, omegaList);
+                interpModel.convertList2Variable(x);
+                std::cout << "level: " << i << ", x size: " << x.size() << std::endl;
+                OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
+                zvalsList = interpModel.getVertValsList();
+                omegaList = interpModel.getWList();
+            }
+            
+        }
+		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	}
 	interpModel.convertVariable2List(x);
 
@@ -248,11 +274,18 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	{
 		double zdotNorm = interpModel._zdotModel.computeZdotIntegration(zFrames[i], wFrames[i], zFrames[i + 1], wFrames[i + 1], NULL, NULL);
 
-		double initZdotNorm = interpModel._zdotModel.computeZdotIntegration(initZFrames[i], initWFrames[i], initZFrames[i + 1], initWFrames[i + 1], NULL, NULL);
+        if(solverType != MultilevelNewton)
+        {
+            double initZdotNorm = interpModel._zdotModel.computeZdotIntegration(initZFrames[i], initWFrames[i], initZFrames[i + 1], initWFrames[i + 1], NULL, NULL);
 
-		std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
+            std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
+        }
+        else
+            std::cout << "frame " << i << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
+
 	}
-	interpModel.save(workingFolder + "/data.json", triV, triF);
+    if(isForceOptimize)
+	    interpModel.save(workingFolder + "/data.json", triV, triF);
 
 
 }
@@ -302,6 +335,11 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
     {
         ndataVerts = 2 * nupverts;
         ndataFaces = 2 * nupfaces;
+    }
+    if(isShowWrinkels)
+    {
+        ndataVerts += nupverts;
+        ndataFaces += nupfaces;
     }
 	
 	renderV.resize(ndataVerts, 3);
@@ -373,6 +411,36 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	curVerts += nupverts;
 	curFaces += nupfaces;
+
+    // interpolated amp
+    shiftF.setConstant(curVerts);
+    shiftV.col(0).setConstant(3 * shiftx);
+    Eigen::MatrixXd tmpV = upPos - shiftV;
+    Eigen::MatrixXd tmpN;
+    igl::per_vertex_normals(tmpV, upF, tmpN);
+
+    Eigen::VectorXd ampCosVec(nupverts);
+
+    for(int i = 0; i < nupverts; i++)
+    {
+        renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
+        ampCosVec(i) = ampVec(i) * std::cos(phaseVec(i));
+    }
+    renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
+
+    Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec / globalAmpMax);
+    renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
+
+//    mPaint.setNormalization(false);
+//    Eigen::RowVector3d rowcolor;
+//
+//    igl::colormap(igl::COLOR_MAP_TYPE_VIRIDIS, 4.0 / 9.0, rowcolor.data());
+//    for(int i = 0; i < nupverts; i++)
+//    {
+//        renderColor.row(curVerts + i) = rowcolor;
+//    }
+    curVerts += nupverts;
+    curFaces += nupfaces;
 
 }
 
@@ -494,6 +562,15 @@ void callback() {
     {
         updateFieldsInView(curFrame);
     }
+    if (ImGui::Checkbox("is show wrinkled mesh", &isShowWrinkels))
+    {
+        updateFieldsInView(curFrame);
+    }
+    if (ImGui::InputDouble("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio))
+    {
+        if(wrinkleAmpScalingRatio >= 0)
+            updateFieldsInView(curFrame);
+    }
 
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -589,7 +666,7 @@ void callback() {
                 numComb = 0;
         }
 		if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
-		if (ImGui::Combo("Solver types", (int*)&solverType, "Newton\0L-BFGS\0Composite\0")) {}
+		if (ImGui::Combo("Solver types", (int*)&solverType, "Newton\0L-BFGS\0Composite\0Multilevel-Newton\0")) {}
 
 	}
 	
@@ -661,19 +738,19 @@ void callback() {
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
 
-		Eigen::VectorXd sourceAmp, tarAmp;
-		ampSolver(triV, triMesh, sourceOmegaFields, sourceAmp);
-		ampSolver(triV, triMesh, tarOmegaFields, tarAmp);
-
-		for (int i = 0; i < triV.rows(); i++)
-		{
-			double sourceNorm = std::abs(sourceZvals[i]);
-			double tarNorm = std::abs(tarZvals[i]);
-			if(sourceNorm)
-				sourceZvals[i] = sourceAmp(i) / sourceNorm * sourceZvals[i];
-			if(tarNorm)
-				tarZvals[i] = tarAmp(i) / tarNorm * tarZvals[i];
-		}
+//		 Eigen::VectorXd sourceAmp, tarAmp;
+//		 ampSolver(triV, triMesh, sourceOmegaFields, sourceAmp);
+//		 ampSolver(triV, triMesh, tarOmegaFields, tarAmp);
+//
+//		 for (int i = 0; i < triV.rows(); i++)
+//		 {
+//		 	double sourceNorm = std::abs(sourceZvals[i]);
+//		 	double tarNorm = std::abs(tarZvals[i]);
+//		 	if(sourceNorm)
+//		 		sourceZvals[i] = sourceAmp(i) / sourceNorm * sourceZvals[i];
+//		 	if(tarNorm)
+//		 		tarZvals[i] = tarAmp(i) / tarNorm * tarZvals[i];
+//		 }
 
 		// solve for the path from source to target
 		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
@@ -684,6 +761,7 @@ void callback() {
         {
             vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
         }
+        numFrames = omegaList.size() - 2;
 		updateFieldsInView(curFrame);
 	}
 

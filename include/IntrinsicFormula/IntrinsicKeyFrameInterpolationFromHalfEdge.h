@@ -36,7 +36,45 @@ namespace IntrinsicFormula
 			}
 
 		}
+        IntrinsicKeyFrameInterpolationFromHalfEdge(const MeshConnectivity& mesh, const Eigen::VectorXd& faceArea, const int numInterFrames, const int quadOrder, const std::vector<std::vector<std::complex<double>>>& zvalsList, const std::vector<Eigen::MatrixXd>& omegaList)
+        {
+            _quadOrd = quadOrder;
+            _mesh = mesh;
+            for(int i = 0; i < zvalsList.size() - 1; i++)
+            {
+                std::vector<std::complex<double>> startZvals, endZvals;
+                Eigen::MatrixXd startOmega, endOmega;
 
+                startZvals = zvalsList[i];
+                endZvals = zvalsList[i + 1];
+
+                startOmega = omegaList[i];
+                endOmega = omegaList[i + 1];
+
+                double dt = 1.0 / (numInterFrames + 1);
+                for(int j = 0; j <= numInterFrames; j++)
+                {
+                    double t = dt * j;
+                    std::vector<std::complex<double>> curZvals = startZvals;
+                    Eigen::MatrixXd curOmega = (1 - t) * startOmega + t * endOmega;
+
+                    for(int k = 0; k < startZvals.size(); k++)
+                    {
+                        curZvals[k] = (1 - t) * startZvals[k] + t * endZvals[k];
+                    }
+                    _zList.push_back(curZvals);
+                    _wList.push_back(curOmega);
+                }
+            }
+
+            _zList.push_back(zvalsList[zvalsList.size() - 1]);
+            _wList.push_back(omegaList[omegaList.size() - 1]);
+
+            int numFrames = _zList.size();
+            double dt = 1.0 / (numFrames - 1);
+            _zdotModel = ComputeZdotFromHalfEdgeOmega(mesh, faceArea, quadOrder, dt);
+
+        }
 		void convertVariable2List(const Eigen::VectorXd& x);
 		void convertList2Variable(Eigen::VectorXd& x);
 
