@@ -317,8 +317,8 @@ Eigen::Vector3d computeHatWeight(double u, double v)
 	Eigen::Vector3d bary(1 - u - v, u, v);
 	for (int i = 0; i < 3; i++)
 	{
-		weights(i) = 3 * bary(i) * bary(i) - 2 * bary(i) * bary(i) * bary(i) + 2 * bary(i) * bary((i + 1) % 3) * bary((i + 2) % 3);
-		//            weights(i) = bary(i);
+//		weights(i) = 3 * bary(i) * bary(i) - 2 * bary(i) * bary(i) * bary(i) + 2 * bary(i) * bary((i + 1) % 3) * bary((i + 2) % 3);
+		            weights(i) = bary(i);
 	}
 	return weights;
 }

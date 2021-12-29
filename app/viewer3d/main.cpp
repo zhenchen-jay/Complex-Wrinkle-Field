@@ -74,6 +74,11 @@ std::vector<std::vector<std::complex<double>>> zList;
 std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
 
+// baselines
+std::vector<Eigen::VectorXd> KnoppelPhaseFieldsList;
+std::vector<Eigen::VectorXd> linearPhaseFieldsList;
+std::vector<Eigen::VectorXd> linearAmpFieldsList;
+
 
 Eigen::MatrixXd dataV;
 Eigen::MatrixXi dataF;
@@ -85,6 +90,7 @@ int loopLevel = 2;
 bool isForceOptimize = false;
 bool isShowVectorFields = true;
 bool isShowWrinkels = true;
+bool isShowComparison = false;
 
 PaintGeometry mPaint;
 
@@ -95,6 +101,7 @@ int numSourceWaves = 2;
 int numTarWaves = 2;
 
 double globalAmpMax = 1;
+double globalAmpMin = 0;
 
 double dragSpeed = 0.5;
 
@@ -318,7 +325,7 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 }
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
-	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shiftz, const double& ampMax,
+	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin, const double& ampMax,
 	Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, Eigen::MatrixXd* omegaVec,
 	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderVec, Eigen::MatrixXd& renderColor)
 {
@@ -353,9 +360,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	int curVerts = 0;
 	int curFaces = 0;
-
-	Eigen::VectorXd normalizedAmp = ampVec / ampMax; 
-
 
 	Eigen::MatrixXd shiftV = basePos;
 	shiftV.col(0).setConstant(0);
@@ -406,11 +410,119 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
 
 	mPaint.setNormalization(false);
-	Eigen::MatrixXd ampColor = mPaint.paintAmplitude(ampVec / globalAmpMax);
+    Eigen::VectorXd normoalizedAmpVec = ampVec;
+    for(int i = 0; i < normoalizedAmpVec.rows(); i++)
+    {
+        normoalizedAmpVec(i) = (ampVec(i) - ampMin) / ampMax;
+    }
+	Eigen::MatrixXd ampColor = mPaint.paintAmplitude(normoalizedAmpVec);
 	renderColor.block(curVerts, 0, nupverts, 3) = ampColor;
 
 	curVerts += nupverts;
 	curFaces += nupfaces;
+
+    // interpolated amp
+    if(isShowWrinkels)
+    {
+        shiftF.setConstant(curVerts);
+        shiftV.col(0).setConstant(3 * shiftx);
+        Eigen::MatrixXd tmpV = upPos - shiftV;
+        Eigen::MatrixXd tmpN;
+        igl::per_vertex_normals(tmpV, upF, tmpN);
+
+        Eigen::VectorXd ampCosVec(nupverts);
+
+        for(int i = 0; i < nupverts; i++)
+        {
+            renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
+            ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
+        }
+        renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
+
+        mPaint.setNormalization(false);
+        Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec);
+        renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
+        //    mPaint.setNormalization(false);
+//    Eigen::RowVector3d rowcolor;
+//
+//    igl::colormap(igl::COLOR_MAP_TYPE_VIRIDIS, 4.0 / 9.0, rowcolor.data());
+//    for(int i = 0; i < nupverts; i++)
+//    {
+//        renderColor.row(curVerts + i) = rowcolor;
+//    }
+        curVerts += nupverts;
+        curFaces += nupfaces;
+    }
+
+
+
+
+}
+
+void registercomparisonMeshByPart(Eigen::MatrixXd& upPos, Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin, const double& ampMax,
+                        Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderColor)
+{
+    int nupverts = upPos.rows();
+    int nupfaces = upF.rows();
+
+    int ndataVerts = 3 * nupverts;
+    int ndataFaces = 3 * nupfaces;
+
+    renderV.resize(ndataVerts, 3);
+    renderF.resize(ndataFaces, 3);
+    renderColor.setZero(ndataVerts, 3);
+
+    renderColor.col(0).setConstant(1.0);
+    renderColor.col(1).setConstant(1.0);
+    renderColor.col(2).setConstant(1.0);
+
+    int curVerts = 0;
+    int curFaces = 0;
+
+    Eigen::MatrixXd shiftV = upPos;
+    shiftV.col(0).setConstant(0);
+    shiftV.col(1).setConstant(0);
+    shiftV.col(2).setConstant(shiftz);
+
+    double shiftx = 1.5 * (upPos.col(0).maxCoeff() - upPos.col(0).minCoeff());
+
+    shiftV = upPos;
+    shiftV.col(0).setConstant(shiftx);
+    shiftV.col(1).setConstant(0);
+    shiftV.col(2).setConstant(shiftz);
+
+
+    Eigen::MatrixXi shiftF = upF;
+    shiftF.setConstant(curVerts);
+
+    // interpolated phase
+    renderV.block(curVerts, 0, nupverts, 3) = upPos - shiftV;
+    renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
+
+    mPaint.setNormalization(false);
+    Eigen::MatrixXd phiColor = mPaint.paintPhi(phaseVec);
+    renderColor.block(curVerts, 0, nupverts, 3) = phiColor;
+
+    curVerts += nupverts;
+    curFaces += nupfaces;
+
+    // interpolated amp
+    shiftF.setConstant(curVerts);
+    shiftV.col(0).setConstant(2 * shiftx);
+    renderV.block(curVerts, 0, nupverts, 3) = upPos - shiftV;
+    renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
+
+    mPaint.setNormalization(false);
+    Eigen::VectorXd normoalizedAmpVec = ampVec;
+    for(int i = 0; i < normoalizedAmpVec.rows(); i++)
+    {
+        normoalizedAmpVec(i) = (ampVec(i) - ampMin) / (ampMax - ampMin);
+    }
+    Eigen::MatrixXd ampColor = mPaint.paintAmplitude(normoalizedAmpVec);
+    renderColor.block(curVerts, 0, nupverts, 3) = ampColor;
+
+    curVerts += nupverts;
+    curFaces += nupfaces;
 
     // interpolated amp
     shiftF.setConstant(curVerts);
@@ -424,69 +536,107 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
     for(int i = 0; i < nupverts; i++)
     {
         renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
-        ampCosVec(i) = ampVec(i) * std::cos(phaseVec(i));
+        ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
     }
     renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
 
-    Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec / globalAmpMax);
+    mPaint.setNormalization(false);
+    Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec);
     renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
 
-//    mPaint.setNormalization(false);
-//    Eigen::RowVector3d rowcolor;
-//
-//    igl::colormap(igl::COLOR_MAP_TYPE_VIRIDIS, 4.0 / 9.0, rowcolor.data());
-//    for(int i = 0; i < nupverts; i++)
-//    {
-//        renderColor.row(curVerts + i) = rowcolor;
-//    }
     curVerts += nupverts;
     curFaces += nupfaces;
-
 }
 
 void registerMesh(int frameId)
 {
-	Eigen::MatrixXd sourceP, tarP, interpP;
-	Eigen::MatrixXi sourceF, tarF, interpF;
-	Eigen::MatrixXd sourceVec, tarVec, interpVec;
-	Eigen::MatrixXd sourceColor, tarColor, interpColor;
+    if(!isShowComparison)
+    {
+        Eigen::MatrixXd sourceP, tarP, interpP;
+        Eigen::MatrixXi sourceF, tarF, interpF;
+        Eigen::MatrixXd sourceVec, tarVec, interpVec;
+        Eigen::MatrixXd sourceColor, tarColor, interpColor;
 
-	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
-	int totalfames = ampFieldsList.size();
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMax, ampFieldsList[0], phaseFieldsList[0], &sourceVertexOmegaFields, sourceP, sourceF, sourceVec, sourceColor);
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shiftz, globalAmpMax, ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP, tarF, tarVec, tarColor);
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMax, ampFieldsList[frameId], phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec, interpColor);
+        double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
+        int totalfames = ampFieldsList.size();
+        registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax, ampFieldsList[0],
+                           phaseFieldsList[0], &sourceVertexOmegaFields, sourceP, sourceF, sourceVec, sourceColor);
+        registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
+                           ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP,
+                           tarF, tarVec, tarColor);
+        registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax, ampFieldsList[frameId],
+                           phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec,
+                           interpColor);
 
-	
-	Eigen::MatrixXi shifF = sourceF;
 
-	int nPartVerts = sourceP.rows();
-	int nPartFaces = sourceF.rows();
+        Eigen::MatrixXi shifF = sourceF;
 
-	dataV.setZero(3 * nPartVerts, 3);
-	curColor.setZero(3 * nPartVerts, 3);
-	dataVec.setZero(3 * nPartVerts, 3);
-	dataF.setZero(3 * nPartFaces, 3);
+        int nPartVerts = sourceP.rows();
+        int nPartFaces = sourceF.rows();
 
-	shifF.setConstant(nPartVerts);
+        dataV.setZero(3 * nPartVerts, 3);
+        curColor.setZero(3 * nPartVerts, 3);
+        dataVec.setZero(3 * nPartVerts, 3);
+        dataF.setZero(3 * nPartFaces, 3);
 
-	dataV.block(0, 0, nPartVerts, 3) = sourceP;
-	dataVec.block(0, 0, nPartVerts, 3) = sourceVec;
-	curColor.block(0, 0, nPartVerts, 3) = sourceColor;
-	dataF.block(0, 0, nPartFaces, 3) = sourceF;
+        shifF.setConstant(nPartVerts);
 
-	dataV.block(nPartVerts, 0, nPartVerts, 3) = tarP;
-	dataVec.block(nPartVerts, 0, nPartVerts, 3) = tarVec;
-	curColor.block(nPartVerts, 0, nPartVerts, 3) = tarColor;
-	dataF.block(nPartFaces, 0, nPartFaces, 3) = tarF + shifF;
+        dataV.block(0, 0, nPartVerts, 3) = sourceP;
+        dataVec.block(0, 0, nPartVerts, 3) = sourceVec;
+        curColor.block(0, 0, nPartVerts, 3) = sourceColor;
+        dataF.block(0, 0, nPartFaces, 3) = sourceF;
 
-	dataV.block(nPartVerts * 2, 0, nPartVerts, 3) = interpP;
-	dataVec.block(nPartVerts * 2, 0, nPartVerts, 3) = interpVec;
-	curColor.block(nPartVerts * 2, 0, nPartVerts, 3) = interpColor;
-	dataF.block(nPartFaces * 2, 0, nPartFaces, 3) = interpF + 2 * shifF;
+        dataV.block(nPartVerts, 0, nPartVerts, 3) = tarP;
+        dataVec.block(nPartVerts, 0, nPartVerts, 3) = tarVec;
+        curColor.block(nPartVerts, 0, nPartVerts, 3) = tarColor;
+        dataF.block(nPartFaces, 0, nPartFaces, 3) = tarF + shifF;
 
-	polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+        dataV.block(nPartVerts * 2, 0, nPartVerts, 3) = interpP;
+        dataVec.block(nPartVerts * 2, 0, nPartVerts, 3) = interpVec;
+        curColor.block(nPartVerts * 2, 0, nPartVerts, 3) = interpColor;
+        dataF.block(nPartFaces * 2, 0, nPartFaces, 3) = interpF + 2 * shifF;
+
+        polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+    }
+    else
+    {
+        Eigen::MatrixXd ourP, KnoppelP, linearP;
+        Eigen::MatrixXi ourF, KnoppelF, linearF;
+        Eigen::MatrixXd ourColor, KnoppelColor, linearColor;
+
+        double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
+        Eigen::VectorXd KnoppelAmp = ampFieldsList[curFrame];
+        KnoppelAmp.setConstant(globalAmpMax);
+        registercomparisonMeshByPart(upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax, ampFieldsList[curFrame], phaseFieldsList[curFrame], ourP, ourF, ourColor);
+        registercomparisonMeshByPart(upsampledTriV, upsampledTriF, shiftz, globalAmpMin, globalAmpMax, linearAmpFieldsList[curFrame], linearPhaseFieldsList[curFrame], linearP, linearF, linearColor);
+        registercomparisonMeshByPart(upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax, KnoppelAmp, KnoppelPhaseFieldsList[curFrame], KnoppelP, KnoppelF, KnoppelColor);
+
+        Eigen::MatrixXi shifF = ourF;
+
+        int nPartVerts = ourP.rows();
+        int nPartFaces = ourF.rows();
+
+        dataV.setZero(3 * nPartVerts, 3);
+        curColor.setZero(3 * nPartVerts, 3);
+        dataVec.setZero(3 * nPartVerts, 3);
+        dataF.setZero(3 * nPartFaces, 3);
+
+        shifF.setConstant(nPartVerts);
+
+        dataV.block(0, 0, nPartVerts, 3) = ourP;
+        curColor.block(0, 0, nPartVerts, 3) = ourColor;
+        dataF.block(0, 0, nPartFaces, 3) = ourF;
+
+        dataV.block(nPartVerts, 0, nPartVerts, 3) = linearP;
+        curColor.block(nPartVerts, 0, nPartVerts, 3) = linearColor;
+        dataF.block(nPartFaces, 0, nPartFaces, 3) = linearF + shifF;
+
+        dataV.block(nPartVerts * 2, 0, nPartVerts, 3) = KnoppelP;
+        curColor.block(nPartVerts * 2, 0, nPartVerts, 3) = KnoppelColor;
+        dataF.block(nPartFaces * 2, 0, nPartFaces, 3) = KnoppelF + 2 * shifF;
+
+        polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+    }
 
 }
 
@@ -517,6 +667,14 @@ void callback() {
 
 			numFrames = omegaList.size() - 2;
 			updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+
+            globalAmpMax = ampFieldsList[0].maxCoeff();
+            globalAmpMin = ampFieldsList[0].minCoeff();
+            for(int i = 1; i < ampFieldsList.size(); i++)
+            {
+                globalAmpMax = std::max(globalAmpMax, ampFieldsList[i].maxCoeff());
+                globalAmpMin = std::min(globalAmpMin, ampFieldsList[i].minCoeff());
+            }
 			
 			vertexOmegaList.resize(omegaList.size());
 			for (int i = 0; i < omegaList.size(); i++)
@@ -563,6 +721,10 @@ void callback() {
         updateFieldsInView(curFrame);
     }
     if (ImGui::Checkbox("is show wrinkled mesh", &isShowWrinkels))
+    {
+        updateFieldsInView(curFrame);
+    }
+    if (ImGui::Checkbox("is show comparison", &isShowComparison))
     {
         updateFieldsInView(curFrame);
     }
@@ -738,19 +900,19 @@ void callback() {
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
 
-//		 Eigen::VectorXd sourceAmp, tarAmp;
-//		 ampSolver(triV, triMesh, sourceOmegaFields, sourceAmp);
-//		 ampSolver(triV, triMesh, tarOmegaFields, tarAmp);
-//
-//		 for (int i = 0; i < triV.rows(); i++)
-//		 {
-//		 	double sourceNorm = std::abs(sourceZvals[i]);
-//		 	double tarNorm = std::abs(tarZvals[i]);
-//		 	if(sourceNorm)
-//		 		sourceZvals[i] = sourceAmp(i) / sourceNorm * sourceZvals[i];
-//		 	if(tarNorm)
-//		 		tarZvals[i] = tarAmp(i) / tarNorm * tarZvals[i];
-//		 }
+		 Eigen::VectorXd sourceAmp, tarAmp;
+		 ampSolver(triV, triMesh, sourceOmegaFields / 10, sourceAmp);
+		 ampSolver(triV, triMesh, tarOmegaFields / 10, tarAmp);
+
+		 for (int i = 0; i < triV.rows(); i++)
+		 {
+		 	double sourceNorm = std::abs(sourceZvals[i]);
+		 	double tarNorm = std::abs(tarZvals[i]);
+		 	if(sourceNorm)
+		 		sourceZvals[i] = sourceAmp(i) / sourceNorm * sourceZvals[i];
+		 	if(tarNorm)
+		 		tarZvals[i] = tarAmp(i) / tarNorm * tarZvals[i];
+		 }
 
 		// solve for the path from source to target
 		solveKeyFrames(sourceOmegaFields, tarOmegaFields, sourceZvals, tarZvals, numFrames, omegaList, zList);
@@ -762,8 +924,43 @@ void callback() {
             vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
         }
         numFrames = omegaList.size() - 2;
+
+        // update global maximum amplitude
+        globalAmpMax = ampFieldsList[0].maxCoeff();
+        globalAmpMin = ampFieldsList[0].minCoeff();
+        for(int i = 1; i < ampFieldsList.size(); i++)
+        {
+            globalAmpMax = std::max(globalAmpMax, ampFieldsList[i].maxCoeff());
+            globalAmpMin = std::min(globalAmpMin, ampFieldsList[i].minCoeff());
+        }
+
+        KnoppelPhaseFieldsList.resize(ampFieldsList.size());
+        for(int i = 0; i < ampFieldsList.size(); i++)
+        {
+            double t = 1.0 / (ampFieldsList.size() - 1) * i;
+            Eigen::MatrixXd interpVecs = (1 - t) * sourceOmegaFields + t * tarOmegaFields;
+            std::vector<std::complex<double>> interpZvals;
+            IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, interpVecs, faceArea, cotEntries, nverts, interpZvals);
+            Eigen::VectorXd upTheta;
+            IntrinsicFormula::getUpsamplingTheta(triMesh, interpVecs, interpZvals, bary, upTheta);
+            KnoppelPhaseFieldsList[i] = upTheta;
+        }
+
+        // linear baseline
+        auto tmpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, (ampFieldsList.size() - 2), quadOrder, sourceZvals, sourceOmegaFields, tarZvals, tarOmegaFields);
+        updateMagnitudePhase(tmpModel.getWList(), tmpModel.getVertValsList(), linearAmpFieldsList, linearPhaseFieldsList);
 		updateFieldsInView(curFrame);
 	}
+
+    if (ImGui::Button("output images", ImVec2(-1, 0)))
+    {
+        for(curFrame = 0; curFrame < ampFieldsList.size(); curFrame++)
+        {
+            updateFieldsInView(curFrame);
+            polyscope::options::screenshotExtension = ".jpg";
+            polyscope::screenshot();
+        }
+    }
 
 	ImGui::PopItemWidth();
 }

@@ -8,6 +8,9 @@
 void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder)
 {
 	const int DIM = x0.rows();
+    Eigen::VectorXd randomVec = x0;
+    randomVec.setRandom();
+    x0 += 1e-6 * randomVec;
 	Eigen::VectorXd grad = Eigen::VectorXd::Zero(DIM);
 	Eigen::SparseMatrix<double> hessian;
 
@@ -29,7 +32,6 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		optInfo << "Newton solver with termination criterion: " << std::endl;
 		std::cout << "gradient tol: " << gradTol << ", function update tol: " << fTol << ", variable update tol: " << xTol << ", maximum iteration: " << numIter << std::endl << std::endl;
 	}
-    // bool isProj = false;
 	int i = 0;
 	for (; i < numIter; i++)
 	{
