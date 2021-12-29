@@ -46,7 +46,6 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 	double componentWeights = 0.5 * _faceArea[fid] * _quadpts[qid].weight / (_dt * _dt);
 	energy = componentWeights * (deltaz.real() * deltaz.real() + deltaz.imag() * deltaz.imag());
 
-	if (deriv || hess)
 	{
 		Eigen::Matrix<std::complex<double>, 24, 1> gradDeltaZ;
 
