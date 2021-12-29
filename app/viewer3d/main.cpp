@@ -736,6 +736,31 @@ void callback() {
 			tarOmegaFields = omegaList[omegaList.size() - 1];
 			tarVertexOmegaFields = vertexOmegaList[omegaList.size() - 1];
 
+			sourceZvals = zList[0];
+			tarZvals = zList[omegaList.size() - 1];
+
+			KnoppelPhaseFieldsList.resize(ampFieldsList.size());
+			Eigen::VectorXd faceArea;
+			Eigen::MatrixXd cotEntries;
+			igl::doublearea(triV, triF, faceArea);
+			faceArea /= 2;
+			igl::cotmatrix_entries(triV, triF, cotEntries);
+			int nverts = triV.rows();
+			for (int i = 0; i < ampFieldsList.size(); i++)
+			{
+				double t = 1.0 / (ampFieldsList.size() - 1) * i;
+				Eigen::MatrixXd interpVecs = (1 - t) * sourceOmegaFields + t * tarOmegaFields;
+				std::vector<std::complex<double>> interpZvals;
+				IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, interpVecs, faceArea, cotEntries, nverts, interpZvals);
+				Eigen::VectorXd upTheta;
+				IntrinsicFormula::getUpsamplingTheta(triMesh, interpVecs, interpZvals, bary, upTheta);
+				KnoppelPhaseFieldsList[i] = upTheta;
+			}
+
+			// linear baseline
+			auto tmpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, (ampFieldsList.size() - 2), quadOrder, sourceZvals, sourceOmegaFields, tarZvals, tarOmegaFields);
+			updateMagnitudePhase(tmpModel.getWList(), tmpModel.getVertValsList(), linearAmpFieldsList, linearPhaseFieldsList);
+
 			updateFieldsInView(curFrame);
 		}
 	}
