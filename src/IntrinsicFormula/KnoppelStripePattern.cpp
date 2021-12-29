@@ -122,7 +122,7 @@ double IntrinsicFormula::lArg(const long &n, const Eigen::Vector3d &bary)
 
 void IntrinsicFormula::getUpsamplingTheta(const MeshConnectivity &mesh, const Eigen::MatrixXd &halfEdgeW,
                                           const std::vector<std::complex<double>> &zvals,
-                                          const std::vector<std::pair<int, Eigen::Vector3d>> &bary, Eigen::VectorXd upTheta)
+                                          const std::vector<std::pair<int, Eigen::Vector3d>> &bary, Eigen::VectorXd& upTheta)
 {
     Eigen::VectorXd edgeW = (halfEdgeW.col(0) - halfEdgeW.col(1)) / 2;
     int upsize = bary.size();

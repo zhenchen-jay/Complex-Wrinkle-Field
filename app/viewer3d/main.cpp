@@ -504,8 +504,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 }
 
-void registercomparisonMeshByPart(Eigen::MatrixXd& upPos, Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin, const double& ampMax,
-						Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderColor)
+void registerComparisonMeshByPart(Eigen::MatrixXd& upPos, Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin, const double& ampMax, Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderColor)
 {
 	int nupverts = upPos.rows();
 	int nupfaces = upF.rows();
@@ -652,9 +651,9 @@ void registerMesh(int frameId)
 		double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 		Eigen::VectorXd KnoppelAmp = ampFieldsList[curFrame];
 		KnoppelAmp.setConstant(globalAmpMax);
-		registercomparisonMeshByPart(upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax, ampFieldsList[curFrame], phaseFieldsList[curFrame], ourP, ourF, ourColor);
-		registercomparisonMeshByPart(upsampledTriV, upsampledTriF, shiftz, globalAmpMin, globalAmpMax, linearAmpFieldsList[curFrame], linearPhaseFieldsList[curFrame], linearP, linearF, linearColor);
-		registercomparisonMeshByPart(upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax, KnoppelAmp, KnoppelPhaseFieldsList[curFrame], KnoppelP, KnoppelF, KnoppelColor);
+		registerComparisonMeshByPart(upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax, ampFieldsList[curFrame], phaseFieldsList[curFrame], ourP, ourF, ourColor);
+		registerComparisonMeshByPart(upsampledTriV, upsampledTriF, shiftz, globalAmpMin, globalAmpMax, linearAmpFieldsList[curFrame], linearPhaseFieldsList[curFrame], linearP, linearF, linearColor);
+		registerComparisonMeshByPart(upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax, KnoppelAmp, KnoppelPhaseFieldsList[curFrame], KnoppelP, KnoppelF, KnoppelColor);
 
 		Eigen::MatrixXi shifF = ourF;
 
@@ -691,8 +690,12 @@ void updateFieldsInView(int frameId)
 	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
 
-	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
-	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
+	if (!isShowComparison)
+	{
+		polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
+		polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
+	}
+	
 }
 
 
