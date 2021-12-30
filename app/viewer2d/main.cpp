@@ -27,6 +27,7 @@
 #include <fstream>
 #include <unordered_set>
 #include <utility>
+#include <Eigen/SparseQR>
 
 #include "../../include/CommonTools.h"
 #include "../../include/MeshLib/MeshConnectivity.h"
@@ -36,8 +37,8 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
-#include "../../include/DynamicInterpolation/ComputeZandZdot.h"
-#include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
+#include "../../include/Euclidean2DFormula/ComputeZandZdot.h"
+#include "../../include/Euclidean2DFormula/InterpolateKeyFrames.h"
 //#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
 //#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
@@ -497,6 +498,7 @@ void initialization()
 {
 	generateSquare(2.0, 2.0, triarea, triV, triF);
 
+
 	Eigen::SparseMatrix<double> S;
 	std::vector<int> facemap;
 
@@ -505,6 +507,8 @@ void initialization()
 
 	triMesh = MeshConnectivity(triF);
 	upsampledTriMesh = MeshConnectivity(upsampledTriF);
+
+    std::cout << "nverts: " << triV.rows() << ", nedges: " << triMesh.nEdges() << std::endl;
 }
 
 
@@ -561,6 +565,31 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 	vertFields3D.col(2).setZero();
 
 	vecFields = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, MeshConnectivity(triF));
+}
+
+// TODO: remove this
+Eigen::MatrixXd vertexVec2IntrinsicHalfEdgeVec2D(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, std::vector<Eigen::Triplet<double>> &T)
+{
+    int nedges = mesh.nEdges();
+    Eigen::MatrixXd edgeOmega(nedges, 2);
+    T.clear();
+
+    for (int i = 0; i < nedges; i++)
+    {
+        int vid0 = mesh.edgeVertex(i, 0);
+        int vid1 = mesh.edgeVertex(i, 1);
+
+        Eigen::Vector2d e = (pos.row(vid1) - pos.row(vid0)).segment(0, 2);
+        edgeOmega(i, 0) = v.row(vid0).dot(e);
+        edgeOmega(i, 1) = -v.row(vid1).dot(e);
+
+        T.push_back({2 * i, 2 * vid0, e(0)});
+        T.push_back({2 * i, 2 * vid0 + 1, e(1)});
+
+        T.push_back({2 * i + 1, 2 * vid1, -e(0)});
+        T.push_back({2 * i + 1, 2 * vid1 + 1, -e(1)});
+    }
+    return edgeOmega;
 }
 
 void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
@@ -1097,11 +1126,110 @@ void callback() {
 		updateFieldsInView(curFrame);
 			
 	}
-//	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
-//	{
-//	    // ToDO: the viewer will break if we have never pressed "update values"
-//	    updateFieldsInView(curFrame);
-//	}
+	if (ImGui::Button("test func", ImVec2(-1, 0)))
+	{
+	    Eigen::MatrixXd svertexFields(triV.rows(), 2);
+        svertexFields.setRandom();
+        std::vector<Eigen::Triplet<double>> T;
+        Eigen::MatrixXd sedgeFields = vertexVec2IntrinsicHalfEdgeVec2D(svertexFields, triV, triMesh, T);
+
+        std::vector<std::complex<double>> sZvals(triV.rows());
+        for(int i = 0; i < sZvals.size(); i++)
+        {
+            Eigen::Vector2d randVec;
+            randVec.setRandom();
+            sZvals[i] = std::complex<double>(randVec(0), randVec(1));
+        }
+
+        Eigen::SparseMatrix<double> tranMat(2 * triMesh.nEdges(), 2 * triV.rows());
+        tranMat.setFromTriplets(T.begin(), T.end());
+
+        Eigen::VectorXd edgeWVec(2 * triMesh.nEdges());
+        for(int i = 0; i < triMesh.nEdges(); i++)
+        {
+            edgeWVec(2 * i) = sedgeFields(i, 0);
+            edgeWVec(2 * i + 1) = sedgeFields(i, 1);
+        }
+
+        Eigen::VectorXd vertWVec(2 * triV.rows());
+        for(int i = 0; i < triV.rows(); i++)
+        {
+            vertWVec(2 * i) = svertexFields(i, 0);
+            vertWVec(2 * i + 1) = svertexFields(i, 1);
+        }
+        std::cout << "error: " << (edgeWVec - tranMat * vertWVec).norm() << std::endl;
+
+        Eigen::MatrixXd tvertexFields(triV.rows(), 2);
+        tvertexFields.setRandom();
+        Eigen::MatrixXd tedgeFields = vertexVec2IntrinsicHalfEdgeVec2D(tvertexFields, triV, triMesh, T);
+
+        std::vector<std::complex<double>> tZvals(triV.rows());
+        for(int i = 0; i < sZvals.size(); i++)
+        {
+            Eigen::Vector2d randVec;
+            randVec.setRandom();
+            tZvals[i] = std::complex<double>(randVec(0), randVec(1));
+        }
+
+        Eigen::VectorXd faceArea;
+        igl::doublearea(triV, triF, faceArea);
+        faceArea /= 2;
+        IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModelHalfEdge = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sZvals, sedgeFields, tZvals, tedgeFields);
+
+        InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV, triF, upsampledTriV, upsampledTriF, bary, svertexFields, tvertexFields, sZvals, tZvals, numFrames, quadOrder, false);
+
+        Eigen::VectorXd x, grad;
+        Eigen::SparseMatrix<double> hess;
+        Eigen::VectorXd x1, grad1;
+        Eigen::SparseMatrix<double> hess1;
+        std::vector<Eigen::Triplet<double>> entireT, entireT1;
+        Eigen::SparseMatrix<double> spTranMat, spTranMatT;
+
+        int nverts = triV.rows();
+        int nedges = triMesh.nEdges();
+
+        int nDOFs1 = 4 * nverts;
+        int nDOFs2 = 2 * nverts + 2 * nedges;
+
+        for(int i = 0; i < numFrames; i++)
+        {
+            for(int j = 0; j < 2 * nverts; j++)
+            {
+                entireT.push_back({j + i * nDOFs2, j + i * nDOFs1, 1});
+                entireT1.push_back({j + i * nDOFs1, j + i * nDOFs2, 1});
+            }
+            for(auto& it : T)
+            {
+                int eid = it.row();
+                int vid = it.col();
+                double val = it.value();
+
+                entireT.push_back({eid + i * nDOFs2 + 2 * nverts, vid + i * nDOFs1 + 2 * nverts, val});
+                entireT1.push_back({vid + i * nDOFs1 + 2 * nverts, eid + i * nDOFs2 + 2 * nverts, val});
+            }
+
+        }
+
+        spTranMat.resize(numFrames * nDOFs2, numFrames * nDOFs1);
+        spTranMat.setFromTriplets(entireT.begin(), entireT.end());
+
+        spTranMatT.resize(numFrames * nDOFs1, numFrames * nDOFs2);
+        spTranMatT.setFromTriplets(entireT1.begin(), entireT1.end());
+
+        interpModelHalfEdge.convertList2Variable(x);
+        double edgeE = interpModelHalfEdge.computeEnergy(x, &grad, &hess);
+        interpModelHalfEdge.testEnergy(x);
+
+        interpModel.convertList2Variable(x1);
+        double vertE = interpModel.computeEnergy(x1, &grad1, &hess1);
+        interpModel.testEnergy(x1);
+        
+        std::cout << "edge E: " << edgeE << ", vert E: " << vertE << ", difference: " <<  edgeE - vertE << std::endl;
+
+        std::cout << "x difference: " << (x - spTranMat * x1).norm() << std::endl;
+        std::cout << "grad difference: " << (spTranMatT * grad - grad1).norm() << std::endl;
+        std::cout << "hess difference: "  << (spTranMatT * hess * spTranMat - hess1).norm() << std::endl;
+	}
 
 	ImGui::PopItemWidth();
 }
