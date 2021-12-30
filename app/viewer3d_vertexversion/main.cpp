@@ -710,7 +710,7 @@ void callback() {
 				Eigen::MatrixXd halfEdgeW = vertexVec2IntrinsicHalfEdgeVec(interpVecs, triV, triMesh);
 				IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, halfEdgeW, faceArea, cotEntries, nverts, interpZvals);
 				Eigen::VectorXd upTheta;
-				IntrinsicFormula::getUpsamplingTheta(triMesh, interpVecs, interpZvals, bary, upTheta);
+				IntrinsicFormula::getUpsamplingTheta(triMesh, halfEdgeW, interpZvals, bary, upTheta);
 				KnoppelPhaseFieldsList[i] = upTheta;
 			}
 
