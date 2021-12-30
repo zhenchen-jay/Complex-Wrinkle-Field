@@ -199,7 +199,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 			IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, edgeW, faceArea, cotEntries, nverts, zList[i]);
 
 			Eigen::VectorXd curAmp;
-			ampSolver(triV, triMesh, wList[i] / 10, curAmp);
+			ampSolver(triV, triMesh, edgeW / 10, curAmp);
 
 			for (int j = 0; j < triV.rows(); j++)
 			{
@@ -701,6 +701,10 @@ void callback() {
 			faceArea /= 2;
 			igl::cotmatrix_entries(triV, triF, cotEntries);
 			int nverts = triV.rows();
+
+			Eigen::MatrixXd sourceEdgeW = vertexVec2IntrinsicHalfEdgeVec(sourceVertexOmegaFields, triV, triMesh);
+			Eigen::MatrixXd tarEdgeW = vertexVec2IntrinsicHalfEdgeVec(tarVertexOmegaFields, triV, triMesh);
+
 			for (int i = 0; i < ampFieldsList.size(); i++)
 			{
 				double t = 1.0 / (ampFieldsList.size() - 1) * i;
@@ -708,6 +712,7 @@ void callback() {
 				std::vector<std::complex<double>> interpZvals;
 
 				Eigen::MatrixXd halfEdgeW = vertexVec2IntrinsicHalfEdgeVec(interpVecs, triV, triMesh);
+				//Eigen::MatrixXd halfEdgeW = (1 - t) * sourceEdgeW + t * tarEdgeW;
 				IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, halfEdgeW, faceArea, cotEntries, nverts, interpZvals);
 				Eigen::VectorXd upTheta;
 				IntrinsicFormula::getUpsamplingTheta(triMesh, halfEdgeW, interpZvals, bary, upTheta);
@@ -939,6 +944,7 @@ void callback() {
 			double t = 1.0 / (ampFieldsList.size() - 1) * i;
 			Eigen::MatrixXd interpVecs = (1 - t) * sourceVertexOmegaFields + t * tarVertexOmegaFields;
 			Eigen::MatrixXd edgew = vertexVec2IntrinsicHalfEdgeVec(interpVecs, triV, triMesh);
+			//edgew = (1 - t) * sourceEdgeFields + t * tarEdgeFields;
 			std::vector<std::complex<double>> interpZvals;
 			IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, edgew, faceArea, cotEntries, nverts, interpZvals);
 			Eigen::VectorXd upTheta;
