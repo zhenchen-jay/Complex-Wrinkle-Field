@@ -95,12 +95,13 @@ namespace IntrinsicFormula
 			{
 				for (int j = 0; j < nverts; j++)
 				{
-					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + nedges) + 2 * j)));
-					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + nedges) + 2 * j + 1)));
+					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * j)));
+					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * j + 1)));
 				}
 				for (int j = 0; j < nedges; j++)
 				{
-					wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + nedges) + 2 * nverts + j)));
+					wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j)));
+					wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j + 1)));
 				}
 			}
 		}
