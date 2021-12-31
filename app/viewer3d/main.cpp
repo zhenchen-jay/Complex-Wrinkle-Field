@@ -22,6 +22,8 @@
 #include <igl/colormap.h>
 #include <igl/cylinder.h>
 #include <igl/principal_curvature.h>
+#include <igl/heat_geodesics.h>
+#include <igl/avg_edge_length.h>
 #include <filesystem>
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
@@ -115,6 +117,9 @@ int quadOrder = 4;
 int numComb = 2;
 double wrinkleAmpScalingRatio = 0.0;
 
+int numSource = 1;
+int numTarSource = 1;
+
 std::string workingFolder;
 IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel;
 
@@ -127,7 +132,9 @@ enum DirectionType
 {
 	DIRPV1 = 0,
 	DIRPV2 = 1,
-	LOADFROMFILE = 2
+	LOADFROMFILE = 2,
+	GEODESIC = 3,
+	GEODESICPERP = 4
 };
 enum OptSolverType
 {
@@ -809,7 +816,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("source direction", (int*)&sourceDir, "PV1\0PV2\0Load From File\0"))
+		if (ImGui::Combo("source direction", (int*)&sourceDir, "PV1\0PV2\0Load From File\0Geodesic\0Geodesic Perp\0"))
 		{
 			if(sourceDir == LOADFROMFILE)
 			{
@@ -823,11 +830,16 @@ void callback() {
 			if (numSourceWaves < 0)
 				numSourceWaves = 2;
 		}
+		if (ImGui::InputInt("num of source heat sources", &numSource))
+		{
+			if (numSource < 0)
+				numSource = 1;
+		}
 
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0Load From File\0"))
+		if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0Load From File\0Geodesic\0Geodesic Perp\0"))
 		{
 			if(tarDir == LOADFROMFILE)
 			{
@@ -840,6 +852,11 @@ void callback() {
 		{
 			if (numTarWaves < 0)
 				numTarWaves = 2;
+		}
+		if (ImGui::InputInt("num of target heat sources", &numTarSource))
+		{
+			if(numTarSource < 0)
+				numTarSource = 1;
 		}
 	}
 
@@ -869,7 +886,6 @@ void callback() {
 				numFrames = 10;
 		}
 
-		
 		if (ImGui::InputInt("num iterations", &numIter))
 		{
 			if (numIter < 0)
@@ -914,6 +930,30 @@ void callback() {
 		Eigen::VectorXd PV1, PV2;
 		igl::principal_curvature(triV, triF, PD1, PD2, PV1, PV2);
 
+		// compute geodesic
+		igl::HeatGeodesicsData<double> data;
+		double t = std::pow(igl::avg_edge_length(triV, triF), 2);
+		const auto precompute = [&]()
+		{
+			if (!igl::heat_geodesics_precompute(triV, triF, t, data))
+			{
+				std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
+				exit(EXIT_FAILURE);
+			};
+		};
+		precompute();
+		Eigen::VectorXd sD;
+
+		Eigen::VectorXi sourceGamma(numSource);
+		for (int i = 0; i < numSource; i++)
+		{
+			sourceGamma(i) = std::rand() % (triV.rows());
+		}
+		sourceGamma.resize(1);
+		sourceGamma(0) = 5;
+		std::cout << "source vertex id: " << sourceGamma.transpose() << std::endl;
+		igl::heat_geodesics_solve(data, sourceGamma, sD);
+
 		for(int i = 0; i < numComb; i++)
 		{
 			combField(triF, PD1, PD1);
@@ -935,12 +975,82 @@ void callback() {
 			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
 			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
 		}
+		else if (sourceDir == DirectionType::GEODESIC)
+		{
+			int nedges = triMesh.nEdges();
+			sourceOmegaFields.setZero(nedges, 2);
+			for (int i = 0; i < nedges; i++)
+			{
+				int vid0 = triMesh.edgeVertex(i, 0);
+				int vid1 = triMesh.edgeVertex(i, 1);
+
+				double d = sD(vid1) - sD(vid0);
+				sourceOmegaFields.row(i) << d, -d;
+			}
+			sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
+
+			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+		}
+		else if (sourceDir == DirectionType::GEODESICPERP)
+		{
+			int nedges = triMesh.nEdges();
+			int nfaces = triMesh.nFaces();
+			sourceOmegaFields.setZero(nedges, 2);
+
+			for (int i = 0; i < nfaces; i++)
+			{
+				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
+				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
+
+				Eigen::Vector3d n = ru.cross(rv);
+
+				double u = sD(triMesh.faceVertex(i, 1)) - sD(triMesh.faceVertex(i, 0));
+				double v = sD(triMesh.faceVertex(i, 2)) - sD(triMesh.faceVertex(i, 0));
+				Eigen::Vector3d vec = u * ru + v * rv;
+				Eigen::Vector3d vecPerp = n.cross(vec);
+
+				vecPerp = vec.norm() / vecPerp.norm() * vecPerp;
+
+				for (int j = 0; j < 3; j++)
+				{
+					int eid = triMesh.faceEdge(i, j);
+
+					double factor = 2.0;
+					if (triMesh.edgeFace(eid, 0) == -1 || triMesh.edgeFace(eid, 1) == -1)
+						factor = 1.0;
+
+					Eigen::Vector3d v = triV.row(triMesh.edgeVertex(eid, 1)) - triV.row(triMesh.edgeVertex(eid, 0));
+					sourceOmegaFields(eid, 0) += v.dot(vecPerp) / factor;
+					sourceOmegaFields(eid, 1) += -v.dot(vecPerp) / factor;
+				}
+
+			}
+
+			sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
+
+			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+		}
 		else
 		{
 			sourceOmegaFields *= numSourceWaves;
 			sourceVertexOmegaFields *= numSourceWaves;
 		}
 
+
+		Eigen::VectorXd tD;
+
+		Eigen::VectorXi tarGamma(numTarSource);
+		for (int i = 0; i < numTarSource; i++)
+		{
+			tarGamma(i) = std::rand() % (triV.rows());
+		}
+		tarGamma.resize(1);
+		tarGamma(0) = 189;
+
+		std::cout << "source vertex id (target): " << tarGamma.transpose() << std::endl;
+		igl::heat_geodesics_solve(data, tarGamma, tD);
 
 		if(tarDir == DirectionType::DIRPV1)
 		{
@@ -954,6 +1064,63 @@ void callback() {
 		{
 			tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
 			tarVertexOmegaFields = PD2;
+			tarOmegaFields *= 2 * M_PI * numTarWaves;
+			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+		}
+		else if (tarDir == DirectionType::GEODESIC)
+		{
+			int nedges = triMesh.nEdges();
+			tarOmegaFields.setZero(nedges, 2);
+			for (int i = 0; i < nedges; i++)
+			{
+				int vid0 = triMesh.edgeVertex(i, 0);
+				int vid1 = triMesh.edgeVertex(i, 1);
+
+				double d = tD(vid1) - tD(vid0);
+				tarOmegaFields.row(i) << d, -d;
+			}
+			tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
+
+			tarOmegaFields *= 2 * M_PI * numTarWaves;
+			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+		}
+		else if (tarDir == DirectionType::GEODESICPERP)
+		{
+			int nedges = triMesh.nEdges();
+			int nfaces = triMesh.nFaces();
+			tarOmegaFields.setZero(nedges, 2);
+
+			for (int i = 0; i < nfaces; i++)
+			{
+				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
+				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
+
+				Eigen::Vector3d n = ru.cross(rv);
+
+				double u = tD(triMesh.faceVertex(i, 1)) - tD(triMesh.faceVertex(i, 0));
+				double v = tD(triMesh.faceVertex(i, 2)) - tD(triMesh.faceVertex(i, 0));
+				Eigen::Vector3d vec = u * ru + v * rv;
+				Eigen::Vector3d vecPerp = n.cross(vec);
+
+				vecPerp = vec.norm() / vecPerp.norm() * vecPerp;
+
+				for (int j = 0; j < 3; j++)
+				{
+					int eid = triMesh.faceEdge(i, j);
+
+					double factor = 2.0;
+					if (triMesh.edgeFace(eid, 0) == -1 || triMesh.edgeFace(eid, 1) == -1)
+						factor = 1.0;
+
+					Eigen::Vector3d v = triV.row(triMesh.edgeVertex(eid, 1)) - triV.row(triMesh.edgeVertex(eid, 0));
+					tarOmegaFields(eid, 0) += v.dot(vecPerp) / factor;
+					tarOmegaFields(eid, 1) += -v.dot(vecPerp) / factor;
+				}
+
+			}
+
+			tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
+
 			tarOmegaFields *= 2 * M_PI * numTarWaves;
 			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
 		}
@@ -1073,18 +1240,6 @@ int main(int argc, char** argv)
 	// Register the mesh with Polyscope
 	polyscope::registerSurfaceMesh("input mesh", triV, triF);
 	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
-
-	Eigen::MatrixXd U;
-	Eigen::MatrixXi G;
-	//Eigen::VectorXi J;
-	//igl::decimate(triV, triF, 1000, U, G, J);
-	//igl::writeOBJ("test.obj", U, G);
-	// igl::cylinder(40, 12, U, G);
-	// U.col(0) *= 0.5;
-	// U.col(1) *= 0.5;
-	// U.col(2) *= 2;
-	// igl::writeOBJ("test.obj", U, G);
-
 
 	// Add the callback
 	polyscope::state::userCallback = callback;

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <deque>
 #include <queue>
-//#include <Eigen/SPQRSupport>
+#include <Eigen/SPQRSupport>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
 {
@@ -500,12 +500,12 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 	A.resize(2 * nedges, 3 * nverts);
 	A.setFromTriplets(T.begin(), T.end());
 
-	/*Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
+	Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
 	Eigen::VectorXd sol = solver.solve(edgeVec);
 
 	for (int i = 0; i < nverts; i++)
 	{
 		vertOmega.row(i) = sol.segment<3>(3 * i);
-	}*/
+	}
 	return vertOmega;
 }
