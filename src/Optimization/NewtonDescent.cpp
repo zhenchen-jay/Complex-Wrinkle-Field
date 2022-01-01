@@ -88,6 +88,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
         double localLinesearchTime = localTimer.elapsed<std::chrono::milliseconds>() * 1e-3;
         totalLineSearchTime += localLinesearchTime;
 
+
 		if (!isProj)
 		{
 			reg *= 0.5;
@@ -142,7 +143,26 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		}
 		
 		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
+		{
 			isProj = false;
+			double f = objFunc(x0, &grad, &hessian, isProj);
+			H = hessian;
+			solver.compute(hessian);
+			double tmpReg = 1e-8;
+			while (solver.info() != Eigen::Success)
+			{	
+				hessian = H + tmpReg * I;
+				solver.compute(hessian);
+				tmpReg = std::max(2 * tmpReg, 1e-16);
+			}
+			if(tmpReg > 1e-5)
+			{
+				std::cout << "hessian is far away from PD, stick with PD hessian." << std::endl;
+				isProj = true;
+			}
+
+		}
+			
 
 		if (rate < 1e-8)
 		{
