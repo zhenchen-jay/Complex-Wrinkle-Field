@@ -998,19 +998,38 @@ void callback() {
 			int nfaces = triMesh.nFaces();
 			sourceOmegaFields.setZero(nedges, 2);
 
+            Eigen::MatrixXd faceN;
+            igl::per_face_normals(triV, triF, faceN);
+
 			for (int i = 0; i < nfaces; i++)
 			{
 				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
 				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
 
-				Eigen::Vector3d n = ru.cross(rv);
+                Eigen::Matrix2d g, gInv;
+                g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
+                gInv = g.inverse();
 
-				double u = sD(triMesh.faceVertex(i, 1)) - sD(triMesh.faceVertex(i, 0));
-				double v = sD(triMesh.faceVertex(i, 2)) - sD(triMesh.faceVertex(i, 0));
-				Eigen::Vector3d vec = u * ru + v * rv;
-				Eigen::Vector3d vecPerp = n.cross(vec);
+                double u = sD(triMesh.faceVertex(i, 1)) - sD(triMesh.faceVertex(i, 0));
+                double v = sD(triMesh.faceVertex(i, 2)) - sD(triMesh.faceVertex(i, 0));
+                Eigen::Vector2d dVec(u, v);
+                Eigen::Vector2d vec = gInv * dVec;
+//                Eigen::Vector2d dVecPerp(-vec(1), vec(0));
+//                Eigen::Vector2d vecPerp = gInv * dVecPerp;
 
-				vecPerp = vec.norm() / vecPerp.norm() * vecPerp;
+				Eigen::Vector3d n = faceN.row(i);
+                n = n / n.norm();
+
+
+				Eigen::Vector3d vec3D = vec(0) * ru + vec(1) * rv;             // for the norm adjustment
+				Eigen::Vector3d vecPerp3D = n.cross(vec3D);  // for direction adjustment
+
+//                Eigen::Vector3d vecPerp3D = vecPerp(0) * ru + vecPerp(1) * rv;
+//
+//				vecPerp3D = vec3D.norm()  / ( vecPerp3D.norm()) * vecPerp3D;
+//
+//                if(vecPerp3D.dot(vecPerp3DRef) < 0)
+//                    vecPerp3D *= -1;
 
 				for (int j = 0; j < 3; j++)
 				{
@@ -1021,8 +1040,8 @@ void callback() {
 						factor = 1.0;
 
 					Eigen::Vector3d v = triV.row(triMesh.edgeVertex(eid, 1)) - triV.row(triMesh.edgeVertex(eid, 0));
-					sourceOmegaFields(eid, 0) += v.dot(vecPerp) / factor;
-					sourceOmegaFields(eid, 1) += -v.dot(vecPerp) / factor;
+					sourceOmegaFields(eid, 0) += v.dot(vecPerp3D) / factor;
+					sourceOmegaFields(eid, 1) += -v.dot(vecPerp3D) / factor;
 				}
 
 			}
@@ -1089,20 +1108,30 @@ void callback() {
 			int nedges = triMesh.nEdges();
 			int nfaces = triMesh.nFaces();
 			tarOmegaFields.setZero(nedges, 2);
+            Eigen::MatrixXd faceN;
+            igl::per_face_normals(triV, triF, faceN);
 
 			for (int i = 0; i < nfaces; i++)
 			{
 				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
 				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
 
-				Eigen::Vector3d n = ru.cross(rv);
+                Eigen::Matrix2d g, gInv;
+                g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
+                gInv = g.inverse();
 
-				double u = tD(triMesh.faceVertex(i, 1)) - tD(triMesh.faceVertex(i, 0));
-				double v = tD(triMesh.faceVertex(i, 2)) - tD(triMesh.faceVertex(i, 0));
-				Eigen::Vector3d vec = u * ru + v * rv;
-				Eigen::Vector3d vecPerp = n.cross(vec);
+                double u = tD(triMesh.faceVertex(i, 1)) - tD(triMesh.faceVertex(i, 0));
+                double v = tD(triMesh.faceVertex(i, 2)) - tD(triMesh.faceVertex(i, 0));
+                Eigen::Vector2d dVec(u, v);
+                Eigen::Vector2d vec = gInv * dVec;
 
-				vecPerp = vec.norm() / vecPerp.norm() * vecPerp;
+                Eigen::Vector3d n = faceN.row(i);
+                n = n / n.norm();
+
+
+                Eigen::Vector3d vec3D = vec(0) * ru + vec(1) * rv;             // for the norm adjustment
+                Eigen::Vector3d vecPerp3D = n.cross(vec3D);
+
 
 				for (int j = 0; j < 3; j++)
 				{
@@ -1113,8 +1142,8 @@ void callback() {
 						factor = 1.0;
 
 					Eigen::Vector3d v = triV.row(triMesh.edgeVertex(eid, 1)) - triV.row(triMesh.edgeVertex(eid, 0));
-					tarOmegaFields(eid, 0) += v.dot(vecPerp) / factor;
-					tarOmegaFields(eid, 1) += -v.dot(vecPerp) / factor;
+					tarOmegaFields(eid, 0) += v.dot(vecPerp3D) / factor;
+					tarOmegaFields(eid, 1) += -v.dot(vecPerp3D) / factor;
 				}
 
 			}
@@ -1236,10 +1265,9 @@ int main(int argc, char** argv)
 	// Initialize polyscope
 	polyscope::init();
 
-
-	// Register the mesh with Polyscope
-	polyscope::registerSurfaceMesh("input mesh", triV, triF);
-	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
+    // Register the mesh with Polyscope
+    polyscope::registerSurfaceMesh("input mesh", triV, triF);
+    polyscope::view::upDir = polyscope::view::UpDir::ZUp;
 
 	// Add the callback
 	polyscope::state::userCallback = callback;
