@@ -129,6 +129,69 @@ double IntrinsicKeyFrameInterpolationFromHalfEdge::computeEnergy(const Eigen::Ve
 	return energy;
 }
 
+void IntrinsicKeyFrameInterpolationFromHalfEdge::rescaleZvals(const Eigen::MatrixXd &edgeW,
+                                                              std::vector<std::complex<double>> &zvals)
+{
+    int nverts = zvals.size();
+    int nfaces = _mesh.nFaces();
+
+    Eigen::VectorXi numOfNeis = Eigen::VectorXi::Zero(nverts);
+    Eigen::VectorXd normSum = Eigen::VectorXd ::Zero(nverts);
+//    std::cout << "nverts: " << nverts << std::endl;
+    for(int j = 0; j < nfaces; j++)
+    {
+//        std::cout << "face id: " << j << std::endl;
+        for(int k = 0; k < 3; k++)
+        {
+            int vid = _mesh.faceVertex(j, k);
+//            std::cout << "k: " << k << ", vid: " << vid << std::endl;
+            numOfNeis(vid)++;
+            Eigen::Vector3d ru = _triV.row(_mesh.faceVertex(j, (k + 1) % 3)) - _triV.row(_mesh.faceVertex(j, k));
+            Eigen::Vector3d rv = _triV.row(_mesh.faceVertex(j, (k + 2) % 3)) - _triV.row(_mesh.faceVertex(j, k));
+
+//            std::cout << "ru: " << ru.transpose() << std::endl;
+//            std::cout << "rv: " << rv.transpose() << std::endl;
+
+            Eigen::Matrix2d g;
+            g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
+            g = g.inverse();
+
+            int eid0 = _mesh.faceEdge(j, (k + 1) % 3);
+            int eid1 = _mesh.faceEdge(j, (k + 2) % 3);
+
+            Eigen::Vector2d w;
+            if (_mesh.edgeVertex(eid0, 1) == _mesh.faceVertex(j, (k + 1) % 3))
+                w(0) = edgeW(eid0, 0);
+            else
+                w(0) = edgeW(eid0, 1);
+
+            if (_mesh.edgeVertex(eid1, 1) == _mesh.faceVertex(j, (k + 2) % 3))
+                w(1) = edgeW(eid1, 0);
+            else
+                w(1) = edgeW(eid1, 1);
+
+            double wNorm = std::sqrt(w.dot(g * w));
+            normSum(vid) += wNorm;
+        }
+    }
+
+    for(int j = 0; j < nverts; j++)
+    {
+        zvals[j] = 1.0 / (normSum(j) / numOfNeis(j) * std::abs(zvals[j])) * zvals[j];
+    }
+}
+
+void IntrinsicKeyFrameInterpolationFromHalfEdge::postProcess(Eigen::VectorXd &x)
+{
+    convertVariable2List(x);
+
+    for(int i = 0; i < _wList.size(); i++)
+    {
+        rescaleZvals(_wList[i], _zList[i]);
+    }
+    convertList2Variable(x);
+}
+
 bool IntrinsicKeyFrameInterpolationFromHalfEdge::save(const std::string& fileName, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
 {
 	using json = nlohmann::json;

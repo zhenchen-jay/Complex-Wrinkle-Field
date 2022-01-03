@@ -62,6 +62,7 @@ namespace IntrinsicFormula
                     {
                         curZvals[k] = (1 - t) * startZvals[k] + t * endZvals[k];
                     }
+
                     _zList.push_back(curZvals);
                     _wList.push_back(curOmega);
                 }
@@ -81,6 +82,7 @@ namespace IntrinsicFormula
 		std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zList; }
 
+        void setBaseMesh(const Eigen::MatrixXd& V) {_triV = V;}
 		void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
 		{
 			int nverts = _zList[0].size();
@@ -111,6 +113,8 @@ namespace IntrinsicFormula
 			_wList = wList;
 		}
 
+        void postProcess(Eigen::VectorXd& x);
+        void rescaleZvals(const Eigen::MatrixXd& edgeW, std::vector<std::complex<double>>& zvals);
 
 		double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 		void testEnergy(Eigen::VectorXd x);
@@ -121,6 +125,7 @@ namespace IntrinsicFormula
 	public:	// should be private, when publishing
 		ComputeZdotFromHalfEdgeOmega _zdotModel;
 	private:
+        Eigen::MatrixXd _triV;
 		int _quadOrd;
 		MeshConnectivity _mesh;
 		std::vector<std::vector<std::complex<double>>> _zList;
