@@ -5,7 +5,7 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/timer.h"
 
-void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder)
+void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
 {
 	const int DIM = x0.rows();
     Eigen::VectorXd randomVec = x0;
@@ -115,6 +115,17 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
             std::cout << "assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
 		}
 
+        if(postProcess)
+        {
+            postProcess(x0);
+            if (disPlayInfo)
+            {
+                double tmpfnew = objFunc(x0, &grad, NULL, isProj);
+                std::cout << "after post process, f_new: " << tmpfnew << ", grad norm: " << grad.norm() << std::endl;
+            }
+
+        }
+
 		if (savingFolder)
 		{
 			optInfo << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
@@ -145,21 +156,21 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
 		{
 			isProj = false;
-			double f = objFunc(x0, &grad, &hessian, isProj);
-			H = hessian;
-			solver.compute(hessian);
-			double tmpReg = 1e-8;
-			while (solver.info() != Eigen::Success)
-			{	
-				hessian = H + tmpReg * I;
-				solver.compute(hessian);
-				tmpReg = std::max(2 * tmpReg, 1e-16);
-			}
-			if(tmpReg > 1e-5)
-			{
-				std::cout << "hessian is far away from PD, stick with PD hessian." << std::endl;
-				isProj = true;
-			}
+			// double f = objFunc(x0, &grad, &hessian, isProj);
+			// H = hessian;
+			// solver.compute(hessian);
+			// double tmpReg = 1e-8;
+			// while (solver.info() != Eigen::Success)
+			// {	
+			// 	hessian = H + tmpReg * I;
+			// 	solver.compute(hessian);
+			// 	tmpReg = std::max(2 * tmpReg, 1e-16);
+			// }
+			// if(tmpReg > 1e-5)
+			// {
+			// 	std::cout << "hessian is far away from PD, stick with PD hessian." << std::endl;
+			// 	isProj = true;
+			// }
 
 		}
 			

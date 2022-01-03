@@ -99,8 +99,8 @@ PaintGeometry mPaint;
 int numFrames = 50;
 int curFrame = 0;
 
-int numSourceWaves = 2;
-int numTarWaves = 2;
+double sourceFreq = 1.0;
+double tarFreq = 1.0;
 
 double globalAmpMax = 1;
 double globalAmpMin = 0;
@@ -181,6 +181,56 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Matrix
 	return true;
 }
 
+void getDisFields(const Eigen::VectorXi& gamma, Eigen::VectorXd& d, Eigen::MatrixXd& disFields, Eigen::MatrixXd& disFieldsPerp)
+{
+    // compute geodesic
+    igl::HeatGeodesicsData<double> data;
+    double t = std::pow(igl::avg_edge_length(triV, triF), 2);
+    const auto precompute = [&]()
+    {
+        if (!igl::heat_geodesics_precompute(triV, triF, t, data))
+        {
+            std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
+            exit(EXIT_FAILURE);
+        };
+    };
+    precompute();
+    igl::heat_geodesics_solve(data, gamma, d);
+    int nfaces = triMesh.nFaces();
+
+
+    Eigen::MatrixXd faceN;
+    igl::per_face_normals(triV, triF, faceN);
+    disFields.setZero(nfaces, 3);
+    disFieldsPerp.setZero(nfaces, 3);
+
+    for (int i = 0; i < nfaces; i++)
+    {
+        Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
+        Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
+
+        Eigen::Matrix2d g, gInv;
+        g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
+        gInv = g.inverse();
+
+        double u = d(triMesh.faceVertex(i, 1)) - d(triMesh.faceVertex(i, 0));
+        double v = d(triMesh.faceVertex(i, 2)) - d(triMesh.faceVertex(i, 0));
+        Eigen::Vector2d dVec(u, v);
+        Eigen::Vector2d vec = gInv * dVec;
+
+        Eigen::Vector3d n = faceN.row(i);
+        n = n / n.norm();
+
+
+        Eigen::Vector3d vec3D = vec(0) * ru + vec(1) * rv;             // for the norm adjustment
+        Eigen::Vector3d vecPerp3D = n.cross(vec3D);  // for direction adjustment
+
+        vecPerp3D *= 1 / (vecPerp3D.norm() * (d(triF(i, 0)) + d(triF(i, 1)) + d(triF(i, 2))) / 3.0);
+        disFields.row(i) = vec3D;
+        disFieldsPerp.row(i) = vecPerp3D;
+    }
+}
+
 void initialization()
 {
 	Eigen::SparseMatrix<double> S;
@@ -201,6 +251,8 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
 	Eigen::VectorXd x;
 	interpModel.convertList2Variable(x);        // linear initialization
+    interpModel.setBaseMesh(triV);
+//    interpModel.postProcess(x);
 	if (initializationType == InitializationType::Random)
 	{
 		x.setRandom();
@@ -285,13 +337,17 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 			interpModel.getComponentNorm(x, znorm, wnorm);
 		};
 
+        auto postProcess = [&](Eigen::VectorXd& x)
+        {
+//            interpModel.postProcess(x);
+        };
 
 
 		OptSolver::testFuncGradHessian(funVal, x);
 
 		auto x0 = x;
 		if(solverType == Newton)
-			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder, postProcess);
 		else if (solverType == LBFGS)
 			OptSolver::lbfgsSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 		else if (solverType == Composite)
@@ -825,10 +881,10 @@ void callback() {
 				sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
 			}
 		}
-		if (ImGui::InputInt("num source waves", &numSourceWaves))
+		if (ImGui::InputDouble("source frequency", &sourceFreq))
 		{
-			if (numSourceWaves < 0)
-				numSourceWaves = 2;
+			if (sourceFreq <= 0)
+				sourceFreq = 1;
 		}
 		if (ImGui::InputInt("num of source heat sources", &numSource))
 		{
@@ -848,10 +904,10 @@ void callback() {
 				tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
 			}
 		}
-		if (ImGui::InputInt("num target waves", &numTarWaves))
+		if (ImGui::InputDouble("target frequency", &tarFreq))
 		{
-			if (numTarWaves < 0)
-				numTarWaves = 2;
+			if (tarFreq <= 0)
+				tarFreq = 1;
 		}
 		if (ImGui::InputInt("num of target heat sources", &numTarSource))
 		{
@@ -952,7 +1008,9 @@ void callback() {
 		sourceGamma.resize(1);
 		sourceGamma(0) = 5;
 		std::cout << "source vertex id: " << sourceGamma.transpose() << std::endl;
-		igl::heat_geodesics_solve(data, sourceGamma, sD);
+
+        Eigen::MatrixXd disFields, disFieldsPerp; // per face vectors
+        getDisFields(sourceGamma, sD, disFields, disFieldsPerp);
 
 		for(int i = 0; i < numComb; i++)
 		{
@@ -964,16 +1022,16 @@ void callback() {
 		{
 			sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
 			sourceVertexOmegaFields = PD1;
-			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceOmegaFields *= 2 * M_PI * sourceFreq;
+			sourceVertexOmegaFields *= 2 * M_PI * sourceFreq;
 		}
 
 		else if(sourceDir == DirectionType::DIRPV2)
 		{
 			sourceOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
 			sourceVertexOmegaFields = PD2;
-			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceOmegaFields *= 2 * M_PI * sourceFreq;
+			sourceVertexOmegaFields *= 2 * M_PI * sourceFreq;
 		}
 		else if (sourceDir == DirectionType::GEODESIC)
 		{
@@ -989,8 +1047,8 @@ void callback() {
 			}
 			sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
 
-			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceOmegaFields *= 2 * M_PI * sourceFreq;
+			sourceVertexOmegaFields *= 2 * M_PI * sourceFreq;
 		}
 		else if (sourceDir == DirectionType::GEODESICPERP)
 		{
@@ -998,39 +1056,9 @@ void callback() {
 			int nfaces = triMesh.nFaces();
 			sourceOmegaFields.setZero(nedges, 2);
 
-            Eigen::MatrixXd faceN;
-            igl::per_face_normals(triV, triF, faceN);
-
 			for (int i = 0; i < nfaces; i++)
 			{
-				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
-				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
-
-                Eigen::Matrix2d g, gInv;
-                g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
-                gInv = g.inverse();
-
-                double u = sD(triMesh.faceVertex(i, 1)) - sD(triMesh.faceVertex(i, 0));
-                double v = sD(triMesh.faceVertex(i, 2)) - sD(triMesh.faceVertex(i, 0));
-                Eigen::Vector2d dVec(u, v);
-                Eigen::Vector2d vec = gInv * dVec;
-//                Eigen::Vector2d dVecPerp(-vec(1), vec(0));
-//                Eigen::Vector2d vecPerp = gInv * dVecPerp;
-
-				Eigen::Vector3d n = faceN.row(i);
-                n = n / n.norm();
-
-
-				Eigen::Vector3d vec3D = vec(0) * ru + vec(1) * rv;             // for the norm adjustment
-				Eigen::Vector3d vecPerp3D = n.cross(vec3D);  // for direction adjustment
-
-//                Eigen::Vector3d vecPerp3D = vecPerp(0) * ru + vecPerp(1) * rv;
-//
-//				vecPerp3D = vec3D.norm()  / ( vecPerp3D.norm()) * vecPerp3D;
-//
-//                if(vecPerp3D.dot(vecPerp3DRef) < 0)
-//                    vecPerp3D *= -1;
-
+                Eigen::Vector3d vecPerp3D = disFieldsPerp.row(i);
 				for (int j = 0; j < 3; j++)
 				{
 					int eid = triMesh.faceEdge(i, j);
@@ -1048,13 +1076,13 @@ void callback() {
 
 			sourceVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(sourceOmegaFields, triV, triMesh);
 
-			sourceOmegaFields *= 2 * M_PI * numSourceWaves;
-			sourceVertexOmegaFields *= 2 * M_PI * numSourceWaves;
+			sourceOmegaFields *= 2 * M_PI * sourceFreq;
+			sourceVertexOmegaFields *= 2 * M_PI * sourceFreq;
 		}
 		else
 		{
-			sourceOmegaFields *= numSourceWaves;
-			sourceVertexOmegaFields *= numSourceWaves;
+			sourceOmegaFields *= sourceFreq;
+			sourceVertexOmegaFields *= sourceFreq;
 		}
 
 
@@ -1069,22 +1097,22 @@ void callback() {
 		tarGamma(0) = 189;
 
 		std::cout << "source vertex id (target): " << tarGamma.transpose() << std::endl;
-		igl::heat_geodesics_solve(data, tarGamma, tD);
+        getDisFields(tarGamma, tD, disFields, disFieldsPerp);
 
 		if(tarDir == DirectionType::DIRPV1)
 		{
 			tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD1, triV, triMesh);
 			tarVertexOmegaFields = PD1;
-			tarOmegaFields *= 2 * M_PI * numTarWaves;
-			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+			tarOmegaFields *= 2 * M_PI * tarFreq;
+			tarVertexOmegaFields *= 2 * M_PI * tarFreq;
 		}
 
 		else if(tarDir == DirectionType::DIRPV2)
 		{
 			tarOmegaFields = vertexVec2IntrinsicHalfEdgeVec(PD2, triV, triMesh);
 			tarVertexOmegaFields = PD2;
-			tarOmegaFields *= 2 * M_PI * numTarWaves;
-			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+			tarOmegaFields *= 2 * M_PI * tarFreq;
+			tarVertexOmegaFields *= 2 * M_PI * tarFreq;
 		}
 		else if (tarDir == DirectionType::GEODESIC)
 		{
@@ -1100,8 +1128,8 @@ void callback() {
 			}
 			tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
 
-			tarOmegaFields *= 2 * M_PI * numTarWaves;
-			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+			tarOmegaFields *= 2 * M_PI * tarFreq;
+			tarVertexOmegaFields *= 2 * M_PI * tarFreq;
 		}
 		else if (tarDir == DirectionType::GEODESICPERP)
 		{
@@ -1113,26 +1141,7 @@ void callback() {
 
 			for (int i = 0; i < nfaces; i++)
 			{
-				Eigen::Vector3d ru = triV.row(triMesh.faceVertex(i, 1)) - triV.row(triMesh.faceVertex(i, 0));
-				Eigen::Vector3d rv = triV.row(triMesh.faceVertex(i, 2)) - triV.row(triMesh.faceVertex(i, 0));
-
-                Eigen::Matrix2d g, gInv;
-                g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
-                gInv = g.inverse();
-
-                double u = tD(triMesh.faceVertex(i, 1)) - tD(triMesh.faceVertex(i, 0));
-                double v = tD(triMesh.faceVertex(i, 2)) - tD(triMesh.faceVertex(i, 0));
-                Eigen::Vector2d dVec(u, v);
-                Eigen::Vector2d vec = gInv * dVec;
-
-                Eigen::Vector3d n = faceN.row(i);
-                n = n / n.norm();
-
-
-                Eigen::Vector3d vec3D = vec(0) * ru + vec(1) * rv;             // for the norm adjustment
-                Eigen::Vector3d vecPerp3D = n.cross(vec3D);
-
-
+				Eigen::Vector3d vecPerp3D = disFieldsPerp.row(i);
 				for (int j = 0; j < 3; j++)
 				{
 					int eid = triMesh.faceEdge(i, j);
@@ -1150,13 +1159,13 @@ void callback() {
 
 			tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
 
-			tarOmegaFields *= 2 * M_PI * numTarWaves;
-			tarVertexOmegaFields *= 2 * M_PI * numTarWaves;
+			tarOmegaFields *= 2 * M_PI * tarFreq;
+			tarVertexOmegaFields *= 2 * M_PI * tarFreq;
 		}
 		else
 		{
-			tarOmegaFields *= numSourceWaves;
-			tarVertexOmegaFields *= numSourceWaves;
+			tarOmegaFields *= sourceFreq;
+			tarVertexOmegaFields *= sourceFreq;
 		}
 
 		Eigen::VectorXd faceArea;
@@ -1239,42 +1248,60 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-	std::string meshPath;
-	if (argc < 2)
-	{
-		meshPath = "../../../data/teddy/teddy_simulated.obj";
-	}
-	else
-		meshPath = argv[1];
-	int id = meshPath.rfind("/");
-	workingFolder = meshPath.substr(0, id + 1); // include "/"
-	//std::cout << workingFolder << std::endl;
+    std::string meshPath;
+    if (argc < 2)
+    {
+        meshPath = "../../../data/teddy/teddy_simulated.obj";
+    }
+    else
+        meshPath = argv[1];
+    int id = meshPath.rfind("/");
+    workingFolder = meshPath.substr(0, id + 1); // include "/"
+    //std::cout << workingFolder << std::endl;
 
-	if (!igl::readOBJ(meshPath, triV, triF))
-	{
-		std::cerr << "mesh loading failed" << std::endl;
-		exit(1);
-	}
-	initialization();
+    if (!igl::readOBJ(meshPath, triV, triF))
+    {
+        std::cerr << "mesh loading failed" << std::endl;
+        exit(1);
+    }
+    initialization();
 
-	// Options
-	polyscope::options::autocenterStructures = true;
-	polyscope::view::windowWidth = 1024;
-	polyscope::view::windowHeight = 1024;
+    // Options
+    polyscope::options::autocenterStructures = true;
+    polyscope::view::windowWidth = 1024;
+    polyscope::view::windowHeight = 1024;
 
-	// Initialize polyscope
-	polyscope::init();
+    // Initialize polyscope
+    polyscope::init();
 
     // Register the mesh with Polyscope
     polyscope::registerSurfaceMesh("input mesh", triV, triF);
+
+    // compute geodesic
+    Eigen::VectorXi sourceGamma(numSource);
+    for (int i = 0; i < numSource; i++)
+    {
+        sourceGamma(i) = std::rand() % (triV.rows());
+    }
+    sourceGamma.resize(1);
+    sourceGamma(0) = 189;
+
+    Eigen::VectorXd d;
+    Eigen::MatrixXd disFields, disFieldsPerp;
+    getDisFields(sourceGamma, d, disFields, disFieldsPerp);
+
+    polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("distance field", disFields);
+    polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("distance field perp", disFieldsPerp);
+
+
     polyscope::view::upDir = polyscope::view::UpDir::ZUp;
 
-	// Add the callback
-	polyscope::state::userCallback = callback;
+    // Add the callback
+    polyscope::state::userCallback = callback;
 
-	polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
-	// Show the gui
-	polyscope::show();
+    polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
+    // Show the gui
+    polyscope::show();
 
-	return 0;
+    return 0;
 }
