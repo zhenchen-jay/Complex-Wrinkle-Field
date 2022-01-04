@@ -1009,8 +1009,8 @@ void callback() {
 		sourceGamma(0) = 5;
 		std::cout << "source vertex id: " << sourceGamma.transpose() << std::endl;
 
-        Eigen::MatrixXd disFields, disFieldsPerp; // per face vectors
-        getDisFields(sourceGamma, sD, disFields, disFieldsPerp);
+        Eigen::MatrixXd sdisFields, sdisFieldsPerp; // per face vectors
+        getDisFields(sourceGamma, sD, sdisFields, sdisFieldsPerp);
 
 		for(int i = 0; i < numComb; i++)
 		{
@@ -1058,7 +1058,7 @@ void callback() {
 
 			for (int i = 0; i < nfaces; i++)
 			{
-                Eigen::Vector3d vecPerp3D = disFieldsPerp.row(i);
+                Eigen::Vector3d vecPerp3D = sdisFieldsPerp.row(i);
 				for (int j = 0; j < 3; j++)
 				{
 					int eid = triMesh.faceEdge(i, j);
@@ -1097,7 +1097,8 @@ void callback() {
 		tarGamma(0) = 189;
 
 		std::cout << "source vertex id (target): " << tarGamma.transpose() << std::endl;
-        getDisFields(tarGamma, tD, disFields, disFieldsPerp);
+        Eigen::MatrixXd tdisFields, tdisFieldsPerp; // per face vectors
+        getDisFields(tarGamma, tD, tdisFields, tdisFieldsPerp);
 
 		if(tarDir == DirectionType::DIRPV1)
 		{
@@ -1141,7 +1142,7 @@ void callback() {
 
 			for (int i = 0; i < nfaces; i++)
 			{
-				Eigen::Vector3d vecPerp3D = disFieldsPerp.row(i);
+				Eigen::Vector3d vecPerp3D = tdisFieldsPerp.row(i);
 				for (int j = 0; j < 3; j++)
 				{
 					int eid = triMesh.faceEdge(i, j);
@@ -1178,9 +1179,51 @@ void callback() {
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, sourceOmegaFields, faceArea, cotEntries, nverts, sourceZvals);
 		IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, tarOmegaFields, faceArea, cotEntries, nverts, tarZvals);
 
-		 Eigen::VectorXd sourceAmp, tarAmp;
-		 ampSolver(triV, triMesh, sourceOmegaFields / 10, sourceAmp);
-		 ampSolver(triV, triMesh, tarOmegaFields / 10, tarAmp);
+		 Eigen::VectorXd sourceAmp(nverts), tarAmp(nverts);
+         if(sourceDir != GEODESICPERP)
+		    ampSolver(triV, triMesh, sourceOmegaFields / 10, sourceAmp);
+         else
+         {
+             Eigen::VectorXd dPerpInverse = sD;
+             dPerpInverse.setZero();
+             Eigen::VectorXd numNeis = dPerpInverse;
+
+             for(int i = 0; i < triF.rows(); i++)
+             {
+                 for(int j = 0; j < 3; j++)
+                 {
+                     int vid = triF(i, j);
+                     dPerpInverse(vid) += sdisFieldsPerp.row(i).norm();
+                     numNeis(vid)++;
+                 }
+             }
+             for(int i = 0; i < dPerpInverse.rows(); i++)
+             {
+                 sourceAmp(i) = numNeis(i) / dPerpInverse(i);
+             }
+         }
+         if(tarDir != GEODESICPERP)
+		    ampSolver(triV, triMesh, tarOmegaFields / 10, tarAmp);
+         else
+         {
+             Eigen::VectorXd dPerpInverse = tD;
+             dPerpInverse.setZero();
+             Eigen::VectorXd numNeis = dPerpInverse;
+
+             for(int i = 0; i < triF.rows(); i++)
+             {
+                 for(int j = 0; j < 3; j++)
+                 {
+                     int vid = triF(i, j);
+                     dPerpInverse(vid) += tdisFieldsPerp.row(i).norm();
+                     numNeis(vid)++;
+                 }
+             }
+             for(int i = 0; i < dPerpInverse.rows(); i++)
+             {
+                 tarAmp(i) = numNeis(i) / dPerpInverse(i);
+             }
+         }
 
 		 for (int i = 0; i < triV.rows(); i++)
 		 {
@@ -1284,14 +1327,34 @@ int main(int argc, char** argv)
         sourceGamma(i) = std::rand() % (triV.rows());
     }
     sourceGamma.resize(1);
-    sourceGamma(0) = 189;
+    sourceGamma(0) = 5;
 
     Eigen::VectorXd d;
     Eigen::MatrixXd disFields, disFieldsPerp;
     getDisFields(sourceGamma, d, disFields, disFieldsPerp);
 
+    Eigen::VectorXd dPerpInverse = d;
+    dPerpInverse.setZero();
+    Eigen::VectorXd numNeis = dPerpInverse;
+
+    for(int i = 0; i < triF.rows(); i++)
+    {
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = triF(i, j);
+            dPerpInverse(vid) += disFieldsPerp.row(i).norm();
+            numNeis(vid)++;
+        }
+    }
+    for(int i = 0; i < dPerpInverse.rows(); i++)
+    {
+        dPerpInverse(i) = numNeis(i) / dPerpInverse(i);
+    }
+
     polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("distance field", disFields);
     polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("distance field perp", disFieldsPerp);
+//    polyscope::getSurfaceMesh("input mesh")->addVertexDistanceQuantity("distance values", d);
+    polyscope::getSurfaceMesh("input mesh")->addVertexDistanceQuantity("distance inverse values", dPerpInverse);
 
 
     polyscope::view::upDir = polyscope::view::UpDir::ZUp;
