@@ -205,6 +205,7 @@ list(APPEND SUITESPARSE_CHECK_LIBRARY_DIRS
   /opt/local/lib/ufsparse # Mac OS X
   /usr/local/homebrew/lib # Mac OS X
   /usr/local/lib
+  
   /usr/lib)
 # Additional suffixes to try appending to each search path.
 list(APPEND SUITESPARSE_CHECK_PATH_SUFFIXES
