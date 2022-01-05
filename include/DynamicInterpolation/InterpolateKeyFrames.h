@@ -35,7 +35,11 @@ public:
 			_vertValsList[i] = vertVals0;
 
 			for (int j = 0; j < _vertValsList[i].size(); j++)
+			{
 				_vertValsList[i][j] = (1 - t) * vertVals0[j] + t * vertVals1[j];
+				_vertValsList[i][j] = _vertValsList[i][j] / (_wList[i].row(j).norm() * std::abs(_vertValsList[i][j]));
+			}
+				
 		}
 
 		_model = GetInterpolatedValues(basePos, baseF, upsampledPos, upsampledF, baryCoords);
@@ -50,6 +54,9 @@ public:
 
 	std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 	std::vector<std::vector<std::complex<double>>> getVertValsList() { return _vertValsList; }
+
+    void setWList(const std::vector<Eigen::MatrixXd>& wList) { _wList = wList; }
+    void setVertValsList(const std::vector<std::vector<std::complex<double>>>& zvals) { _vertValsList = zvals; }
 
 	void getComponentNorm(const Eigen::VectorXd& x, double &znorm, double &wnorm)
 	{
@@ -86,7 +93,7 @@ public:
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 
 	double computePerFrameConstraints(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false, Eigen::VectorXd* constraints = NULL);
 
 	double computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 	double computeConstraintsPenalty(const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);

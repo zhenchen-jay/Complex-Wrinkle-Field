@@ -110,7 +110,7 @@ int sigIndex2 = 1;
 
 int singInd = 1, singInd1 = 1;
 int singIndTar = 1, singIndTar1 = 1;
-int numWaves = 2, numWaveTar = 4;
+int numWaves = 2, numWaveTar = 2;
 
 double globalAmpMax = 1;
 
@@ -125,7 +125,7 @@ double fixedy = 0;
 Eigen::Vector2d fixedv(1.0, -0.5);
 
 double sourceCenter1x = 0, sourceCenter1y = 0, sourceCenter2x = 0.8, sourceCenter2y = -0.2, targetCenter1x = 0, targetCenter1y = 0, targetCenter2x = 0.3, targetCenter2y = -0.7;
-double sourceDirx = 1.0, sourceDiry = 0, targetDirx = 1, targetDiry = 0;
+double sourceDirx = 1.0, sourceDiry = 0, targetDirx = 0, targetDiry = 1;
 
 double gradTol = 1e-6;
 double xTol = 0;
@@ -386,6 +386,57 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
         }
 
     }
+}
+
+void generateRotatedPlaneWaveList(Eigen::Vector2d v0, Eigen::Vector2d v1, std::vector<Eigen::MatrixXd>& wList, std::vector<std::vector<std::complex<double>>>& zList)
+{
+    double theta = std::acos(v0.dot(v1) / (v0.norm() * v1.norm()));
+    double dtheta = theta / (numFrames + 1);
+    double dt = 1.0 / (numFrames + 1);
+    wList.clear();
+    zList.clear();
+    Eigen::MatrixXd w;
+    std::vector<std::complex<double>> z;
+
+    generatePlaneWave(v0, w, z);
+    for(int j = 0; j < z.size(); j++)
+    {
+        z[j] = z[j] / (std::abs(z[j]) * w.row(j).norm());
+    }
+
+    wList.push_back(w);
+    zList.push_back(z);
+
+
+
+    for(int i = 1; i <= numFrames; i++)
+    {
+        double t = i * dt;
+        double curTheta = theta * t;
+        Eigen::Matrix2d rotMat;
+        rotMat << std::cos(curTheta), -std::sin(curTheta), std::sin(curTheta), std::cos(curTheta);
+        double norm = (1 - t) * v0.norm() + t * v1.norm();
+        Eigen::Vector2d v = rotMat * v0;
+        v = v / v.norm() * norm;
+
+
+        generatePlaneWave(v, w, z);
+        for(int j = 0; j < z.size(); j++)
+        {
+            z[j] = z[j] / (std::abs(z[j]) * w.row(j).norm());
+        }
+        wList.push_back(w);
+        zList.push_back(z);
+    }
+
+    generatePlaneWave(v1, w, z);
+    for(int j = 0; j < z.size(); j++)
+    {
+        z[j] = z[j] / (std::abs(z[j]) * w.row(j).norm());
+    }
+
+    wList.push_back(w);
+    zList.push_back(z);
 }
 
 void generatePeriodicWave(int waveNum, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, std::vector<Eigen::Vector2cd> *gradZ = NULL, std::vector<std::complex<double>> *upsampledZ = NULL)
@@ -708,6 +759,8 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 	}
 }
 
+
+
 void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tarVec, const std::vector<std::complex<double>>& sourceZvals, const std::vector<std::complex<double>>& tarZvals, const int numKeyFrames, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	//ComputeZandZdot zdotModel = ComputeZandZdot(triV2D, triF2D, 6);
@@ -739,9 +792,27 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    }
 	    else if(initializationType == InitializationType::Random)
 	    {
-	        x.setRandom();
-	        interpModel.convertVariable2List(x);
-	        interpModel.convertList2Variable(x);
+            if(tarFunctionType == FunctionType::PlaneWave && functionType == FunctionType::PlaneWave && isFixed && isFixedTar)
+            {
+                Eigen::Vector2d v0, v1;
+                v0 << sourceDirx, sourceDiry;
+                v0 *= numWaves * 2 * M_PI;
+
+                v1 << targetDirx, targetDiry;
+                v1 *= numWaveTar * 2 * M_PI;
+
+                generateRotatedPlaneWaveList(v0, v1, wFrames, zFrames);
+                interpModel.setWList(wFrames);
+                interpModel.setVertValsList(zFrames);
+                interpModel.convertList2Variable(x);
+            }
+            else
+            {
+                x.setRandom();
+                interpModel.convertVariable2List(x);
+                interpModel.convertList2Variable(x);
+            }
+
 	    }
 	    else
 	    {
@@ -879,8 +950,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 	            std::cout << "x norm: " << x.norm() << std::endl;
-				std::cout << "before optimization: kinetic: " << interpModel.computeEnergy(x0) - penaltyCoef * interpModel.computePenalty(x0) << ", penalty: " << interpModel.computePenalty(x0) << ", penalty coef: " << penaltyCoef << std::endl;
-				std::cout << "after optimization: kinetic: " << interpModel.computeEnergy(x) - penaltyCoef * interpModel.computePenalty(x) << ", penalty: " << interpModel.computePenalty(x) << ", penalty coef: " << penaltyCoef << std::endl;
+				std::cout << "before optimization: kinetic: " << interpModel.computeEnergy(x0) << ", penalty: " << interpModel.computePenalty(x0) << ", penalty coef: " << penaltyCoef << std::endl;
+				std::cout << "after optimization: kinetic: " << interpModel.computeEnergy(x) << ", penalty: " << interpModel.computePenalty(x) << ", penalty coef: " << penaltyCoef << std::endl;
+                Eigen::VectorXd grad, gradPenalty;
+                interpModel.computeEnergy(x, &grad);
+                interpModel.computePenalty(x, &gradPenalty);
+                std::cout << "after optimization: kinetic gradient: " << grad.norm() << ", penalty gradient: " << gradPenalty.norm() << ", penalty coef: " << penaltyCoef << std::endl;
 	        }
 	    }
 	    interpModel.convertVariable2List(x);

@@ -202,6 +202,29 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	if (i >= numIter)
 		std::cout << "terminate with reaching the maximum iteration, with gradient L2-norm = " << grad.norm() << std::endl;
 
+    double f = objFunc(x0, &grad, &hessian, false);
+    Eigen::SparseMatrix<double> I(DIM, DIM), H = hessian;
+    I.setIdentity();
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
+
+    reg = 1e-10;
+    while (solver.info() != Eigen::Success)
+    {
+        if (disPlayInfo)
+        {
+            if (isProj)
+                std::cout << "some small perturb is needed to remove round-off error, current reg = " << reg << std::endl;
+            else
+                std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
+        }
+
+        H = hessian + reg * I;
+        solver.compute(H);
+        reg = std::max(2 * reg, 1e-16);
+    }
+    std::cout << "end up with energy: " << f << ", gradient: " << grad.norm() << std::endl;
+    std::cout << "mininal evalues of hessian is between: " << reg / 2 << ", " << reg << std::endl;
+
     totalTimer.stop();
     if(disPlayInfo)
     {

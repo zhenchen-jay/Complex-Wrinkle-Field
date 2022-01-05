@@ -92,9 +92,9 @@ double InterpolateKeyFrames::computePerVertexPenalty(const std::vector<std::comp
 			if (isProj)
 			{
 				//(*hess) = SPDProjection(*hess);
-				if((rsq * wsq - 1) > 0)
-					(*hess) = 2 * (rsq * wsq - 1) * (hrsq * wsq + hwsq * rsq) + 2 * drwsq * drwsq.transpose();
-				else
+//				if((rsq * wsq - 1) > 0)
+//					(*hess) = 2 * (rsq * wsq - 1) * (hrsq * wsq + hwsq * rsq) + 2 * drwsq * drwsq.transpose();
+//				else
 					(*hess) = SPDProjection(*hess);
 			}
 				
@@ -517,7 +517,7 @@ double InterpolateKeyFrames::computePerFrameConstraints(const std::vector<std::c
 	return energy;
 }
 
-double InterpolateKeyFrames::computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
+double InterpolateKeyFrames::computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj, Eigen::VectorXd* constraints)
 {
 	int nbaseVerts = _basePos.rows();
 	int numFrames = _vertValsList.size() - 2;
@@ -534,10 +534,21 @@ double InterpolateKeyFrames::computeConstraints(const Eigen::VectorXd& x, const 
 		deriv->setZero(DOFs);
 	}
 
+    if(constraints)
+    {
+        constraints->setZero(numFrames * nbaseVerts);
+    }
+
 	for (int i = 1; i < _vertValsList.size() - 1; i++)
 	{
 		Eigen::VectorXd frameLamba = lambda.segment((i - 1) * nbaseVerts, nbaseVerts);
 		energy += computePerFrameConstraints(_vertValsList[i], _wList[i], frameLamba, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+
+        if(constraints)
+        {
+            (*constraints) = getConstraints(x);
+        }
+
 		if (deriv)
 		{
 			deriv->segment(4 * (i - 1) * nbaseVerts, 4 * nbaseVerts) = curDeriv;
