@@ -11,7 +11,7 @@ public:
 	InterpolateKeyFrames() {}
 	~InterpolateKeyFrames() {}
 
-	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh)
+	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh, double penaltyCoef = 0):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh), _penaltyCoef(penaltyCoef)
 	{
 		_baseMesh = MeshConnectivity(baseF);
 		_upsampledMesh = MeshConnectivity(upsampledF);
@@ -46,6 +46,8 @@ public:
 	void convertVariable2List(const Eigen::VectorXd& x);
 	void convertList2Variable(Eigen::VectorXd& x);
 
+	void initializeLamdaMu(Eigen::VectorXd& lambda, Eigen::VectorXd& mu, double initMu = 1.0);
+
 	std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 	std::vector<std::vector<std::complex<double>>> getVertValsList() { return _vertValsList; }
 
@@ -70,8 +72,30 @@ public:
 		}
 	}
 
+	Eigen::VectorXd getConstraints(const Eigen::VectorXd& x, std::vector<Eigen::SparseVector<double> > *deriv = NULL, std::vector<Eigen::SparseMatrix<double>>* hess = NULL, bool isProj = false);
+	Eigen::VectorXd getConstraintsPenalty(const Eigen::VectorXd& x, std::vector< Eigen::SparseVector<double> > *deriv = NULL, std::vector<Eigen::SparseMatrix<double>>* hess = NULL, bool isProj = false);
+
+	double computePerVertexPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, int vid, Eigen::Vector4d* deriv = NULL, Eigen::Matrix4d* hess = NULL, bool isProj = false);
+	double computePerVertexConstraint(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, int vid, Eigen::Vector4d* deriv = NULL, Eigen::Matrix4d* hess = NULL, bool isProj = false);
+
+	double computePerFramePenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+	double computePenalty(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+
+	
 
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+
+	double computePerFrameConstraints(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+
+	double computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+	double computeConstraintsPenalty(const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+
+	void testPerVertexPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, int vid);
+	void testPerFramePenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w);
+	void testPenalty(Eigen::VectorXd x);
+	void testConstraintsPenalty(Eigen::VectorXd x, Eigen::VectorXd mu);
+	void testConstraints(Eigen::VectorXd x, Eigen::VectorXd lambda);
 	void testEnergy(Eigen::VectorXd x);
 
 public:
@@ -90,5 +114,6 @@ public:
 	ComputeZandZdot _newmodel;
 	double _dt;
 	bool _isUseUpMesh;
+	double _penaltyCoef;
 
 };

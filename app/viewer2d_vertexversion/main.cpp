@@ -98,12 +98,12 @@ bool isFixed = true;
 bool isFixedTar = true;
 
 bool isForceOptimize = false;
-bool isTwoTriangles = true;
+bool isTwoTriangles = false;
 
 PhaseInterpolation model;
 PaintGeometry mPaint;
 
-int numFrames = 2;
+int numFrames = 50;
 int curFrame = 0;
 int sigIndex1 = 1;
 int sigIndex2 = 1;
@@ -132,6 +132,8 @@ double xTol = 0;
 double fTol = 0;
 int numIter = 1000;
 int quadOrder = 4;
+
+double penaltyCoef = 0;
 
 
 enum FunctionType {
@@ -723,7 +725,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
 		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh);
+	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh, penaltyCoef);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
 
@@ -764,6 +766,18 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            {
 	                (*hess) = H;
 	            }
+
+				if (penaltyCoef > 0)
+				{
+					Eigen::VectorXd pDeriv;
+					Eigen::SparseMatrix<double> pHess;
+
+					E = E + penaltyCoef * interpModel.computePenalty(x, grad ? &pDeriv : NULL, hess ? &pHess : NULL, isProj);
+					if (grad)
+						(*grad) = (*grad) + penaltyCoef * pDeriv;
+					if (hess)
+						(*hess) = (*hess) + penaltyCoef * pHess;
+				}
 
 	            return E;
 	        };
@@ -865,6 +879,8 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
 	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 	            std::cout << "x norm: " << x.norm() << std::endl;
+				std::cout << "before optimization: kinetic: " << interpModel.computeEnergy(x0) - penaltyCoef * interpModel.computePenalty(x0) << ", penalty: " << interpModel.computePenalty(x0) << ", penalty coef: " << penaltyCoef << std::endl;
+				std::cout << "after optimization: kinetic: " << interpModel.computeEnergy(x) - penaltyCoef * interpModel.computePenalty(x) << ", penalty: " << interpModel.computePenalty(x) << ", penalty coef: " << penaltyCoef << std::endl;
 	        }
 	    }
 	    interpModel.convertVariable2List(x);
@@ -880,7 +896,10 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	        double initZdotNorm = interpModel._model.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
 	        double initActualZdotNorm = interpModel._newmodel.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
 
-	        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << std::endl;
+			double initPenalty = interpModel.computePerFramePenalty(initZFrames[i], initWFrames[i]);
+			double penalty = interpModel.computePerFramePenalty(zFrames[i], wFrames[i]);
+
+	        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm  << ", ||penalty||: " << initPenalty << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << ", ||penalty||: " << penalty << std::endl;
 	    }
 	}
 	else if(frameType == IntermediateFrameType::IEDynamic)
@@ -1284,7 +1303,8 @@ void callback() {
 
 	if (ImGui::DragInt("current frame", &curFrame, dragSpeed, 0, numFrames + 1))
 	{
-		updateFieldsInView(curFrame);
+		if(curFrame >= 0 && curFrame <= numFrames + 1)
+			updateFieldsInView(curFrame);
 	}
 	if (ImGui::DragFloat("vec ratio", &(vecratio), 0.005, 0, 1))
 	{
@@ -1312,6 +1332,11 @@ void callback() {
 			if (fTol < 0)
 				fTol = 0;
 		}
+		if (ImGui::InputDouble("penalty coeff", &penaltyCoef))
+		{
+			if (penaltyCoef < 0)
+				penaltyCoef = 0;
+		}
 		if (ImGui::InputInt("quad order", &quadOrder))
 		{
 		    if (quadOrder <= 0 || quadOrder > 20)
@@ -1327,7 +1352,6 @@ void callback() {
 	}
 	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
 	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
-
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
 	if (ImGui::Button("update values", ImVec2(-1, 0)))
@@ -1362,6 +1386,14 @@ void callback() {
 		// update the theoretic ones
 		updateTheoMagnitudePhase(zvals, tarZvals, theoGradZvals, tarTheoGradZvals, upsampledTheoZVals, upsampledTarTheoZVals, numFrames, theoAmpFieldsList, theoPhaseFieldsList, theoOmegaList, theoZList);
 
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			double swsq = omegaFields.row(i).norm();
+			zvals[i] = zvals[i] / (std::abs(zvals[i]) * swsq);
+
+			double twsq = tarOmegaFields.row(i).norm();
+			tarZvals[i] = tarZvals[i] / (std::abs(tarZvals[i]) * twsq);
+		}
 		// solve for the path from source to target
 		solveKeyFrames(omegaFields, tarOmegaFields, zvals, tarZvals, numFrames, omegaList, zList);
 		// get interploated amp and phase frames
@@ -1381,12 +1413,78 @@ void callback() {
 		updateFieldsInView(curFrame);
 			
 	}
-//	if (ImGui::Button("update viewer", ImVec2(-1, 0)))
-//	{
-//	    // ToDO: the viewer will break if we have never pressed "update values"
-//	    updateFieldsInView(curFrame);
-//	}
+	if (ImGui::Button("test deriv", ImVec2(-1, 0)))
+	{
+		double backupx = fixedx, backupy = fixedy;
+		Eigen::Vector2d backupv = fixedv;
 
+		// source vector fields
+		if (isFixed)
+		{
+			fixedx = sourceCenter1x;
+			fixedy = sourceCenter1y;
+			fixedv << sourceDirx, sourceDiry;
+			fixedv *= numWaves * 2 * M_PI;
+		}
+		generateValues(functionType, omegaFields, zvals, theoGradZvals, upsampledTheoZVals, singInd, singInd1, isFixed);
+
+		if (isFixedTar)
+		{
+			fixedx = targetCenter1x;
+			fixedy = targetCenter1y;
+			fixedv << targetDirx, targetDiry;
+			fixedv *= numWaveTar * 2 * M_PI;
+		}
+		// target vector fields
+		generateValues(tarFunctionType, tarOmegaFields, tarZvals, tarTheoGradZvals, upsampledTarTheoZVals, singIndTar, singIndTar1, isFixedTar);
+
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			double swsq = omegaFields.row(i).norm();
+			zvals[i] = zvals[i] / (std::abs(zvals[i]) * swsq);
+
+			double twsq = tarOmegaFields.row(i).norm();
+			tarZvals[i] = tarZvals[i] / (std::abs(tarZvals[i]) * twsq);
+		}
+
+		fixedx = backupx;
+		fixedy = backupy;
+		fixedv = backupv;
+		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, omegaFields, tarOmegaFields, zvals, tarZvals, numFrames, quadOrder, isUseUpMesh);
+		Eigen::VectorXd x;
+		interpModel.convertList2Variable(x);
+		//interpModel.testEnergy(x);
+		//int vid = std::rand() % triV2D.rows();
+		//std::cout << "vid: " << vid << std::endl;
+		//interpModel.testPerVertexPenalty(zvals, omegaFields, vid);
+		//interpModel.testPerFramePenalty(zvals, omegaFields);
+		interpModel.testPenalty(x);
+
+		Eigen::VectorXd lambda, mu;
+		interpModel.initializeLamdaMu(lambda, mu, 2.0);
+
+		lambda.setRandom();
+		mu.setRandom();
+		interpModel.testConstraints(x, lambda);
+		interpModel.testConstraintsPenalty(x, mu);
+
+		mu.setConstant(2.0);
+		lambda.setZero();
+		double p1 = interpModel.computePenalty(x);
+		double p2 = interpModel.computeConstraintsPenalty(x, mu);
+		std::cout << p1 << ", " << p2 << std::endl;
+	}
+	if (ImGui::Button("output images", ImVec2(-1, 0)))
+	{
+		std::string folderPath = std::filesystem::current_path().string();
+		std::cout << "saving folder: " << folderPath << std::endl;
+		for (int i = 0; i < ampFieldsList.size(); i++)
+		{
+			updateFieldsInView(i);
+			std::string fileName = folderPath + "/frame_" + std::to_string(i) + ".jpg";
+			polyscope::screenshot(fileName);
+		}
+	}
 	ImGui::PopItemWidth();
 }
 
@@ -1660,7 +1758,6 @@ void vecCallback() {
 		generateTargetVals();
 		updateVecFieldsInView();
 	}
-
     ImGui::PopItemWidth();
 }
 
@@ -1670,40 +1767,6 @@ void vecCallback() {
 int main(int argc, char** argv)
 {
 	initialization();
-
-	/*MeshConnectivity triMesh = MeshConnectivity(triF2D);
-	Eigen::VectorXd edgew = Eigen::VectorXd::Random(triMesh.nEdges());
-	Eigen::VectorXd nextEdgew = edgew;
-	nextEdgew.setRandom();
-
-	std::vector<std::complex<double>> curZ, nexZ;
-
-	for(int i=0; i < triV2D.rows(); i++)
-	{
-	    Eigen::Vector2d rnd;
-	    rnd.setRandom();
-	    curZ.push_back(std::complex<double>(rnd(0), rnd(1)));
-
-	    rnd.setRandom();
-	    nexZ.push_back(std::complex<double>(rnd(0), rnd(1)));
-	}
-
-	Eigen::VectorXd doubleArea;
-	igl::doublearea(triV2D, triF2D, doubleArea);
-	doubleArea /= 2;
-
-	IntrinsicFormula::ComputeZdotFromEdgeOmega testmodel(triMesh, doubleArea, 4, 1);
-
-	int fid = std::rand() % triF2D.rows();
-	int qid = 3;
-
-	testmodel.testZdotIntegrationPerface(curZ, edgew, nexZ, nextEdgew, 0);
-	testmodel.testZdotIntegration(curZ, edgew, nexZ, nextEdgew);
-
-	IntrinsicFormula::IntrinsicKeyFrameInterploation intrinsicInterpModel(triMesh, doubleArea, 3, 4, curZ, edgew, nexZ, nextEdgew);
-	Eigen::VectorXd x;
-	intrinsicInterpModel.convertList2Variable(x);
-	intrinsicInterpModel.testEnergy(x);*/
     
 	// Options
     polyscope::options::autocenterStructures = true;
