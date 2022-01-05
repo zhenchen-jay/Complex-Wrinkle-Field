@@ -192,6 +192,111 @@ void IntrinsicKeyFrameInterpolationFromHalfEdge::postProcess(Eigen::VectorXd &x)
     convertList2Variable(x);
 }
 
+double IntrinsicKeyFrameInterpolationFromHalfEdge::computeRsqWSqPerFaceVertex(const Eigen::MatrixXd &edgeW,
+                                                                              std::vector<std::complex<double>> &zvals,
+                                                                              int fid, int vfid, Eigen::Vector4d *deriv,
+                                                                              Eigen::Matrix4d *hess,
+                                                                              Eigen::Vector2d *edgeVec, bool isProj)
+{
+    double vertViolation = 0;
+    int vid = _mesh.faceVertex(fid, vfid);
+
+    double rsq = zvals[vid].real() * zvals[vid].real() + zvals[vid].imag() * zvals[vid].imag();
+    Eigen::Vector3d ru = _triV.row(_mesh.faceVertex(fid, (vfid + 1) % 3)) - _triV.row(_mesh.faceVertex(fid, vfid));
+    Eigen::Vector3d rv = _triV.row(_mesh.faceVertex(fid, (vfid + 2) % 3)) - _triV.row(_mesh.faceVertex(fid, vfid));
+
+    Eigen::Matrix2d g;
+    g << ru.dot(ru), ru.dot(rv), rv.dot(ru), rv.dot(rv);
+    g = g.inverse();
+
+    int eid0 = _mesh.faceEdge(fid, (vfid + 1) % 3);
+    int eid1 = _mesh.faceEdge(fid, (vfid + 2) % 3);
+
+    Eigen::Vector2d w;
+    if (_mesh.edgeVertex(eid0, 1) == _mesh.faceVertex(fid, (vfid + 1) % 3))
+    {
+        w(0) = edgeW(eid0, 0);
+        if(edgeVec)
+            (*edgeVec)(0) = 2 * eid0;
+    }
+    else
+    {
+        w(0) = edgeW(eid0, 1);
+        if(edgeVec)
+            (*edgeVec)(0) = 2 * eid0 + 1;
+    }
+
+
+    if (_mesh.edgeVertex(eid1, 1) == _mesh.faceVertex(fid, (vfid + 2) % 3))
+    {
+        w(1) = edgeW(eid1, 0);
+        if(edgeVec)
+            (*edgeVec)(1) = 2 * eid1;
+    }
+
+    else
+        w(1) = edgeW(eid1, 1);
+
+    double wSqNorm = w.dot(g * w);
+
+    vertViolation = rsq * wSqNorm;
+
+    if (deriv || hess)
+    {
+        Eigen::Vector2d derivRsq(zvals[vid].real(), zvals[vid].imag());
+        derivRsq *= 2;
+        Eigen::Matrix2d hessRsq = 2 * Eigen::Matrix2d::Identity();
+
+        Eigen::Vector2d derivWSqNorm = 2 * g * w;
+        Eigen::Matrix2d hessWSqNorm = 2 * g;
+
+        if (deriv)
+        {
+            deriv->segment<2>(0) = wSqNorm * derivRsq;
+            deriv->segment<2>(2) = rsq * derivWSqNorm;
+        }
+        if (hess)
+        {
+            hess->block<2, 2>(0, 0) = wSqNorm * hessRsq;
+            hess->block<2, 2>(2, 2) = rsq * hessWSqNorm;
+            hess->block<2, 2>(0, 2) = 1.0 * derivRsq * derivWSqNorm.transpose();
+            hess->block<2, 2>(2, 0) = 1.0 * derivWSqNorm * derivRsq.transpose();
+
+            if(isProj)
+                (*hess) = SPDProjection(*hess);
+        }
+
+    }
+
+    return vertViolation;
+}
+
+double IntrinsicKeyFrameInterpolationFromHalfEdge::computeConstraintResidualPerVertex(const Eigen::MatrixXd &edgeW,
+                                                                                    std::vector<std::complex<double>> &zvals,
+                                                                                    int vid, Eigen::VectorXd *deriv,
+                                                                                    Eigen::MatrixXd *hess, bool isProj)
+{
+    double violation = 0;
+    int nNeiFaces = _vertexFaceNeighboring[vid].size();
+
+    double rsq = zvals[vid].real() * zvals[vid].real() + zvals[vid].imag() * zvals[vid].imag();
+    Eigen::Vector2d derivRsq(zvals[vid].real(), zvals[vid].imag());
+    derivRsq *= 2;
+    Eigen::Matrix2d hessRsq = 2 * Eigen::Matrix2d ::Identity();
+
+    for(int i = 0; i < nNeiFaces; i++)
+    {
+        int fid = _vertexFaceNeighboring[vid][i].first;
+        int vfid = _vertexFaceNeighboring[vid][i].second;
+
+        Eigen::Vector4d vertDeriv;
+        Eigen::Matrix4d vertHess;
+        violation += computeRsqWSqPerFaceVertex(edgeW, zvals, fid, vfid, deriv ? &vertDeriv : NULL, hess? &vertHess : NULL, isProj);
+
+    }
+    return 0;
+}
+
 bool IntrinsicKeyFrameInterpolationFromHalfEdge::save(const std::string& fileName, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
 {
 	using json = nlohmann::json;

@@ -4,6 +4,7 @@
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/timer.h"
+// #include "SuiteSparse_config.h"
 
 void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
 {
@@ -50,9 +51,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		Eigen::SparseMatrix<double> H = hessian;
 		Eigen::SparseMatrix<double> I(DIM, DIM);
 		I.setIdentity();
-		hessian = H;
-		std::cout << "num of nonzeros: " << hessian.nonZeros() << ", rows: " << hessian.rows() << ", cols: " << hessian.cols() << std::endl;
-		Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(hessian);
+		std::cout << "num of nonzeros: " << H.nonZeros() << ", rows: " << H.rows() << ", cols: " << H.cols() << std::endl;
+		Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
 
 //		Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solver(hessian);
 
@@ -67,8 +67,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 					std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
 			}
 				
-			hessian = H + reg * I;
-			solver.compute(hessian);
+			H = hessian + reg * I;
+			solver.compute(H);
 			reg = std::max(2 * reg, 1e-16);
 		}
 

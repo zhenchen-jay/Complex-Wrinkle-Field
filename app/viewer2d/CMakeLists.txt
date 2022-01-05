@@ -32,6 +32,8 @@ add_executable(
         ${SRCFILES}
         )
 
+
+
 set_target_properties(${PROJECT_NAME}_bin PROPERTIES CXX_STANDARD 17)
 set_target_properties(${PROJECT_NAME}_bin PROPERTIES CXX_STANDARD_REQUIRED ON)
 
