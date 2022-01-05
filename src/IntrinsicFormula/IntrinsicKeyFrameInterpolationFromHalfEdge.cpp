@@ -291,7 +291,7 @@ double IntrinsicKeyFrameInterpolationFromHalfEdge::computeConstraintResidualPerV
 
         Eigen::Vector4d vertDeriv;
         Eigen::Matrix4d vertHess;
-        violation += computeRsqWSqPerFaceVertex(edgeW, zvals, fid, vfid, deriv ? &vertDeriv : NULL, hess? &vertHess : NULL, isProj);
+        //violation += computeRsqWSqPerFaceVertex(edgeW, zvals, fid, vfid, deriv ? &vertDeriv : NULL, hess? &vertHess : NULL, isProj);
 
     }
     return 0;
