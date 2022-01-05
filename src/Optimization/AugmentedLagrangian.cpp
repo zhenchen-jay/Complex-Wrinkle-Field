@@ -7,7 +7,7 @@
 
 void OptSolver::augmentedLagrangianSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc,
 std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep,
-std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> constraintsFunc,
+std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool, Eigen::VectorXd* )> constraintsFunc,
 std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> penaltyFunc,
 Eigen::VectorXd& x0, Eigen::VectorXd& lambda, Eigen::VectorXd& mu,
 int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
@@ -41,7 +41,7 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 			Eigen::VectorXd deriv, derivc, derivp;
 			Eigen::SparseMatrix<double> H, Hc, Hp;
 			double E = objFunc(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
-			double Ec = constraintsFunc(x, lambda, grad ? &derivc : NULL, hess ? &Hc : NULL, isProj);
+			double Ec = constraintsFunc(x, lambda, grad ? &derivc : NULL, hess ? &Hc : NULL, isProj, NULL);
 			double Ep = penaltyFunc(x, lambda, grad ? &derivp : NULL, hess ? &Hp : NULL, isProj);
 
 			if (grad)
@@ -114,12 +114,21 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 
 		x0 = x0 + rate * delta_x;
 
+        Eigen::VectorXd constVec;
+        double tmpE = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
+
 		if (rate * delta_x.norm() < std::max(1e-2, xTol))
 		{
-
+             for(int j = 0; j < constVec.rows(); j++)
+             {
+                 if(std::abs(constVec(j)) > 10 * cTol && mu(j) < 1e4)
+                     mu(j) *= 2;
+                 else
+                     lambda(j) -= mu(j) * constVec(j);
+             }
 		}
 
-		double fnew = objFunc(x0, &grad, NULL, isProj);
+		double fnew = lagrangian(x0, &grad, NULL, isProj);
 		if (displayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
