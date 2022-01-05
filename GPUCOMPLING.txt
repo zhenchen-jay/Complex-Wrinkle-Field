@@ -1,0 +1,9 @@
+
+To build: 
+uninstall the system SuiteSparse and metis
+SUITESPARSEDIR=/home/zchen96/SuiteSparse-5.10.1/install_gpu cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/usr/bin/g++11
+
+To run:
+Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double, Eigen::ColMajor, SuiteSparse_long>>
+CHOLMOD_USE_GPU=1 ./bin/exe // for GPU
+CHOLMOD_USE_GPU=0 ./bin/exe // for GPU

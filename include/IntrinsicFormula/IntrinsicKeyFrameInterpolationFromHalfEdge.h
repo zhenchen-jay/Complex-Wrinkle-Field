@@ -82,7 +82,33 @@ namespace IntrinsicFormula
 		std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zList; }
 
-        void setBaseMesh(const Eigen::MatrixXd& V) {_triV = V;}
+        void setBaseMesh(const Eigen::MatrixXd& V)
+        {
+            _triV = V;
+            int nverts = _triV.rows();
+            _vertexFaceNeighboring.resize(nverts);
+            _numVertAdjEdges.resize(nverts, 0);
+            int nfaces = _mesh.nFaces();
+            int nedges = _mesh.nEdges();
+
+            for(int i = 0; i < nfaces; i++)
+            {
+                for(int j = 0; j < 3; j++)
+                {
+                    int vid = _mesh.faceVertex(i, j);
+                    _vertexFaceNeighboring[vid].push_back({i, j}); // on face i, with face index j
+                }
+            }
+
+            for(int i = 0; i < nedges; i++)
+            {
+                for(int j = 0; j < 2; j++)
+                {
+                    int vid = _mesh.edgeVertex(i, j);
+                    _numVertAdjEdges[vid]++;
+                }
+            }
+        }
 		void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
 		{
 			int nverts = _zList[0].size();
@@ -122,6 +148,12 @@ namespace IntrinsicFormula
 		bool save(const std::string& fileName, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
 		bool load(const std::string& fileName, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
 
+
+        // constraints
+        double computeConstraintResidualPerVertex(const Eigen::MatrixXd& edgeW, std::vector<std::complex<double>>& zvals, int vid, Eigen::VectorXd* deriv = NULL, Eigen::MatrixXd* hess = NULL, bool isProj = false);
+        double computeRsqWSqPerFaceVertex(const Eigen::MatrixXd& edgeW, std::vector<std::complex<double>>& zvals, int fid, int vfid, Eigen::Vector4d* deriv = NULL, Eigen::Matrix4d* hess = NULL, Eigen::Vector2d *edgeVec = NULL, bool isProj = false);
+        double computeConstraintResidual(const Eigen::MatrixXd& edgeW, std::vector<std::complex<double>>& zvals, Eigen::VectorXd *deriv = NULL, Eigen::SparseMatrix<double> *hess = NULL, bool isProj = false);
+
 	public:	// should be private, when publishing
 		ComputeZdotFromHalfEdgeOmega _zdotModel;
 	private:
@@ -130,5 +162,7 @@ namespace IntrinsicFormula
 		MeshConnectivity _mesh;
 		std::vector<std::vector<std::complex<double>>> _zList;
 		std::vector<Eigen::MatrixXd> _wList;
+        std::vector<std::vector<std::pair<int, int>>> _vertexFaceNeighboring;
+        std::vector<int> _numVertAdjEdges;
 	};
 }

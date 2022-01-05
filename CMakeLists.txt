@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project("Phase interpolation")
+# set(CMAKE_CXX_COMPILER "/usr/local/bin/g++11")
 
+project("Phase interpolation")
 # Maybe stop from CMAKEing in the wrong place
 if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(FATAL_ERROR "Source and build directories cannot be the same. Go use the /build directory.")
