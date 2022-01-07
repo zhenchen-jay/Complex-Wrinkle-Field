@@ -471,7 +471,7 @@ double InterpolateKeyFrames::computePerFrameConstraints(const std::vector<std::c
 	auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			energyList[i] = computePerVertexConstraint(zvals, w, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, isProj);
+			energyList[i] = computePerVertexConstraint(zvals, w, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL, false);
 		}
 	};
 
@@ -501,14 +501,18 @@ double InterpolateKeyFrames::computePerFrameConstraints(const std::vector<std::c
 
 		if (hessT)
 		{
+			if (isProj)
+				hessList[i] = SPDProjection(lambda(i) * hessList[i]);
+			else
+				hessList[i] *= lambda(i);
 			for (int j = 0; j < 2; j++)
 			{
 				for (int k = 0; k < 2; k++)
 				{
-					hessT->push_back({ 2 * i + j, 2 * i + k, lambda(i) * hessList[i](j, k) });
-					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * i + k, lambda(i) * hessList[i](2 + j, k) });
-					hessT->push_back({ 2 * i + j, 2 * nbaseVerts + 2 * i + k, lambda(i) * hessList[i](j, 2 + k) });
-					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * nbaseVerts + 2 * i + k, lambda(i) * hessList[i](2 + j, 2 + k) });
+					hessT->push_back({ 2 * i + j, 2 * i + k, hessList[i](j, k) });
+					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * i + k, hessList[i](2 + j, k) });
+					hessT->push_back({ 2 * i + j, 2 * nbaseVerts + 2 * i + k, hessList[i](j, 2 + k) });
+					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * nbaseVerts + 2 * i + k, hessList[i](2 + j, 2 + k) });
 				}
 			}
 
@@ -612,14 +616,18 @@ double InterpolateKeyFrames::computePerFrameConstraintsPenalty(const std::vector
 
 		if (hessT)
 		{
+			if (isProj)
+				hessList[i] = SPDProjection(mu(i) / 2.0 * hessList[i]);
+			else
+				hessList[i] = mu(i) / 2.0 * hessList[i];
 			for (int j = 0; j < 2; j++)
 			{
 				for (int k = 0; k < 2; k++)
 				{
-					hessT->push_back({ 2 * i + j, 2 * i + k, mu(i) / 2.0 * hessList[i](j, k) });
-					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * i + k, mu(i) / 2.0 * hessList[i](2 + j, k) });
-					hessT->push_back({ 2 * i + j, 2 * nbaseVerts + 2 * i + k, mu(i) / 2.0 * hessList[i](j, 2 + k) });
-					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * nbaseVerts + 2 * i + k, mu(i) / 2.0 * hessList[i](2 + j, 2 + k) });
+					hessT->push_back({ 2 * i + j, 2 * i + k, hessList[i](j, k) });
+					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * i + k, hessList[i](2 + j, k) });
+					hessT->push_back({ 2 * i + j, 2 * nbaseVerts + 2 * i + k, hessList[i](j, 2 + k) });
+					hessT->push_back({ 2 * nbaseVerts + 2 * i + j, 2 * nbaseVerts + 2 * i + k, hessList[i](2 + j, 2 + k) });
 				}
 			}
 
