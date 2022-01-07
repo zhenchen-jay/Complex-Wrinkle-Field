@@ -31,6 +31,11 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 
 	totalTimer.start();
 	std::ofstream optInfo;
+
+	Eigen::VectorXd constVec;
+	double init = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
+	std::cout << "constraint violation: " << constVec.minCoeff() << ", " << constVec.maxCoeff() << std::endl;
+
 	int i = 0;
 	for (; i < numIter; i++)
 	{
@@ -42,7 +47,7 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 			Eigen::SparseMatrix<double> H, Hc, Hp;
 			double E = objFunc(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 			double Ec = constraintsFunc(x, lambda, grad ? &derivc : NULL, hess ? &Hc : NULL, isProj, NULL);
-			double Ep = penaltyFunc(x, lambda, grad ? &derivp : NULL, hess ? &Hp : NULL, isProj);
+			double Ep = penaltyFunc(x, mu, grad ? &derivp : NULL, hess ? &Hp : NULL, isProj);
 
 			if (grad)
 			{
@@ -114,25 +119,35 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 
 		x0 = x0 + rate * delta_x;
 
-        Eigen::VectorXd constVec;
+        //Eigen::VectorXd constVec;
         double tmpE = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
+		bool iskeepsame = true;
 
-		if (rate * delta_x.norm() < std::max(1e-2, xTol))
+		if (rate * delta_x.lpNorm<Eigen::Infinity>() < std::max(1.0, xTol))
 		{
              for(int j = 0; j < constVec.rows(); j++)
              {
-                 if(std::abs(constVec(j)) > 10 * cTol && mu(j) < 1e4)
-                     mu(j) *= 2;
+				 if (std::abs(constVec(j)) > 10 * cTol && mu(j) < 1e4)
+				 {
+					 mu(j) *= 2;
+					 iskeepsame = false;
+				 }
                  else
-                     lambda(j) -= mu(j) * constVec(j);
+                     lambda(j) += mu(j) * constVec(j);
              }
 		}
 
 		double fnew = lagrangian(x0, &grad, NULL, isProj);
+		double Ec = constraintsFunc(x0, lambda, NULL,NULL, isProj, NULL);
+		double Ep = penaltyFunc(x0, mu, NULL, NULL, isProj);
 		if (displayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
 			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
+			std::cout << "constraint violation: " << constVec.minCoeff() << ", " << constVec.maxCoeff() << std::endl;
+			std::cout << "lambda: " << lambda.minCoeff() << ", " << lambda.maxCoeff() << std::endl;
+			std::cout << "mu: " << mu.minCoeff() << ", " << mu.maxCoeff() << std::endl;
+			std::cout << "E const: " << Ec << ", E penalty: " << Ep << std::endl;
 			if (getNormFunc)
 			{
 				double gradz, gradw;
@@ -173,9 +188,14 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 			}
 		}
 
-		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
+		if (iskeepsame)
 		{
-			isProj = false;
+			if (std::abs(f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
+			{
+				isProj = false;
+			}
+			if (reg > 1e3)
+				isProj = true;
 		}
 
 

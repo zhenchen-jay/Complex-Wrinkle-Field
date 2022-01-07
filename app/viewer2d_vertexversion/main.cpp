@@ -43,6 +43,7 @@
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/InterpolationScheme/VecFieldSplit.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/Optimization/AugmentedLagrangian.h"
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/DynamicInterpolation/GetInterpolatedValues.h"
 #include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
@@ -130,6 +131,7 @@ double sourceDirx = 1.0, sourceDiry = 0, targetDirx = 0, targetDiry = 1;
 double gradTol = 1e-6;
 double xTol = 0;
 double fTol = 0;
+double cTol = 1e-3;
 int numIter = 1000;
 int quadOrder = 4;
 
@@ -141,8 +143,7 @@ enum FunctionType {
 	PlaneWave = 1,
 	Summation = 2,
 	YShape = 3,
-	TwoWhirlPool = 4,
-	PeroidicWave = 5
+	TwoWhirlPool = 4
 };
 
 // this is just use for vecCallback functions
@@ -165,6 +166,12 @@ enum InitializationType{
   Theoretical = 2
 };
 
+enum OptSolverType
+{
+	Newton = 0,
+	AugLag = 1
+};
+
 bool isUseUpMesh = false;
 
 FunctionType functionType = FunctionType::PlaneWave;
@@ -173,6 +180,7 @@ InitializationType initializationType = InitializationType::Linear;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
 
 InterpolationType interType = InterpolationType::NewSplit;
+OptSolverType solverType = Newton;
 
 
 void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
@@ -753,10 +761,10 @@ void generateValues(FunctionType funType, Eigen::MatrixXd &vecFields, std::vecto
 		}
 		generateTwoWhirlPool(center0(0), center0(1), center1(0), center1(1), vecFields, zvalues, singularityInd1, singularityInd2, &gradZvals, &upZvals);
 	}
-	else if (funType == FunctionType::PeroidicWave)
+	/*else if (funType == FunctionType::PeroidicWave)
 	{
 	    generatePeriodicWave(waveNum, vecFields, zvalues, &gradZvals, &upZvals);
-	}
+	}*/
 }
 
 
@@ -823,35 +831,6 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    auto initZFrames = interpModel.getVertValsList();
 	    if(isForceOptimize)
 	    {
-	        auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-	            Eigen::VectorXd deriv;
-	            Eigen::SparseMatrix<double> H;
-	            double E = interpModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
-
-	            if (grad)
-	            {
-	                (*grad) = deriv;
-	            }
-
-	            if (hess)
-	            {
-	                (*hess) = H;
-	            }
-
-				if (penaltyCoef > 0)
-				{
-					Eigen::VectorXd pDeriv;
-					Eigen::SparseMatrix<double> pHess;
-
-					E = E + penaltyCoef * interpModel.computePenalty(x, grad ? &pDeriv : NULL, hess ? &pHess : NULL, isProj);
-					if (grad)
-						(*grad) = (*grad) + penaltyCoef * pDeriv;
-					if (hess)
-						(*hess) = (*hess) + penaltyCoef * pHess;
-				}
-
-	            return E;
-	        };
 	        auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
 	            return 1.0;
 	        };
@@ -860,102 +839,110 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	            interpModel.getComponentNorm(x, znorm, wnorm);
 	        };
 
-	        if(functionType == FunctionType::PeroidicWave && tarFunctionType == FunctionType::PeroidicWave)
-	        {
-	            // build constraints
-	            std::vector<int> bnds;
-	            igl::boundary_loop(triF2D, bnds);
+			if (solverType == OptSolverType::Newton)
+			{
+				auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+					Eigen::VectorXd deriv;
+					Eigen::SparseMatrix<double> H;
+					double E = interpModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
-	            std::vector<std::pair<int, int>> bndPairs;
-	            double minX = triV2D.col(0).minCoeff();
-	            double maxX = triV3D.col(0).maxCoeff();
-	            Eigen::VectorXi flagVec(triV2D.rows());
-	            flagVec.setZero();
+					if (grad)
+					{
+						(*grad) = deriv;
+					}
 
-	            for(int i = 0; i < bnds.size(); i++)
-	            {
-	               int vid = bnds[i];
-	               if(triV2D(vid, 0) - minX < 1e-6)
-	               {
-	                   int vid1 = -1;
-	                   for(int j = 0; j < bnds.size(); j++)
-	                   {
-	                       vid1 = bnds[j];
-	                       if(maxX - triV2D(vid1, 0) < 1e-6 && std::abs(triV2D(vid, 1) - triV2D(vid1, 1)) < 1e-6)
-	                       {
-	                           std::cout << "left vid: " << vid << ", right pair: " << vid1 << std::endl;
-	                           bndPairs.push_back({vid, vid1});
-	                           flagVec(vid) = 1;
-	                           flagVec(vid1) = 1;
-	                       }
-	                   }
-	               }
-	            }
-	            std::cout << "total pair size: " << bndPairs.size() << std::endl;
+					if (hess)
+					{
+						(*hess) = H;
+					}
 
+					if (penaltyCoef > 0)
+					{
+						Eigen::VectorXd pDeriv;
+						Eigen::SparseMatrix<double> pHess;
 
-	            // equality
-	            std::vector<Eigen::Triplet<double>> T;
-	            int row = 0;
-	            int nverts = triV2D.rows();
-	            for(int i = 0; i < bndPairs.size(); i++)
-	            {
-	                T.push_back({row, 2 * bndPairs[i].first, 1});
-	                T.push_back({row, 2 * bndPairs[i].second, -1});
+						E = E + penaltyCoef * interpModel.computePenalty(x, grad ? &pDeriv : NULL, hess ? &pHess : NULL, isProj);
+						if (grad)
+							(*grad) = (*grad) + penaltyCoef * pDeriv;
+						if (hess)
+							(*hess) = (*hess) + penaltyCoef * pHess;
+					}
 
-	                T.push_back({row + 1, 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 1, 2 * bndPairs[i].second + 1, -1});
+					return E;
+				};
 
+				OptSolver::testFuncGradHessian(funVal, x);
 
-	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].first, 1});
-	                T.push_back({row + 2, 2 * nverts + 2 * bndPairs[i].second, -1});
-
-	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 3, 2 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-
-	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].first, 1});
-	                T.push_back({row + 4, 4 * nverts + 2 * bndPairs[i].second, -1});
-
-	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 5, 4 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 6, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].first + 1, 1});
-	                T.push_back({row + 7, 6 * nverts + 2 * bndPairs[i].second + 1, -1});
-
-	                row += 8;
-	            }
-
-	            Eigen::SparseMatrix<double> Aeq(row, x.rows()), Aineq(0, x.rows());
-	            Aeq.setFromTriplets(T.begin(), T.end());
-
-	            Eigen::VectorXd beq(row), bineq(0);
-	            beq.setZero();
-
-	            auto x0 = x;
-	            OptSolver::linearConstSolver(funVal, maxStep, Aeq, beq, Aineq, bineq, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
-	            std::cout << "x norm: " << x.norm() << std::endl;
-
-
-	        }
-	        else
-	        {
-	            OptSolver::testFuncGradHessian(funVal, x);
-
-	            auto x0 = x;
-	            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-	            std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
-	            std::cout << "x norm: " << x.norm() << std::endl;
+				auto x0 = x;
+				OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
+				std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
+				std::cout << "x norm: " << x.norm() << std::endl;
 				std::cout << "before optimization: kinetic: " << interpModel.computeEnergy(x0) << ", penalty: " << interpModel.computePenalty(x0) << ", penalty coef: " << penaltyCoef << std::endl;
 				std::cout << "after optimization: kinetic: " << interpModel.computeEnergy(x) << ", penalty: " << interpModel.computePenalty(x) << ", penalty coef: " << penaltyCoef << std::endl;
-                Eigen::VectorXd grad, gradPenalty;
-                interpModel.computeEnergy(x, &grad);
-                interpModel.computePenalty(x, &gradPenalty);
-                std::cout << "after optimization: kinetic gradient: " << grad.norm() << ", penalty gradient: " << gradPenalty.norm() << ", penalty coef: " << penaltyCoef << std::endl;
+				Eigen::VectorXd grad, gradPenalty;
+				interpModel.computeEnergy(x, &grad);
+				interpModel.computePenalty(x, &gradPenalty);
+				std::cout << "after optimization: kinetic gradient: " << grad.norm() << ", penalty gradient: " << gradPenalty.norm() << ", penalty coef: " << penaltyCoef << std::endl;
+			}
+
+	        else
+	        {
+				auto constVal = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj, Eigen::VectorXd* consVec) {
+					Eigen::VectorXd deriv;
+					Eigen::SparseMatrix<double> H;
+					double E = interpModel.computeConstraints(x, lambda, grad ? &deriv : NULL, hess ? &H : NULL, isProj, consVec);
+
+					if (grad)
+					{
+						(*grad) = deriv;
+					}
+
+					if (hess)
+					{
+						(*hess) = H;
+					}
+					return E;
+				};
+
+				auto penaltyVal = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+					Eigen::VectorXd deriv;
+					Eigen::SparseMatrix<double> H;
+					double E = interpModel.computeConstraintsPenalty(x, mu, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+
+					if (grad)
+					{
+						(*grad) = deriv;
+					}
+
+					if (hess)
+					{
+						(*hess) = H;
+					}
+					return E;
+				};
+
+				auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+					Eigen::VectorXd deriv;
+					Eigen::SparseMatrix<double> H;
+					double E = interpModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+
+					if (grad)
+					{
+						(*grad) = deriv;
+					}
+
+					if (hess)
+					{
+						(*hess) = H;
+					}
+					return E;
+				};
+				auto x0 = x;
+				Eigen::VectorXd lambda;
+				Eigen::VectorXd mu;
+				interpModel.initializeLamdaMu(lambda, mu, 1.0);
+
+				OptSolver::augmentedLagrangianSolver(funVal, maxStep, constVal, penaltyVal, x, lambda, mu, numIter, gradTol, xTol, cTol, true, getVecNorm);
 	        }
 	    }
 	    interpModel.convertVariable2List(x);
@@ -1310,7 +1297,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("source Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
+		if (ImGui::Combo("source vec types", (int*)&functionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0\0")) {}
 		if (ImGui::Checkbox("Fixed source center and dir", &isFixed)) {}
 
 		if (ImGui::CollapsingHeader("source whirl  pool Info"))
@@ -1337,7 +1324,7 @@ void callback() {
 	}
 	if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::Combo("target vec types", (int*)&tarFunctionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0Periodic\0\0")) {}
+		if (ImGui::Combo("target vec types", (int*)&tarFunctionType, "Whirl pool\0plane wave\0sum\0Y shape\0Two Whirl Pool\0\0")) {}
 
 		if (ImGui::Checkbox("Fixed target center and dir", &isFixedTar)) {}
 		if (ImGui::CollapsingHeader("target whirl  pool Info"))
@@ -1407,6 +1394,11 @@ void callback() {
 			if (fTol < 0)
 				fTol = 0;
 		}
+		if (ImGui::InputDouble("constrant tol", &cTol))
+		{
+			if (cTol < 0)
+				cTol = 1e-3;
+		}
 		if (ImGui::InputDouble("penalty coeff", &penaltyCoef))
 		{
 			if (penaltyCoef < 0)
@@ -1423,10 +1415,12 @@ void callback() {
 		    if (uplevelForComputing < 0)
 		        uplevelForComputing = 2;
 		}
+		if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
+		if (ImGui::Combo("Solver types", (int*)&solverType, "Newton\0AugLag\0")) {}
+		if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
 
 	}
-	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
-	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
+	
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
 	if (ImGui::Button("update values", ImVec2(-1, 0)))
