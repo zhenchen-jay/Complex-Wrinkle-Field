@@ -121,6 +121,8 @@ void OptSolver::augmentedLagrangianSolver(
 
 		x0 = x0 + rate * delta_x;
 
+		double fnew = lagrangian(x0, &grad, NULL, isProj);
+
 		//Eigen::VectorXd constVec;
 		double tmpE = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
 		bool iskeepsame = true;
@@ -141,14 +143,13 @@ void OptSolver::augmentedLagrangianSolver(
 			}
 
 		}
-
-		double fnew = lagrangian(x0, &grad, NULL, isProj);
+		double fnewAfterUpdate = lagrangian(x0, NULL, NULL, isProj);	// after update lambda and mu
 		double Ec = constraintsFunc(x0, lambda, NULL, NULL, isProj, NULL);
 		double Ep = penaltyFunc(x0, mu, NULL, NULL, isProj);
 		if (displayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
-			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
+			std::cout << "f_old: " << f << ", after update x, f_new: " << fnew << ", after update lambda and mu, f_new: " << fnewAfterUpdate << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
 			std::cout << "constraint violation: " << constVec.minCoeff() << ", " << constVec.maxCoeff() << std::endl;
 			std::cout << "lambda: " << lambda.minCoeff() << ", " << lambda.maxCoeff() << ", mu: " << mu << std::endl;
 			std::cout << "E const: " << Ec << ", E penalty: " << Ep << std::endl;
