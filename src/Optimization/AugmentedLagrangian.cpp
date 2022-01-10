@@ -4,13 +4,15 @@
 #include "../../include/Optimization/LineSearch.h"
 #include "../../include/Optimization/AugmentedLagrangian.h"
 #include "../../include/timer.h"
+#include <iostream>
 
-void OptSolver::augmentedLagrangianSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc,
-std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep,
-std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool, Eigen::VectorXd* )> constraintsFunc,
-std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> penaltyFunc,
-Eigen::VectorXd& x0, Eigen::VectorXd& lambda, Eigen::VectorXd& mu,
-int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
+void OptSolver::augmentedLagrangianSolver(
+	std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc,
+	std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep,
+	std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool, Eigen::VectorXd*)> constraintsFunc,
+	std::function<double(const Eigen::VectorXd&, const double&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> penaltyFunc,
+	Eigen::VectorXd& x0, Eigen::VectorXd& lambda, double& mu,
+	int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
 {
 	const int DIM = x0.rows();
 	Eigen::VectorXd randomVec = x0;
@@ -119,34 +121,36 @@ int numIter, double gradTol, double xTol, double cTol, bool displayInfo, std::fu
 
 		x0 = x0 + rate * delta_x;
 
-        //Eigen::VectorXd constVec;
-        double tmpE = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
+		//Eigen::VectorXd constVec;
+		double tmpE = constraintsFunc(x0, lambda, NULL, NULL, false, &constVec);
 		bool iskeepsame = true;
 
 		if (rate * delta_x.lpNorm<Eigen::Infinity>() < std::max(1.0, xTol))
 		{
-             for(int j = 0; j < constVec.rows(); j++)
-             {
-				 if (std::abs(constVec(j)) > 10 * cTol && mu(j) < 1e4)
-				 {
-					 mu(j) *= 2;
-					 iskeepsame = false;
-				 }
-                 else
-                     lambda(j) += mu(j) * constVec(j);
-             }
+			if (std::max(std::abs(constVec.minCoeff()), std::abs(constVec.maxCoeff())) > 10 * cTol && mu < 1e4)
+			{
+				iskeepsame = false;
+				mu *= 2;
+			}
+			if (iskeepsame)
+			{
+				for (int j = 0; j < constVec.rows(); j++)
+				{
+					lambda(j) += mu * constVec(j);
+				}
+			}
+
 		}
 
 		double fnew = lagrangian(x0, &grad, NULL, isProj);
-		double Ec = constraintsFunc(x0, lambda, NULL,NULL, isProj, NULL);
+		double Ec = constraintsFunc(x0, lambda, NULL, NULL, isProj, NULL);
 		double Ep = penaltyFunc(x0, mu, NULL, NULL, isProj);
 		if (displayInfo)
 		{
 			std::cout << "line search rate : " << rate << ", actual hessian : " << !isProj << ", reg = " << reg << std::endl;
 			std::cout << "f_old: " << f << ", f_new: " << fnew << ", grad norm: " << grad.norm() << ", delta x: " << rate * delta_x.norm() << ", delta_f: " << f - fnew << std::endl;
 			std::cout << "constraint violation: " << constVec.minCoeff() << ", " << constVec.maxCoeff() << std::endl;
-			std::cout << "lambda: " << lambda.minCoeff() << ", " << lambda.maxCoeff() << std::endl;
-			std::cout << "mu: " << mu.minCoeff() << ", " << mu.maxCoeff() << std::endl;
+			std::cout << "lambda: " << lambda.minCoeff() << ", " << lambda.maxCoeff() << ", mu: " << mu << std::endl;
 			std::cout << "E const: " << Ec << ", E penalty: " << Ep << std::endl;
 			if (getNormFunc)
 			{

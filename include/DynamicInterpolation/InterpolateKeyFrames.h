@@ -50,7 +50,7 @@ public:
 	void convertVariable2List(const Eigen::VectorXd& x);
 	void convertList2Variable(Eigen::VectorXd& x);
 
-	void initializeLamdaMu(Eigen::VectorXd& lambda, Eigen::VectorXd& mu, double initMu = 1.0);
+	void initializeLamdaMu(Eigen::VectorXd& lambda, double& mu, double initMu = 1.0);
 
 	std::vector<Eigen::MatrixXd> getWList() { return _wList; }
 	std::vector<std::vector<std::complex<double>>> getVertValsList() { return _vertValsList; }
@@ -95,13 +95,13 @@ public:
 	double computePerFrameConstraints(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false, Eigen::VectorXd* constraints = NULL);
 
-	double computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-	double computeConstraintsPenalty(const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+	double computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const double& mu, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+	double computeConstraintsPenalty(const Eigen::VectorXd& x, const double& mu, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 
 	void testPerVertexPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, int vid);
 	void testPerFramePenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w);
 	void testPenalty(Eigen::VectorXd x);
-	void testConstraintsPenalty(Eigen::VectorXd x, Eigen::VectorXd mu);
+	void testConstraintsPenalty(Eigen::VectorXd x, double mu);
 	void testConstraints(Eigen::VectorXd x, Eigen::VectorXd lambda);
 	void testEnergy(Eigen::VectorXd x);
 
