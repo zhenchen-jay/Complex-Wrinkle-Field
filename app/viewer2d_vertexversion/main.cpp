@@ -904,7 +904,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 					return E;
 				};
 
-				auto penaltyVal = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+				auto penaltyVal = [&](const Eigen::VectorXd& x, const double& mu, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 					Eigen::VectorXd deriv;
 					Eigen::SparseMatrix<double> H;
 					double E = interpModel.computeConstraintsPenalty(x, mu, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
@@ -939,7 +939,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 				};
 				auto x0 = x;
 				Eigen::VectorXd lambda;
-				Eigen::VectorXd mu;
+				double mu;
 				interpModel.initializeLamdaMu(lambda, mu, 1.0);
 
 				OptSolver::augmentedLagrangianSolver(funVal, maxStep, constVal, penaltyVal, x, lambda, mu, numIter, gradTol, xTol, cTol, true, getVecNorm);
@@ -1529,15 +1529,16 @@ void callback() {
 		//interpModel.testPerFramePenalty(zvals, omegaFields);
 		interpModel.testPenalty(x);
 
-		Eigen::VectorXd lambda, mu;
+		Eigen::VectorXd lambda;
+		double mu;
 		interpModel.initializeLamdaMu(lambda, mu, 2.0);
 
 		lambda.setRandom();
-		mu.setRandom();
+		mu = std::rand() * 1.0 / RAND_MAX;
 		interpModel.testConstraints(x, lambda);
 		interpModel.testConstraintsPenalty(x, mu);
 
-		mu.setConstant(2.0);
+		mu = 2.0;
 		lambda.setZero();
 		double p1 = interpModel.computePenalty(x);
 		double p2 = interpModel.computeConstraintsPenalty(x, mu);

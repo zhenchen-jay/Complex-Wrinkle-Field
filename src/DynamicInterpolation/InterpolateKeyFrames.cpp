@@ -39,13 +39,13 @@ void InterpolateKeyFrames::convertVariable2List(const Eigen::VectorXd& x)
 	}
 }
 
-void InterpolateKeyFrames::initializeLamdaMu(Eigen::VectorXd& lambda, Eigen::VectorXd& mu, double initMu)
+void InterpolateKeyFrames::initializeLamdaMu(Eigen::VectorXd& lambda, double& mu, double initMu)
 {
 	int nbaseVerts = _basePos.rows();
 	int numFrames = _vertValsList.size() - 2;
 
 	lambda.setZero(nbaseVerts * numFrames);
-	mu.setConstant(nbaseVerts * numFrames, initMu);
+	mu = initMu;
 }
 
 double InterpolateKeyFrames::computePerVertexPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, int vid, Eigen::Vector4d* deriv, Eigen::Matrix4d* hess, bool isProj)
@@ -574,7 +574,7 @@ double InterpolateKeyFrames::computeConstraints(const Eigen::VectorXd& x, const 
 }
 
 
-double InterpolateKeyFrames::computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double InterpolateKeyFrames::computePerFrameConstraintsPenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const double& mu, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	int nbaseVerts = _basePos.rows();
 	double energy = 0;
@@ -604,22 +604,22 @@ double InterpolateKeyFrames::computePerFrameConstraintsPenalty(const std::vector
 
 	for (int i = 0; i < nbaseVerts; i++)
 	{
-		energy = energy + mu(i) / 2.0 * energyList[i];
+		energy = energy + mu / 2.0 * energyList[i];
 		if (deriv)
 		{
 			for (int j = 0; j < 2; j++)
 			{
-				(*deriv)(2 * i + j) += mu(i) / 2.0 * derivList[i](j);
-				(*deriv)(2 * nbaseVerts + 2 * i + j) += mu(i) / 2.0 * derivList[i](2 + j);
+				(*deriv)(2 * i + j) += mu / 2.0 * derivList[i](j);
+				(*deriv)(2 * nbaseVerts + 2 * i + j) += mu / 2.0 * derivList[i](2 + j);
 			}
 		}
 
 		if (hessT)
 		{
 			if (isProj)
-				hessList[i] = SPDProjection(mu(i) / 2.0 * hessList[i]);
+				hessList[i] = SPDProjection(mu / 2.0 * hessList[i]);
 			else
-				hessList[i] = mu(i) / 2.0 * hessList[i];
+				hessList[i] = mu / 2.0 * hessList[i];
 			for (int j = 0; j < 2; j++)
 			{
 				for (int k = 0; k < 2; k++)
@@ -636,7 +636,7 @@ double InterpolateKeyFrames::computePerFrameConstraintsPenalty(const std::vector
 	return energy;
 }
 
-double InterpolateKeyFrames::computeConstraintsPenalty(const Eigen::VectorXd& x, const Eigen::VectorXd& mu, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
+double InterpolateKeyFrames::computeConstraintsPenalty(const Eigen::VectorXd& x, const double& mu, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
 	int nbaseVerts = _basePos.rows();
 	int numFrames = _vertValsList.size() - 2;
@@ -655,8 +655,7 @@ double InterpolateKeyFrames::computeConstraintsPenalty(const Eigen::VectorXd& x,
 
 	for (int i = 1; i < _vertValsList.size() - 1; i++)
 	{
-		Eigen::VectorXd frameMu = mu.segment((i - 1) * nbaseVerts, nbaseVerts);
-		energy += computePerFrameConstraintsPenalty(_vertValsList[i], _wList[i], frameMu, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+		energy += computePerFrameConstraintsPenalty(_vertValsList[i], _wList[i], mu, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
 		if (deriv)
 		{
 			deriv->segment(4 * (i - 1) * nbaseVerts, 4 * nbaseVerts) = curDeriv;
@@ -749,7 +748,7 @@ void InterpolateKeyFrames::testConstraints(Eigen::VectorXd x, Eigen::VectorXd la
 	}
 }
 
-void InterpolateKeyFrames::testConstraintsPenalty(Eigen::VectorXd x, Eigen::VectorXd mu)
+void InterpolateKeyFrames::testConstraintsPenalty(Eigen::VectorXd x, double mu)
 {
 	Eigen::VectorXd deriv;
 	Eigen::SparseMatrix<double> hess;
