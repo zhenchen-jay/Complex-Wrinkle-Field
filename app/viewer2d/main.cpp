@@ -670,17 +670,17 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << ", difference: " << (x - x0).norm() << std::endl;
 		std::cout << "x norm: " << x.norm() << std::endl;
 
-		Eigen::VectorXd deriv;
+		/*Eigen::VectorXd deriv;
 		Eigen::SparseMatrix<double> H;
 		double E = interpModel.computeEnergy(x, &deriv, &H, false);
 
-		std::cout << deriv.norm() << std::endl;
-		std::cout << "hessian: \n" << H.toDense() << std::endl;
+		std::cout << deriv.norm() << std::endl;*/
+		//std::cout << "hessian: \n" << H.toDense() << std::endl;
 
-		Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
+		/*Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
 		es.compute(H.toDense());
 		Eigen::VectorXd evals = es.eigenvalues();
-		std::cout << "evals: " << evals.transpose() << std::endl;
+		std::cout << "evals: " << evals.transpose() << std::endl;*/
 
 	}
 	interpModel.convertVariable2List(x);

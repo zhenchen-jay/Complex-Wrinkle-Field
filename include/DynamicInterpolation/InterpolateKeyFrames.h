@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <igl/cotmatrix.h>
 
 #include "GetInterpolatedValues.h"
 #include "ComputeZandZdot.h"
@@ -11,7 +12,7 @@ public:
 	InterpolateKeyFrames() {}
 	~InterpolateKeyFrames() {}
 
-	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh, double penaltyCoef = 0):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh), _penaltyCoef(penaltyCoef)
+	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh, double penaltyCoef = 0, double smoothCoeff = 0.001):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh), _penaltyCoef(penaltyCoef), _smoothCoeff(smoothCoeff)
 	{
 		_baseMesh = MeshConnectivity(baseF);
 		_upsampledMesh = MeshConnectivity(upsampledF);
@@ -37,13 +38,15 @@ public:
 			for (int j = 0; j < _vertValsList[i].size(); j++)
 			{
 				_vertValsList[i][j] = (1 - t) * vertVals0[j] + t * vertVals1[j];
-				_vertValsList[i][j] = _vertValsList[i][j] / (_wList[i].row(j).norm() * std::abs(_vertValsList[i][j]));
+				//_vertValsList[i][j] = _vertValsList[i][j] / (_wList[i].row(j).norm() * std::abs(_vertValsList[i][j]));
 			}
 				
 		}
 
 		_model = GetInterpolatedValues(basePos, baseF, upsampledPos, upsampledF, baryCoords);
 		_newmodel = ComputeZandZdot(basePos, baseF, quadOrder);
+
+		igl::cotmatrix(basePos, baseF, _cotMat);
 		
 	}
 
@@ -91,6 +94,7 @@ public:
 	
 
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+	double computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL);
 
 	double computePerFrameConstraints(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false, Eigen::VectorXd* constraints = NULL);
@@ -104,6 +108,9 @@ public:
 	void testConstraintsPenalty(Eigen::VectorXd x, double mu);
 	void testConstraints(Eigen::VectorXd x, Eigen::VectorXd lambda);
 	void testEnergy(Eigen::VectorXd x);
+	void testSmoothnessEnergy(Eigen::VectorXd x);
+
+	Eigen::VectorXd getEntries(const std::vector<std::complex<double>> &zvals, int entryId);
 
 public:
 	Eigen::MatrixXd _basePos;
@@ -122,5 +129,7 @@ public:
 	double _dt;
 	bool _isUseUpMesh;
 	double _penaltyCoef;
+	Eigen::SparseMatrix<double> _cotMat;
+	double _smoothCoeff;
 
 };

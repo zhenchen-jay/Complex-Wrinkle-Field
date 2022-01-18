@@ -53,6 +53,10 @@
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 
+#include <SymGEigsShiftSolver.h>
+#include <MatOp/SparseCholesky.h>
+#include <MatOp/SparseSymShiftSolve.h>
+
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
 Eigen::MatrixXi triF2D, triF3D, upsampledTriF2D, upsampledTriF3D;
@@ -135,6 +139,7 @@ double cTol = 1e-3;
 int numIter = 1000;
 int quadOrder = 4;
 
+double smoothCoef = 1;
 double penaltyCoef = 0;
 
 
@@ -786,7 +791,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	if(frameType == IntermediateFrameType::Geodesic)
 	{
 		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh, penaltyCoef);
+	    InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh, penaltyCoef, smoothCoef);
 	    Eigen::VectorXd x;
 	    interpModel.convertList2Variable(x);        // linear initialization
 
@@ -800,7 +805,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	    }
 	    else if(initializationType == InitializationType::Random)
 	    {
-            if(tarFunctionType == FunctionType::PlaneWave && functionType == FunctionType::PlaneWave && isFixed && isFixedTar)
+            /*if(tarFunctionType == FunctionType::PlaneWave && functionType == FunctionType::PlaneWave && isFixed && isFixedTar)
             {
                 Eigen::Vector2d v0, v1;
                 v0 << sourceDirx, sourceDiry;
@@ -819,14 +824,39 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
                 x.setRandom();
                 interpModel.convertVariable2List(x);
                 interpModel.convertList2Variable(x);
-            }
+            }*/
+			Eigen::MatrixXd initw = interpModel._wList[0];
+			Eigen::MatrixXd finalw = interpModel._wList[interpModel._wList.size() - 1];
+
+			for (int i = 0; i < initw.rows(); i++)
+			{
+				Eigen::Vector2d w0 = initw.row(i);
+				Eigen::Vector2d w1 = finalw.row(i);
+
+				double angle = std::acos(w0.dot(w1) / (w0.norm() * w1.norm()));
+
+				int n = interpModel._wList.size();
+				double dt = 1.0 / (n - 1);
+
+				for (int j = 1; j < n - 1; j++)
+				{
+					double t = dt * j;
+					Eigen::Matrix2d rot;
+					rot << std::cos(angle * t), -std::sin(angle * t), std::sin(angle * t), std::cos(angle * t);
+
+					interpModel._wList[j].row(i) = rot * w0;
+					interpModel._wList[j].row(i) /= interpModel._wList[j].row(i).norm();
+					interpModel._wList[j].row(i) *= ((1 - t) * w0.norm() + t * w1.norm());
+				}
+			}
+			interpModel.convertList2Variable(x);
 
 	    }
 	    else
 	    {
 	        // do nothing, since it is initialized as the linear interpolation.
 	    }
-
+		std::cout << "initial ||zdot||: " << interpModel.computeEnergy(x) - smoothCoef * interpModel.computeSmoothnessEnergy(x) << ", ||grad z||^2: " << interpModel.computeSmoothnessEnergy(x) << ", smooth coefficient: " << smoothCoef << std::endl;
 	    auto initWFrames = interpModel.getWList();
 	    auto initZFrames = interpModel.getVertValsList();
 	    if(isForceOptimize)
@@ -952,16 +982,18 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 
 	    for (int i = 0; i < wFrames.size() - 1; i++)
 	    {
-	        double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-	        double actualZdotNorm = interpModel._newmodel.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-
-	        double initZdotNorm = interpModel._model.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
+			double actualZdotNorm = interpModel._newmodel.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
 	        double initActualZdotNorm = interpModel._newmodel.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
 
 			double initPenalty = interpModel.computePerFramePenalty(initZFrames[i], initWFrames[i]);
 			double penalty = interpModel.computePerFramePenalty(zFrames[i], wFrames[i]);
 
-	        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm  << ", ||penalty||: " << initPenalty << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << ", ||penalty||: " << penalty << std::endl;
+			double initgradz = interpModel._newmodel.gradZSquareIntegration(initWFrames[i], initZFrames[i], NULL, NULL);
+			double gradz = interpModel._newmodel.gradZSquareIntegration(wFrames[i], zFrames[i], NULL, NULL);
+
+			std::cout << "\nframe " << i << std::endl;
+			std::cout << "before optimization, ||zdot||^2: " << initActualZdotNorm << ", ||grad z||^2: " << initgradz << ", ||penalty||: " << initPenalty << std::endl;
+			std::cout<< "after optimization,  ||zdot||^2 = " << actualZdotNorm << ", ||grad z||^2: " << gradz << ", ||penalty||: " << penalty << std::endl;
 	    }
 	}
 	else if(frameType == IntermediateFrameType::IEDynamic)
@@ -1404,6 +1436,11 @@ void callback() {
 			if (penaltyCoef < 0)
 				penaltyCoef = 0;
 		}
+		if (ImGui::InputDouble("smooth coeff", &smoothCoef))
+		{
+			if (smoothCoef < 0)
+				smoothCoef = 0;
+		}
 		if (ImGui::InputInt("quad order", &quadOrder))
 		{
 		    if (quadOrder <= 0 || quadOrder > 20)
@@ -1519,15 +1556,50 @@ void callback() {
 		fixedx = backupx;
 		fixedy = backupy;
 		fixedv = backupv;
-		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, omegaFields, tarOmegaFields, zvals, tarZvals, numFrames, quadOrder, isUseUpMesh);
+		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upsampledTriV2D, upsampledTriF2D, bary, omegaFields, tarOmegaFields, zvals, tarZvals, numFrames, quadOrder, isUseUpMesh, 0, 10000);
+
 		Eigen::VectorXd x;
 		interpModel.convertList2Variable(x);
-		//interpModel.testEnergy(x);
+		interpModel.testEnergy(x);
+		//interpModel.testSmoothnessEnergy(x);
+
+		std::cout << "||grad z||^2 = " << interpModel._newmodel.gradZSquareIntegration(omegaFields, zvals, NULL, NULL) << std::endl;
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			zvals[i] = std::complex<double>(1, 1);
+		}
+		std::cout << "||grad z||^2 = " << interpModel._newmodel.gradZSquareIntegration(omegaFields, zvals, NULL, NULL) << std::endl;
+
+		Eigen::SparseMatrix<double> A;
+		igl::cotmatrix(triV2D, triF2D, A);
+		A *= -1;
+
+		Eigen::SparseMatrix<double> B = A;
+		B.setIdentity();
+
+		Spectra::SymShiftInvert<double> op(A, B);
+		Spectra::SparseSymMatProd<double> Bop(B);
+		Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -10);
+		geigs.init();
+		int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
+
+		Eigen::VectorXd evalues;
+		Eigen::MatrixXd evecs;
+
+		evalues = geigs.eigenvalues();
+		evecs = geigs.eigenvectors();
+		if (nconv != 1 || geigs.info() != Spectra::CompInfo::Successful)
+		{
+			std::cout << "Eigensolver failed to converge!!" << std::endl;
+		}
+
+		std::cout << "Eigenvalue is " << evalues[0] << std::endl;
+
 		//int vid = std::rand() % triV2D.rows();
 		//std::cout << "vid: " << vid << std::endl;
 		//interpModel.testPerVertexPenalty(zvals, omegaFields, vid);
 		//interpModel.testPerFramePenalty(zvals, omegaFields);
-		interpModel.testPenalty(x);
+		/*interpModel.testPenalty(x);
 
 		Eigen::VectorXd lambda;
 		double mu;
@@ -1542,7 +1614,7 @@ void callback() {
 		lambda.setZero();
 		double p1 = interpModel.computePenalty(x);
 		double p2 = interpModel.computeConstraintsPenalty(x, mu);
-		std::cout << p1 << ", " << p2 << std::endl;
+		std::cout << p1 << ", " << p2 << std::endl;*/
 	}
 	if (ImGui::Button("output images", ImVec2(-1, 0)))
 	{

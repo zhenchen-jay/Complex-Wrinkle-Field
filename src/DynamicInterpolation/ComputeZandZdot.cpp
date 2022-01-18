@@ -212,6 +212,61 @@ double ComputeZandZdot::zDotSquarePerface(const Eigen::MatrixXd& w1,
 	return zdotSquare;
 }
 
+Eigen::VectorXd ComputeZandZdot::getEntries(const std::vector<std::complex<double>>& zvals, int entryId)
+{
+	if (entryId != 0 && entryId != 1)
+	{
+		std::cerr << "Error in get entry!" << std::endl;
+		exit(1);
+	}
+	int size = zvals.size();
+	Eigen::VectorXd vals(size);
+	for (int i = 0; i < size; i++)
+	{
+		if (entryId == 0)
+			vals(i) = zvals[i].real();
+		else
+			vals(i) = zvals[i].imag();
+	}
+	return vals;
+}
+
+double ComputeZandZdot::gradZSquareIntegration(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertvals,
+	Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT)
+{
+	Eigen::VectorXd xvec, yvec;
+	xvec = getEntries(vertvals, 0);
+	yvec = getEntries(vertvals, 1);
+
+	double energy = -0.5 * (xvec.dot(_cotMat * xvec) + yvec.dot(_cotMat * yvec));
+	int nverts = vertvals.size();
+
+	if (deriv)
+	{
+		deriv->setZero(4 * nverts);
+
+		Eigen::VectorXd xDeriv = -_cotMat * xvec;
+		Eigen::VectorXd yDeriv = -_cotMat * yvec;
+		for (int j = 0; j < nverts; j++)
+		{
+			(*deriv)(2 * j) += xDeriv(j);
+			(*deriv)(2 * j + 1) += yDeriv(j);
+		}
+	}
+	if (hessT)
+	{
+		for (int k = 0; k < _cotMat.outerSize(); ++k)
+			for (Eigen::SparseMatrix<double>::InnerIterator it(_cotMat, k); it; ++it)
+			{
+				hessT->push_back(Eigen::Triplet<double>(2 * it.row(), 2 * it.col(), -it.value()));
+				hessT->push_back(Eigen::Triplet<double>(2 * it.row() + 1, 2 * it.col() + 1, -it.value()));
+			}
+	}
+
+	return energy;
+	
+}
+
 double ComputeZandZdot::zDotSquareIntegration(const Eigen::MatrixXd& w1,
 	const Eigen::MatrixXd& w2,
 	const std::vector<std::complex<double>>& vertVals1,
@@ -533,6 +588,45 @@ void ComputeZandZdot::testZDotSquareIntegration(const Eigen::MatrixXd& w1, const
 		Eigen::VectorXd deriv1;
 
 		double e1 = zDotSquareIntegration(backupW1, backupW2, backupVertVals1, backupVertVals2, dt, &deriv1, NULL);
+
+
+		std::cout << "eps: " << eps << std::endl;
+		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
+		std::cout << "gradient-hessian check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+	}
+}
+
+void ComputeZandZdot::testGradZSquareIntegration(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals)
+{
+	Eigen::VectorXd deriv;
+	std::vector<Eigen::Triplet<double>> T;
+	Eigen::SparseMatrix<double> hess;
+
+	double e = gradZSquareIntegration(w, vertVals, &deriv, &T);
+	hess.resize(deriv.rows(), deriv.rows());
+	hess.setFromTriplets(T.begin(), T.end());
+
+	Eigen::VectorXd dir = Eigen::VectorXd::Random(deriv.rows());
+
+	Eigen::MatrixXd backupW = w;
+	std::vector<std::complex<double>> backupVertVals = vertVals;
+
+
+	for (int j = 3; j <= 10; j++)
+	{
+		double eps = std::pow(0.1, j);
+
+		for (int i = 0; i < _basePos.rows(); i++)
+		{
+			backupVertVals[i] = std::complex<double>(vertVals[i].real() + eps * dir(2 * i), vertVals[i].imag() + eps * dir(2 * i + 1));
+			backupW(i, 0) = w(i, 0) + eps * dir(_basePos.rows() * 2 + 2 * i);
+			backupW(i, 1) = w(i, 1) + eps * dir(_basePos.rows() * 2 + 2 * i + 1);
+
+		}
+
+		Eigen::VectorXd deriv1;
+
+		double e1 = gradZSquareIntegration(backupW, backupVertVals, &deriv1, NULL);
 
 
 		std::cout << "eps: " << eps << std::endl;

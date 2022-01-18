@@ -7,6 +7,7 @@
 #include <vector>
 #include <complex>
 #include <igl/doublearea.h>
+#include <igl/cotmatrix.h>
 
 // TODO: make it work for 3D using intrinsic information
 
@@ -26,6 +27,7 @@ public:
         }
 
         igl::doublearea(basePos, baseF, _doubleFarea);
+        igl::cotmatrix(basePos, baseF, _cotMat);
     }
     ComputeZandZdot() {}
 
@@ -40,6 +42,8 @@ public:
     {
         return _quadPoints;
     }
+
+    Eigen::VectorXd getEntries(const std::vector<std::complex<double>>& zvals, int entryId);
 
     std::complex<double> planeWaveBasis(Eigen::Vector3d p, Eigen::Vector3d pi, Eigen::Vector2d omega, Eigen::Vector2cd* deriv, Eigen::Matrix2cd* hess, std::vector<Eigen::Matrix2cd>* derivHess);
 
@@ -70,12 +74,16 @@ public:
         const std::vector<std::complex<double>>& vertVals2, 
         const double dt, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj = false);
 
+    double gradZSquareIntegration(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertvals,
+        Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT);
+
     // test function
     void testPlaneWaveValueFromQuad(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals, int faceId, int quadId);
     void testPlaneWaveValueDotFromQuad(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int faceId, int quadId);
     void testPlaneWaveBasis(Eigen::VectorXd p, Eigen::VectorXd pi, Eigen::Vector2d omega);
     void testZDotSquarePerface(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt, int faceId);
     void testZDotSquareIntegration(const Eigen::MatrixXd& w1, const Eigen::MatrixXd& w2, const std::vector<std::complex<double>>& vertVals1, const std::vector<std::complex<double>>& vertVals2, const double dt);
+    void testGradZSquareIntegration(const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& vertVals);
 
 private:
     Eigen::MatrixXd _basePos;
@@ -83,5 +91,6 @@ private:
     std::vector<QuadraturePoints> _quadPoints;
     std::vector<Eigen::Vector3d> _hatWeights;
     Eigen::VectorXd _doubleFarea;
+    Eigen::SparseMatrix<double> _cotMat;
 
 };
