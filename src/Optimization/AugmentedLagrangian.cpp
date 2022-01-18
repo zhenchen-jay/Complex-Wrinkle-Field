@@ -210,7 +210,7 @@ void OptSolver::augmentedLagrangianSolver(
 			break;
 		}
 
-		if (grad.norm() < gradTol)
+		if (grad.norm() < gradTol && std::max(std::abs(constVec.minCoeff()), std::abs(constVec.maxCoeff())) < cTol)
 		{
 			std::cout << "terminate with gradient L2-norm = " << grad.norm() << std::endl;
 			break;

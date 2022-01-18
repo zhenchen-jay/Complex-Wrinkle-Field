@@ -388,6 +388,88 @@ Eigen::VectorXd InterpolateKeyFrames::getConstraintsPenalty(const Eigen::VectorX
 	return constraints;
 }
 
+Eigen::VectorXd InterpolateKeyFrames::getEntries(const std::vector<std::complex<double>>& zvals, int entryId)
+{
+	if (entryId != 0 && entryId != 1)
+	{
+		std::cerr << "Error in get entry!" << std::endl;
+		exit(1);
+	}
+	int size = zvals.size();
+	Eigen::VectorXd vals(size);
+	for (int i = 0; i < size; i++)
+	{
+		if (entryId == 0)
+			vals(i) = zvals[i].real();
+		else
+			vals(i) = zvals[i].imag();
+	}
+	return vals;
+}
+
+double InterpolateKeyFrames::computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess)
+{
+	int nbaseVerts = _basePos.rows();
+	int numFrames = _vertValsList.size() - 2;
+	int DOFs = numFrames * nbaseVerts * 4;
+
+	convertVariable2List(x);
+	std::vector<double> energyList(numFrames);
+	std::vector<Eigen::VectorXd> derivList(numFrames);
+	std::vector<std::vector<Eigen::Triplet<double>>> hessList(numFrames);
+
+	auto computeSmoothnessEnergyPerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
+			energyList[i - 1] = _newmodel.gradZSquareIntegration(_wList[i], _vertValsList[i], deriv ? &(derivList[i - 1]) : NULL, hess ? &(hessList[i - 1]) : NULL);
+		}
+	};
+
+	tbb::blocked_range<uint32_t> rangex(1u, (uint32_t)(_vertValsList.size() - 1), GRAIN_SIZE);
+	tbb::parallel_for(rangex, computeSmoothnessEnergyPerFrame);
+
+	/*for (uint32_t i = 1; i < (uint32_t)(_vertValsList.size() - 1); ++i)
+	{
+		energyList[i - 1] = _newmodel.gradZSquareIntegration(_wList[i], _vertValsList[i], deriv ? &(derivList[i - 1]) : NULL, hess ? &(hessList[i - 1]) : NULL);
+	}*/
+
+	double energy = 0;
+	if (deriv)
+	{
+		deriv->setZero(DOFs);
+	}
+	std::vector<Eigen::Triplet<double>> T;
+
+	for (int i = 0; i < numFrames; i++)
+	{
+		energy += energyList[i];
+
+		int curDOFs = i * 4 * nbaseVerts;
+		if (deriv)
+		{
+			deriv->segment(curDOFs, 4 * nbaseVerts) += derivList[i];
+		}
+
+		if (hess)
+		{
+			for (auto& it : hessList[i])
+			{
+				
+				T.push_back({ it.row() + curDOFs, it.col() + curDOFs, it.value() });
+	
+			}
+		}
+	}
+
+	if (hess)
+	{
+		hess->resize(DOFs, DOFs);
+		hess->setFromTriplets(T.begin(), T.end());
+	}
+	return energy;
+}
+
 double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
 	int nbaseVerts = _basePos.rows();
@@ -411,6 +493,15 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 			energy += _model.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
 		else
 			energy += _newmodel.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+		
+		Eigen::VectorXd xvec, yvec;
+		xvec = getEntries(_vertValsList[i], 0);
+		yvec = getEntries(_vertValsList[i], 1);
+		
+		/*if (i > 0)
+		{
+			energy += -0.5 * _smoothCoeff * (xvec.dot(_cotMat * xvec) + yvec.dot(_cotMat * yvec));
+		}*/
 
 		if (deriv)
 		{
@@ -422,6 +513,18 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 			{
 				deriv->segment(4 * (i - 1) * nbaseVerts, 8 * nbaseVerts) += curDeriv;
 			}
+
+			/*if (i > 0)
+			{
+				Eigen::VectorXd xDeriv = -_smoothCoeff * _cotMat * xvec;
+				Eigen::VectorXd yDeriv = -_smoothCoeff * _cotMat * yvec;
+				for (int j = 0; j < nbaseVerts; j++)
+				{
+					(*deriv)(4 * (i - 1) * nbaseVerts + 2 * j) += xDeriv(j);
+					(*deriv)(4 * (i - 1) * nbaseVerts + 2 * j + 1) += yDeriv(j);
+				}
+				
+			}*/
 
 		}
 
@@ -443,9 +546,17 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 				{
 					T.push_back({ it.row() + 4 * (i - 1) * nbaseVerts, it.col() + 4 * (i - 1) * nbaseVerts, it.value() });
 				}
-
-				
 			}
+
+			/*if (i > 0)
+			{
+				for (int k = 0; k < _cotMat.outerSize(); ++k)
+					for (Eigen::SparseMatrix<double>::InnerIterator it(_cotMat, k); it; ++it)
+					{
+						T.push_back(Eigen::Triplet<double>(2 * it.row() + 4 * (i - 1) * nbaseVerts, 2 * it.col() + 4 * (i - 1) * nbaseVerts, -_smoothCoeff * it.value()));
+						T.push_back(Eigen::Triplet<double>(2 * it.row() + 1 + 4 * (i - 1) * nbaseVerts, 2 * it.col() + 1 + 4 * (i - 1) * nbaseVerts, -_smoothCoeff * it.value()));
+					}
+			}*/
 			curT.clear();
 		}
 	}
@@ -454,6 +565,20 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 	    //std::cout << "num of triplets: " << T.size() << std::endl;
 		hess->resize(DOFs, DOFs);
 		hess->setFromTriplets(T.begin(), T.end());
+	}
+
+
+	if (_smoothCoeff > 0)
+	{
+		Eigen::VectorXd sDeriv;
+		Eigen::SparseMatrix<double> sHess;
+		double smoothTerm = computeSmoothnessEnergy(x, deriv ? &sDeriv : NULL, hess ? &sHess : NULL);
+
+		energy += _smoothCoeff * smoothTerm;
+		if (deriv)
+			(*deriv) += _smoothCoeff * sDeriv;
+		if (hess)
+			(*hess) += _smoothCoeff * sHess;
 	}
 
 	return energy;
@@ -693,6 +818,30 @@ void InterpolateKeyFrames::testEnergy(Eigen::VectorXd x)
 
 		Eigen::VectorXd deriv1;
 		double e1 = computeEnergy(x + eps * dir, &deriv1, NULL, false);
+
+		std::cout << "eps: " << eps << std::endl;
+		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
+		std::cout << "gradient-hessian check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+	}
+}
+
+void InterpolateKeyFrames::testSmoothnessEnergy(Eigen::VectorXd x)
+{
+	Eigen::VectorXd deriv;
+	Eigen::SparseMatrix<double> hess;
+
+	double e = computeSmoothnessEnergy(x, &deriv, &hess);
+	std::cout << "energy: " << e << std::endl;
+
+	Eigen::VectorXd dir = deriv;
+	dir.setRandom();
+
+	for (int i = 3; i < 9; i++)
+	{
+		double eps = std::pow(0.1, i);
+
+		Eigen::VectorXd deriv1;
+		double e1 = computeSmoothnessEnergy(x + eps * dir, &deriv1, NULL);
 
 		std::cout << "eps: " << eps << std::endl;
 		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
