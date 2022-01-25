@@ -21,79 +21,119 @@ void TimeIntegratedFrames::updateWZList()
 double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::VectorXd *deriv,
                                            Eigen::SparseMatrix<double> *hess, bool isProj)
 {
+    int nverts = x.size() / 4;
      double energy = 0;
      Eigen::VectorXd xtilde = _curX + _dt * _curV;
 
-     Eigen::VectorXd sDeriv, tDeriv;
-     Eigen::SparseMatrix<double> sHess, tHess;
-     std::vector<Eigen::Triplet<double>> sT, tT;
-     int nverts = x.size() / 4;
+     double p = 0;
+     Eigen::VectorXd pDeriv;
+     Eigen::SparseMatrix<double> pHess;
+     std::vector<Eigen::Triplet<double>> pT;
 
-     std::vector<std::complex<double>> z(nverts);
-     double t = 0;
-
-     if (deriv)
-         tDeriv.setZero(x.rows());
-
-     for (int i = 0; i < nverts; i++)
+     if (_knopType == W_WTar)
      {
-         z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
-         t += (x(2 * i + 2 * nverts) - _wTar(i, 0)) * (x(2 * i + 2 * nverts) - _wTar(i, 0)) + (x(2 * i + 2 * nverts + 1) - _wTar(i, 1)) * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
-         if (deriv)
-         {
-             tDeriv(2 * nverts + 2 * i) = 2 * (x(2 * i + 2 * nverts) - _wTar(i, 0));
-             tDeriv(2 * nverts + 2 * i + 1) = 2 * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
-         }
-         
-         if (hess)
-         {
-             tT.push_back({ 2 * nverts + 2 * i , 2 * nverts + 2 * i, 2.0 });
-             tT.push_back({ 2 * nverts + 2 * i + 1, 2 * nverts + 2 * i + 1, 2.0 });
-         }
-         
-     }
+         if(deriv)
+            pDeriv.setZero(x.rows());
 
-     double s = IntrinsicFormula::KnoppelEnergy(_baseMesh, _halfEdgewTar, _faceArea, _cotEntries, z, deriv ? &sDeriv : NULL, hess ? &sT : NULL);
-     
+         for (int i = 0; i < nverts; i++)
+         {
+             p += (x(2 * i + 2 * nverts) - _wTar(i, 0)) * (x(2 * i + 2 * nverts) - _wTar(i, 0)) + (x(2 * i + 2 * nverts + 1) - _wTar(i, 1)) * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
+             if (deriv)
+             {
+                 pDeriv(2 * nverts + 2 * i) = 2 * (x(2 * i + 2 * nverts) - _wTar(i, 0));
+                 pDeriv(2 * nverts + 2 * i + 1) = 2 * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
+             }
+
+             if (hess)
+             {
+                 pT.push_back({ 2 * nverts + 2 * i , 2 * nverts + 2 * i, 2.0 });
+                 pT.push_back({ 2 * nverts + 2 * i + 1, 2 * nverts + 2 * i + 1, 2.0 });
+             }
+
+         }
+     }
+     else if (_knopType == Z_WTar || _knopType == WZ_Tar)
+     {
+         std::vector<std::complex<double>> z(nverts);
+         for (int i = 0; i < nverts; i++)
+         {
+             z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
+         }
+         if (deriv)
+             pDeriv.setZero(x.rows());
+
+         Eigen::VectorXd sDeriv;
+         p = IntrinsicFormula::KnoppelEnergy(_baseMesh, _halfEdgewTar, _faceArea, _cotEntries, z, deriv ? &sDeriv : NULL, hess ? &pT : NULL);
+
+         if (deriv)
+            pDeriv.segment(0, 2 * nverts) = sDeriv;
+
+         if (_knopType == WZ_Tar)
+         {
+             for (int i = 0; i < nverts; i++)
+             {
+                 p += (x(2 * i + 2 * nverts) - _wTar(i, 0)) * (x(2 * i + 2 * nverts) - _wTar(i, 0)) + (x(2 * i + 2 * nverts + 1) - _wTar(i, 1)) * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
+                 if (deriv)
+                 {
+                     pDeriv(2 * nverts + 2 * i) += 2 * (x(2 * i + 2 * nverts) - _wTar(i, 0));
+                     pDeriv(2 * nverts + 2 * i + 1) += 2 * (x(2 * i + 2 * nverts + 1) - _wTar(i, 1));
+                 }
+
+                 if (hess)
+                 {
+                     pT.push_back({ 2 * nverts + 2 * i , 2 * nverts + 2 * i, 2.0 });
+                     pT.push_back({ 2 * nverts + 2 * i + 1, 2 * nverts + 2 * i + 1, 2.0 });
+                 }
+
+             }
+         }
+     }
+     else
+     {
+         Eigen::MatrixXd w(nverts, 2);
+         std::vector<std::complex<double>> z(nverts);
+
+         for (int i = 0; i < nverts; i++)
+         {
+             z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
+             w.row(i) << x(2 * i + 2 * nverts), x(2 * i + 2 * nverts + 1);
+         }
+         p = IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(_basePos, _baseMesh, _faceArea, _cotEntries, z, w, deriv ? &pDeriv : NULL, hess ? &pT : NULL);
+     }
      
 
      if (_useInertial)
-         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * (s + t);
+         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * p;
      else
-         energy = s + t;
+         energy = p;
 
      if(deriv)
      {
          if (_useInertial)
          {
              *deriv = x - xtilde;
-             (*deriv) += _K * _dt * _dt * tDeriv;
-             deriv->segment(0, 2 * nverts) += _K * _dt * _dt * sDeriv;
+             (*deriv) += _K * _dt * _dt * pDeriv;
          }
          else
          {
              deriv->setZero(x.rows());
-             (*deriv) = tDeriv;
-             deriv->segment(0, 2 * nverts) += sDeriv;
+             (*deriv) = pDeriv;
          }
      }
      if(hess)
      {
-         sHess.resize(x.rows(), x.rows());
-         sHess.setFromTriplets(sT.begin(), sT.end());
-
-         tHess.resize(x.rows(), x.rows());
-         tHess.setFromTriplets(tT.begin(), tT.end());
+         pHess.resize(x.rows(), x.rows());
+         pHess.setFromTriplets(pT.begin(), pT.end());
 
          if (_useInertial)
          {
              hess->resize(x.rows(), x.rows());
              hess->setIdentity();
 
-             (*hess) += _K * _dt * _dt * (sHess + tHess);
+             (*hess) += _K * _dt * _dt * pHess;
          }
          else
-             *hess = sHess + tHess;
+             *hess = pHess;
          
      }
      return energy;
@@ -124,6 +164,8 @@ void TimeIntegratedFrames::solveInterpFrames()
     auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
         return 1.0;
     };
+    testEnergy(x);
+    system("pause");
 
     _wTar.setZero(x.size() / 4, 3);
     for(int i = 0; i < _numFrames; i++)

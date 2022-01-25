@@ -12,7 +12,7 @@
 class TimeIntegratedFrames{
 public:
     TimeIntegratedFrames(){}
-    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, bool useInertial = false):_basePos(basePos), _K(K), _useInertial(useInertial)
+    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, KnoppelModelType knopType, bool useInertial = false):_basePos(basePos), _K(K), _useInertial(useInertial), _knopType(knopType)
     {
         _baseMesh = MeshConnectivity(baseF);
 
@@ -45,6 +45,10 @@ public:
         _curX = _initX;
         _curV = _curX;
         _curV.setZero();
+        if (_knopType == Z_W)
+        {
+            _curV = _tarX - _initX;
+        }
 
         igl::doublearea(_basePos, baseF, _faceArea);
         _faceArea /= 2.0;
@@ -83,6 +87,7 @@ private:
 
     Eigen::VectorXd _faceArea;
     Eigen::MatrixXd _cotEntries;
+    KnoppelModelType _knopType;
 
     bool _useInertial;
 };
