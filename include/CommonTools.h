@@ -9,6 +9,13 @@
 #define GRAIN_SIZE 10
 #endif
 
+enum KnoppelModelType {
+	W_WTar = 0,
+	Z_WTar = 1,
+	WZ_Tar = 2,
+	Z_W = 3
+};
+
 struct QuadraturePoints
 {
     double u;

@@ -162,7 +162,6 @@ double IntrinsicFormula::KnoppelEnergyFor2DVertexOmegaPerEdge(const Eigen::Matri
     f1 = mat1 * z1 - z0;
 
     double energy = 0.5 * (f0.dot(f0) + f1.dot(f1)) * edgeWeight;
-    //double energy = f1(1);
 
     if (deriv)
         deriv->setZero();
@@ -199,86 +198,10 @@ double IntrinsicFormula::KnoppelEnergyFor2DVertexOmegaPerEdge(const Eigen::Matri
 
         if (deriv)
             *deriv = (f0.transpose() * gradF0 + f1.transpose() * gradF1) * edgeWeight;
-            //*deriv = gradF1.row(1);
 
         if (hess)
         {
-            /*Eigen::Matrix<double, 8, 8> hessF00, hessF01, hessF10, hessF11;
-            hessF00.setZero();
-            hessF01.setZero();
-            hessF10.setZero();
-            hessF11.setZero();
-
-            hessF00(0, 4) = -sin0 * e(0);
-            hessF00(0, 5) = -sin0 * e(1);
-
-            hessF00(1, 4) = -cos0 * e(0);
-            hessF00(1, 5) = -cos0 * e(1);
-
-            hessF00(4, 0) = hessF00(0, 4);
-            hessF00(4, 1) = hessF00(1, 4);
-            hessF00(4, 4) = (-z0(0) * cos0 + z0(1) * sin0) * e(0) * e(0);
-            hessF00(4, 5) = (-z0(0) * cos0 + z0(1) * sin0) * e(0) * e(1);
-
-            hessF00(5, 0) = hessF00(0, 5);
-            hessF00(5, 1) = hessF00(1, 5);
-            hessF00(5, 4) = (-z0(0) * cos0 + z0(1) * sin0) * e(1) * e(0);
-            hessF00(5, 5) = (-z0(0) * cos0 + z0(1) * sin0) * e(1) * e(1);
-
-
-            hessF01(0, 4) = cos0 * e(0);
-            hessF01(0, 5) = cos0 * e(1);
-
-            hessF01(1, 4) = -sin0 * e(0);
-            hessF01(1, 5) = -sin0 * e(1);
-
-            hessF01(4, 0) = hessF01(0, 4);
-            hessF01(4, 1) = hessF01(1, 4);
-            hessF01(4, 4) = (-z0(0) * sin0 - z0(1) * cos0) * e(0) * e(0);
-            hessF01(4, 5) = (-z0(0) * sin0 - z0(1) * cos0) * e(0) * e(1);
-
-            hessF01(5, 0) = hessF01(0, 5);
-            hessF01(5, 1) = hessF01(1, 5);
-            hessF01(5, 4) = (-z0(0) * sin0 - z0(1) * cos0) * e(1) * e(0);
-            hessF01(5, 5) = (-z0(0) * sin0 - z0(1) * cos0) * e(1) * e(1);
-
-
-            hessF10(2, 6) = sin1 * e(0);
-            hessF10(2, 7) = sin1 * e(1);
-
-            hessF10(3, 6) = cos1 * e(0);
-            hessF10(3, 7) = cos1 * e(1);
-
-            hessF10(6, 2) = hessF10(2, 6);
-            hessF10(6, 3) = hessF10(3, 6);
-            hessF10(6, 6) = (-z1(0) * cos1 + z1(1) * sin1) * e(0) * e(0);
-            hessF10(6, 7) = (-z1(0) * cos1 + z1(1) * sin1) * e(0) * e(1);
-
-            hessF10(7, 2) = hessF10(2, 7);
-            hessF10(7, 3) = hessF10(3, 7);
-            hessF10(7, 6) = (-z1(0) * cos1 + z1(1) * sin1) * e(1) * e(0);
-            hessF10(7, 7) = (-z1(0) * cos1 + z1(1) * sin1) * e(1) * e(1);
-
-
-            hessF11(2, 6) = -cos1 * e(0);
-            hessF11(2, 7) = -cos1 * e(1);
-
-            hessF11(3, 6) = sin1 * e(0);
-            hessF11(3, 7) = sin1 * e(1);
-
-            hessF11(6, 2) = hessF11(2, 6);
-            hessF11(6, 3) = hessF11(3, 6);
-            hessF11(6, 6) = (-z1(0) * sin1 - z1(1) * cos1) * e(0) * e(0);
-            hessF11(6, 7) = (-z1(0) * sin1 - z1(1) * cos1) * e(0) * e(1);
-
-            hessF11(7, 2) = hessF11(2, 7);
-            hessF11(7, 3) = hessF11(3, 7);
-            hessF11(7, 6) = (-z1(0) * sin1 - z1(1) * cos1) * e(1) * e(0);
-            hessF11(7, 7) = (-z1(0) * sin1 - z1(1) * cos1) * e(1) * e(1);*/
-
-
             *hess = (gradF0.transpose() * gradF0 + gradF1.transpose() * gradF1) * edgeWeight;
-            //*hess += (f0(0) * hessF00 + f0(1) * hessF01 + f1(0) * hessF10 + f1(1) * hessF11) * edgeWeight;
 
             
             (*hess)(0, 4) += edgeWeight * (f0(0) * -sin0 * e(0) + f0(1) * cos0 * e(0));
@@ -346,6 +269,7 @@ double IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(const Eigen::MatrixXd& po
         }
     }
     double energy = 0;
+    edgeWeight.setConstant(1.0);
 
     if (deriv)
     {
@@ -365,11 +289,11 @@ double IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(const Eigen::MatrixXd& po
 
         if (deriv)
         {
-            deriv->segment<2>(2 * vid0) = edgeDeriv.segment<2>(0);
-            deriv->segment<2>(2 * vid1) = edgeDeriv.segment<2>(2);
+            deriv->segment<2>(2 * vid0) += edgeDeriv.segment<2>(0);
+            deriv->segment<2>(2 * vid1) += edgeDeriv.segment<2>(2);
 
-            deriv->segment<2>(2 * vid0 + 2 * nverts) = edgeDeriv.segment<2>(4);
-            deriv->segment<2>(2 * vid1 + 2 * nverts) = edgeDeriv.segment<2>(6);
+            deriv->segment<2>(2 * vid0 + 2 * nverts) += edgeDeriv.segment<2>(4);
+            deriv->segment<2>(2 * vid1 + 2 * nverts) += edgeDeriv.segment<2>(6);
 
         }
 

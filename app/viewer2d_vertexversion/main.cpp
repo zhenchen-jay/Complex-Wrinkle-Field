@@ -52,6 +52,7 @@
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
+#include "../../include/CommonTools.h"
 
 
 Eigen::MatrixXd triV2D, triV3D, upsampledTriV2D, upsampledTriV3D, wrinkledV;
@@ -167,12 +168,14 @@ enum InitializationType {
 	Theoretical = 2
 };
 
+
 bool isUseUpMesh = false;
 
 FunctionType functionType = FunctionType::PlaneWave;
 FunctionType tarFunctionType = FunctionType::PlaneWave;
 InitializationType initializationType = InitializationType::Linear;
 IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
+KnoppelModelType knoppelType = Z_WTar;
 
 InterpolationType interType = InterpolationType::NewSplit;
 
@@ -889,7 +892,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	}
 	else if (frameType == IntermediateFrameType::IEDynamic)
 	{
-		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, knoppelK, useInertial);
+		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, knoppelK, knoppelType, useInertial);
 		frameModel.solveInterpFrames();
 
 		wFrames = frameModel.getWList();
@@ -1337,6 +1340,7 @@ void callback() {
 	if (ImGui::CollapsingHeader("dynamic parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Checkbox("use inertial", &useInertial);
+		if (ImGui::Combo("Knoppel potential type", (int*)&knoppelType, "w-wtar\0z-wtar\0wz-wtar\0z-w\0")) {}
 		if (ImGui::InputDouble("knoppel K", &knoppelK))
 		{
 			if (knoppelK < 0)
@@ -1475,29 +1479,6 @@ void generateTargetVals()
 int main(int argc, char** argv)
 {
 	initialization();
-
-	Eigen::VectorXd doubleArea;
-	igl::doublearea(triV2D, triF2D, doubleArea);
-	doubleArea /= 2;
-	Eigen::MatrixXd cotEntries;
-	igl::cotmatrix_entries(triV2D, triF2D, cotEntries);
-
-
-	MeshConnectivity triMesh = MeshConnectivity(triF2D);
-	Eigen::MatrixXd testw = Eigen::MatrixXd::Random(triV2D.rows(), 2);
-	
-	std::vector<std::complex<double>> testZvals;
-
-	for (int i = 0; i < triV2D.rows(); i++)
-	{
-		Eigen::Vector2d rnd;
-		rnd.setRandom();
-		testZvals.push_back(std::complex<double>(rnd(0), rnd(1)));
-	}
-
-	int eid = std::rand() % triMesh.nEdges();
-	IntrinsicFormula::testKnoppelEnergyFor2DVertexOmegaPerEdge(triV2D, triMesh, doubleArea, cotEntries, testZvals, testw, 0.35, eid);
-	//IntrinsicFormula::testKnoppelEnergyFor2DVertexOmega(triV2D, triMesh, doubleArea, cotEntries, testZvals, testw);
 
 	// Options
 	polyscope::options::autocenterStructures = true;
