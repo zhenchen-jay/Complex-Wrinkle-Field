@@ -91,7 +91,6 @@ Eigen::MatrixXd dataVec;
 Eigen::MatrixXd curColor;
 
 int loopLevel = 2;
-int uplevelForComputing = 2;
 
 bool isShowOnlyWhirlPool = false;
 bool isShowOnlyPlaneWave = false;
@@ -137,6 +136,7 @@ int quadOrder = 4;
 
 bool useInertial = false;
 double knoppelK = 1.0;
+double smoothCoef = 0;
 
 
 enum FunctionType {
@@ -174,8 +174,9 @@ bool isUseUpMesh = false;
 FunctionType functionType = FunctionType::PlaneWave;
 FunctionType tarFunctionType = FunctionType::PlaneWave;
 InitializationType initializationType = InitializationType::Linear;
-IntermediateFrameType frameType = IntermediateFrameType::Geodesic;
+IntermediateFrameType frameType = IntermediateFrameType::IEDynamic;
 KnoppelModelType knoppelType = Z_WTar;
+double velMag = 1.0;
 
 InterpolationType interType = InterpolationType::NewSplit;
 
@@ -719,18 +720,10 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	//zdotModel.testPlaneWaveValueDotFromQuad(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0, 2);
 	//zdotModel.testZDotSquarePerface(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0);
 	//zdotModel.testZDotSquareIntegration(sourceVec, tarVec, sourceZvals, tarZvals, 1);
-
-	Eigen::MatrixXd upV;
-	Eigen::MatrixXi upF;
-	std::vector<std::pair<int, Eigen::Vector3d>> upbary;
-	Eigen::SparseMatrix<double> S;
-	std::vector<int> facemap;
-	meshUpSampling(triV2D, triF2D, upV, upF, uplevelForComputing, &S, &facemap, &upbary);
-
 	if (frameType == IntermediateFrameType::Geodesic)
 	{
 		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, upV, upF, upbary, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, isUseUpMesh);
+		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, smoothCoef, knoppelType);
 		Eigen::VectorXd x;
 		interpModel.convertList2Variable(x);        // linear initialization
 
@@ -882,17 +875,14 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 		for (int i = 0; i < wFrames.size() - 1; i++)
 		{
 			double zdotNorm = interpModel._model.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-			double actualZdotNorm = interpModel._newmodel.zDotSquareIntegration(wFrames[i], wFrames[i + 1], zFrames[i], zFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-
 			double initZdotNorm = interpModel._model.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
-			double initActualZdotNorm = interpModel._newmodel.zDotSquareIntegration(initWFrames[i], initWFrames[i + 1], initZFrames[i], initZFrames[i + 1], 1.0 / (wFrames.size() - 1), NULL, NULL);
 
-			std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", actual zdot norm: " << initActualZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << ", actual zdot norm: " << actualZdotNorm << std::endl;
+			std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
 		}
 	}
 	else if (frameType == IntermediateFrameType::IEDynamic)
 	{
-		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, knoppelK, knoppelType, useInertial);
+		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, knoppelK, knoppelType, useInertial, velMag);
 		frameModel.solveInterpFrames();
 
 		wFrames = frameModel.getWList();
@@ -1324,12 +1314,12 @@ void callback() {
 			if (quadOrder <= 0 || quadOrder > 20)
 				quadOrder = 4;
 		}
-		ImGui::Checkbox("use upsampled mesh", &isUseUpMesh);
-		if (ImGui::InputInt("underline upsampled times", &uplevelForComputing))
+		if (ImGui::InputDouble("smoothness coef", &smoothCoef))
 		{
-			if (uplevelForComputing < 0)
-				uplevelForComputing = 2;
+			if (smoothCoef < 0)
+				smoothCoef = 0;
 		}
+		
 
 	}
 	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
@@ -1341,6 +1331,11 @@ void callback() {
 	{
 		ImGui::Checkbox("use inertial", &useInertial);
 		if (ImGui::Combo("Knoppel potential type", (int*)&knoppelType, "w-wtar\0z-wtar\0wz-wtar\0z-w\0")) {}
+		if (ImGui::InputDouble("vel mag", &velMag))
+		{
+			if (velMag < 0)
+				velMag = 1.0;
+		}
 		if (ImGui::InputDouble("knoppel K", &knoppelK))
 		{
 			if (knoppelK < 0)

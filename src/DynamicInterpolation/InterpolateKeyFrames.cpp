@@ -1,5 +1,6 @@
 #include <iostream>
 #include "../../include/DynamicInterpolation/InterpolateKeyFrames.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 
 void InterpolateKeyFrames::convertList2Variable(Eigen::VectorXd& x)
 {
@@ -407,14 +408,14 @@ Eigen::VectorXd InterpolateKeyFrames::getEntries(const std::vector<std::complex<
 	return vals;
 }
 
-double InterpolateKeyFrames::computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess)
+double InterpolateKeyFrames::computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
 	int nbaseVerts = _basePos.rows();
 	int numFrames = _vertValsList.size() - 2;
 	int DOFs = numFrames * nbaseVerts * 4;
 
 	convertVariable2List(x);
-	std::vector<double> energyList(numFrames);
+	std::vector<double> energyList(numFrames, 0);
 	std::vector<Eigen::VectorXd> derivList(numFrames);
 	std::vector<std::vector<Eigen::Triplet<double>>> hessList(numFrames);
 
@@ -422,7 +423,70 @@ double InterpolateKeyFrames::computeSmoothnessEnergy(const Eigen::VectorXd& x, E
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			energyList[i - 1] = _newmodel.gradZSquareIntegration(_wList[i], _vertValsList[i], deriv ? &(derivList[i - 1]) : NULL, hess ? &(hessList[i - 1]) : NULL);
+			/*energyList[i - 1] = _newmodel.gradZSquareIntegration(_wList[i], _vertValsList[i], deriv ? &(derivList[i - 1]) : NULL, hess ? &(hessList[i - 1]) : NULL);*/
+
+			if (_knopType == W_WTar)
+			{
+				if (deriv)
+					derivList[i - 1].setZero(4 * nbaseVerts);
+
+				for (int j = 0; j < nbaseVerts; j++)
+				{
+					energyList[i - 1] += (_wList[i] - _wListTar[i]).row(j).squaredNorm();
+					if (deriv)
+					{
+						derivList[i - 1](2 * nbaseVerts + 2 * j) = 2 * (_wList[i](j, 0) - _wListTar[i](j, 0));
+						derivList[i - 1](2 * nbaseVerts + 2 * j + 1) = 2 * (_wList[i](j, 1) - _wListTar[i](j, 1));
+					}
+
+					if (hess)
+					{
+						hessList[i - 1].push_back({ 2 * nbaseVerts + 2 * j , 2 * nbaseVerts + 2 * j, 2.0 });
+						hessList[i - 1].push_back({ 2 * nbaseVerts + 2 * j + 1, 2 * nbaseVerts + 2 * j + 1, 2.0 });
+					}
+
+				}
+			}
+			else if (_knopType == Z_WTar || _knopType == WZ_Tar)
+			{
+				if (deriv)
+					derivList[i - 1].setZero(4 * nbaseVerts);
+
+				Eigen::VectorXd sDeriv;
+				Eigen::MatrixXd v = Eigen::MatrixXd::Zero(_wListTar[i].rows(), 3);
+				v.block(0, 0, v.rows(), 2) = _wListTar[i];
+				Eigen::MatrixXd halfEdgewTar = vertexVec2IntrinsicHalfEdgeVec(v, _basePos, _baseMesh);
+				energyList[i - 1] = IntrinsicFormula::KnoppelEnergy(_baseMesh, halfEdgewTar, _faceArea, _cotEntries, _vertValsList[i], deriv ? &sDeriv : NULL, hess ? &hessList[i - 1]: NULL);
+
+				if (deriv)
+					derivList[i - 1].segment(0, 2 * nbaseVerts) = sDeriv;
+
+				if (_knopType == WZ_Tar)
+				{
+					for (int j = 0; j < nbaseVerts; j++)
+					{
+						energyList[i - 1] += (_wList[i] - _wListTar[i]).row(j).squaredNorm();
+						if (deriv)
+						{
+							derivList[i - 1](2 * nbaseVerts + 2 * j) = 2 * (_wList[i](j, 0) - _wListTar[i](j, 0));
+							derivList[i - 1](2 * nbaseVerts + 2 * j + 1) = 2 * (_wList[i](j, 1) - _wListTar[i](j, 1));
+						}
+
+						if (hess)
+						{
+							hessList[i - 1].push_back({ 2 * nbaseVerts + 2 * j , 2 * nbaseVerts + 2 * j, 2.0 });
+							hessList[i - 1].push_back({ 2 * nbaseVerts + 2 * j + 1, 2 * nbaseVerts + 2 * j + 1, 2.0 });
+						}
+
+					}
+				}
+			}
+			else
+			{
+				energyList[i - 1] = IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(_basePos, _baseMesh, _faceArea, _cotEntries, _vertValsList[i], _wList[i], deriv ? &(derivList[i - 1]) : NULL, hess ? &(hessList[i - 1]) : NULL, isProj);
+			}
+
+			
 		}
 	};
 
@@ -489,20 +553,13 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 
 	for (int i = 0; i < _vertValsList.size() - 1; i++)
 	{
-		if(_isUseUpMesh)
-			energy += _model.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
-		else
-			energy += _newmodel.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+		energy += _model.zDotSquareIntegration(_wList[i], _wList[i + 1], _vertValsList[i], _vertValsList[i + 1], _dt, deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
 		
 		Eigen::VectorXd xvec, yvec;
 		xvec = getEntries(_vertValsList[i], 0);
 		yvec = getEntries(_vertValsList[i], 1);
 		
-		/*if (i > 0)
-		{
-			energy += -0.5 * _smoothCoeff * (xvec.dot(_cotMat * xvec) + yvec.dot(_cotMat * yvec));
-		}*/
-
+		
 		if (deriv)
 		{
 			if(i == 0)
@@ -514,17 +571,6 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 				deriv->segment(4 * (i - 1) * nbaseVerts, 8 * nbaseVerts) += curDeriv;
 			}
 
-			/*if (i > 0)
-			{
-				Eigen::VectorXd xDeriv = -_smoothCoeff * _cotMat * xvec;
-				Eigen::VectorXd yDeriv = -_smoothCoeff * _cotMat * yvec;
-				for (int j = 0; j < nbaseVerts; j++)
-				{
-					(*deriv)(4 * (i - 1) * nbaseVerts + 2 * j) += xDeriv(j);
-					(*deriv)(4 * (i - 1) * nbaseVerts + 2 * j + 1) += yDeriv(j);
-				}
-				
-			}*/
 
 		}
 
@@ -548,15 +594,7 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 				}
 			}
 
-			/*if (i > 0)
-			{
-				for (int k = 0; k < _cotMat.outerSize(); ++k)
-					for (Eigen::SparseMatrix<double>::InnerIterator it(_cotMat, k); it; ++it)
-					{
-						T.push_back(Eigen::Triplet<double>(2 * it.row() + 4 * (i - 1) * nbaseVerts, 2 * it.col() + 4 * (i - 1) * nbaseVerts, -_smoothCoeff * it.value()));
-						T.push_back(Eigen::Triplet<double>(2 * it.row() + 1 + 4 * (i - 1) * nbaseVerts, 2 * it.col() + 1 + 4 * (i - 1) * nbaseVerts, -_smoothCoeff * it.value()));
-					}
-			}*/
+			
 			curT.clear();
 		}
 	}
@@ -572,7 +610,7 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 	{
 		Eigen::VectorXd sDeriv;
 		Eigen::SparseMatrix<double> sHess;
-		double smoothTerm = computeSmoothnessEnergy(x, deriv ? &sDeriv : NULL, hess ? &sHess : NULL);
+		double smoothTerm = computeSmoothnessEnergy(x, deriv ? &sDeriv : NULL, hess ? &sHess : NULL, isProj);
 
 		energy += _smoothCoeff * smoothTerm;
 		if (deriv)

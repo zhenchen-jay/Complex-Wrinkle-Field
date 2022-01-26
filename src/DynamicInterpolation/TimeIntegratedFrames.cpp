@@ -164,9 +164,6 @@ void TimeIntegratedFrames::solveInterpFrames()
     auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
         return 1.0;
     };
-    testEnergy(x);
-    system("pause");
-
     _wTar.setZero(x.size() / 4, 3);
     for(int i = 0; i < _numFrames; i++)
     {

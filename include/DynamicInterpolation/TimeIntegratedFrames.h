@@ -12,7 +12,7 @@
 class TimeIntegratedFrames{
 public:
     TimeIntegratedFrames(){}
-    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, KnoppelModelType knopType, bool useInertial = false):_basePos(basePos), _K(K), _useInertial(useInertial), _knopType(knopType)
+    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, KnoppelModelType knopType, bool useInertial = false, double velMag = 1):_basePos(basePos), _K(K), _useInertial(useInertial), _knopType(knopType)
     {
         _baseMesh = MeshConnectivity(baseF);
 
@@ -47,7 +47,7 @@ public:
         _curV.setZero();
         if (_knopType == Z_W)
         {
-            _curV = _tarX - _initX;
+            _curV = (_tarX - _initX) * velMag;
         }
 
         igl::doublearea(_basePos, baseF, _faceArea);

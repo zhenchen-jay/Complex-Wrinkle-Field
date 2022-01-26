@@ -12,13 +12,13 @@ public:
 	InterpolateKeyFrames() {}
 	~InterpolateKeyFrames() {}
 
-	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd& upsampledPos, const Eigen::MatrixXi& upsampledF, const std::vector<std::pair<int, Eigen::Vector3d>>& baryCoords, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, bool isUseUpmesh, double penaltyCoef = 0, double smoothCoeff = 0.001):_basePos(basePos), _upsampledPos(upsampledPos), _baryCoords(baryCoords), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _isUseUpMesh(isUseUpmesh), _penaltyCoef(penaltyCoef), _smoothCoeff(smoothCoeff)
+	InterpolateKeyFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, int quadOrder, double smoothCoeff = 0.001, KnoppelModelType knopType = Z_W, double penaltyCoef = 0):_basePos(basePos), _w0(w0), _w1(w1), _vertVals0(vertVals0), _vertVals1(vertVals1), _penaltyCoef(penaltyCoef), _smoothCoeff(smoothCoeff)
 	{
 		_baseMesh = MeshConnectivity(baseF);
-		_upsampledMesh = MeshConnectivity(upsampledF);
 
 		_wList.resize(numFrames + 2);
 		_vertValsList.resize(numFrames + 2);
+		_wListTar.resize(numFrames + 2);
 
 		_wList[0] = w0;
 		_wList[numFrames + 1] = w1;
@@ -42,11 +42,16 @@ public:
 			}
 				
 		}
-
-		_model = GetInterpolatedValues(basePos, baseF, upsampledPos, upsampledF, baryCoords);
-		_newmodel = ComputeZandZdot(basePos, baseF, quadOrder);
+		_model = ComputeZandZdot(basePos, baseF, quadOrder);
 
 		igl::cotmatrix(basePos, baseF, _cotMat);
+
+		igl::doublearea(_basePos, baseF, _faceArea);
+		_faceArea /= 2.0;
+		igl::cotmatrix_entries(_basePos, baseF, _cotEntries);
+
+		_knopType = knopType;
+		_wListTar = _wList;
 		
 	}
 
@@ -94,7 +99,7 @@ public:
 	
 
 	double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
-	double computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL);
+	double computeSmoothnessEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
 
 	double computePerFrameConstraints(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 	double computeConstraints(const Eigen::VectorXd& x, const Eigen::VectorXd& lambda, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false, Eigen::VectorXd* constraints = NULL);
@@ -115,21 +120,23 @@ public:
 public:
 	Eigen::MatrixXd _basePos;
 	MeshConnectivity _baseMesh;
-	Eigen::MatrixXd _upsampledPos;
-	MeshConnectivity _upsampledMesh;
-	std::vector<std::pair<int, Eigen::Vector3d>> _baryCoords;
-	std::vector<Eigen::MatrixXd> _wList;
 	Eigen::MatrixXd _w0;
 	Eigen::MatrixXd _w1;
+	std::vector<Eigen::MatrixXd> _wList;
+	std::vector<Eigen::MatrixXd> _wListTar;
+
 	std::vector<std::complex<double>> _vertVals0;
 	std::vector<std::complex<double>> _vertVals1;
 	std::vector<std::vector<std::complex<double>>> _vertValsList;
-	GetInterpolatedValues _model;
-	ComputeZandZdot _newmodel;
+
+	ComputeZandZdot _model;
 	double _dt;
-	bool _isUseUpMesh;
+
 	double _penaltyCoef;
 	Eigen::SparseMatrix<double> _cotMat;
+	Eigen::MatrixXd _cotEntries;
+	Eigen::VectorXd _faceArea;
 	double _smoothCoeff;
+	KnoppelModelType _knopType;
 
 };
