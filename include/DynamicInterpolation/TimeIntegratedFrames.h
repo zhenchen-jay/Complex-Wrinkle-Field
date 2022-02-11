@@ -12,7 +12,7 @@
 class TimeIntegratedFrames{
 public:
     TimeIntegratedFrames(){}
-    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, KnoppelModelType knopType, bool useInertial = false, double velMag = 1):_basePos(basePos), _K(K), _useInertial(useInertial), _knopType(knopType)
+    TimeIntegratedFrames(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF, const Eigen::MatrixXd &w0, const Eigen::MatrixXd &w1, const std::vector<std::complex<double>> &vertVals0, const std::vector<std::complex<double>> &vertVals1, int numFrames, double K, KnoppelModelType knopType, double unitPenaltyCoeff = 0.0, bool useInertial = false, double velMag = 1):_basePos(basePos), _K(K), _useInertial(useInertial), _knopType(knopType)
     {
         _baseMesh = MeshConnectivity(baseF);
 
@@ -53,6 +53,8 @@ public:
         igl::doublearea(_basePos, baseF, _faceArea);
         _faceArea /= 2.0;
         igl::cotmatrix_entries(_basePos, baseF, _cotEntries);
+
+        _unitPenaltyCoeff = unitPenaltyCoeff;
     }
 
     void updateWZList();
@@ -88,6 +90,7 @@ private:
     Eigen::VectorXd _faceArea;
     Eigen::MatrixXd _cotEntries;
     KnoppelModelType _knopType;
+    double _unitPenaltyCoeff;
 
     bool _useInertial;
 };
