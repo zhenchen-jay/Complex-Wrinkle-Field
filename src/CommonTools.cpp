@@ -509,3 +509,40 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 	}*/
 	return vertOmega;
 }
+
+double unitMagEnergy(const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess, bool isProj)
+{
+	int nverts = zvals.size();
+	double energy = 0;
+	
+	if (deriv)
+		deriv->setZero(2 * nverts);
+
+	if (hess)
+		hess->clear();
+
+	double sum = 0;
+
+	Eigen::VectorXd derivSum(2 * nverts);
+
+	for (int i = 0; i < nverts; i++)
+	{
+		sum += zvals[i].real()* zvals[i].real() + zvals[i].imag() * zvals[i].imag();
+		if (deriv)
+		{
+			derivSum.segment<2>(2 * i) << 2 * zvals[i].real(), 2 * zvals[i].imag();
+		}
+	}
+
+	energy = 0.5 * (sum - 1) * (sum - 1);
+
+	if (deriv)
+		*deriv = (sum - 1) * derivSum;
+
+	if (hess)
+	{
+		// hess is dense. Really bad
+	}
+
+	return energy;
+}

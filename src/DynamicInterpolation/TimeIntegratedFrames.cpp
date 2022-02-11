@@ -30,6 +30,12 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
      Eigen::SparseMatrix<double> pHess;
      std::vector<Eigen::Triplet<double>> pT;
 
+     std::vector<std::complex<double>> z(nverts);
+     for (int i = 0; i < nverts; i++)
+     {
+         z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
+     }
+
      if (_knopType == W_WTar)
      {
          if(deriv)
@@ -54,11 +60,7 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
      }
      else if (_knopType == Z_WTar || _knopType == WZ_Tar)
      {
-         std::vector<std::complex<double>> z(nverts);
-         for (int i = 0; i < nverts; i++)
-         {
-             z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
-         }
+        
          if (deriv)
              pDeriv.setZero(x.rows());
 
@@ -91,21 +93,24 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
      else
      {
          Eigen::MatrixXd w(nverts, 2);
-         std::vector<std::complex<double>> z(nverts);
-
          for (int i = 0; i < nverts; i++)
          {
-             z[i] = std::complex<double>(x(2 * i), x(2 * i + 1));
              w.row(i) << x(2 * i + 2 * nverts), x(2 * i + 2 * nverts + 1);
          }
-         p = IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(_basePos, _baseMesh, _faceArea, _cotEntries, z, w, deriv ? &pDeriv : NULL, hess ? &pT : NULL);
+         p = IntrinsicFormula::KnoppelEnergyFor2DVertexOmega(_basePos, _baseMesh, _faceArea, _cotEntries, z, w, deriv ? &pDeriv : NULL, hess ? &pT : NULL, isProj);
      }
      
 
+     Eigen::VectorXd penaltyDeriv;
+     std::vector<Eigen::Triplet<double>> penaltyT;
+     Eigen::SparseMatrix<double> penaltyHess;
+
+     double penalty = unitMagEnergy(z, deriv ? &penaltyDeriv : NULL, hess ? &penaltyT : NULL, isProj);
+
      if (_useInertial)
-         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * p;
+         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * p + _unitPenaltyCoeff * _dt * _dt * penalty;
      else
-         energy = p;
+         energy = _K * p + _unitPenaltyCoeff * penalty;
 
      if(deriv)
      {
@@ -113,29 +118,34 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
          {
              *deriv = x - xtilde;
              (*deriv) += _K * _dt * _dt * pDeriv;
+             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * _dt * _dt * penaltyDeriv;
          }
          else
          {
              deriv->setZero(x.rows());
-             (*deriv) = pDeriv;
+             (*deriv) = _K * pDeriv;
+             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * penaltyDeriv;
          }
      }
-     if(hess)
+     /*if(hess)
      {
          pHess.resize(x.rows(), x.rows());
          pHess.setFromTriplets(pT.begin(), pT.end());
+
+         penaltyHess.resize(x.rows(), x.rows());
+         penaltyHess.setFromTriplets(penaltyT.begin(), penaltyT.end());
 
          if (_useInertial)
          {
              hess->resize(x.rows(), x.rows());
              hess->setIdentity();
 
-             (*hess) += _K * _dt * _dt * pHess;
+             (*hess) += _K * _dt * _dt * pHess + _unitPenaltyCoeff * _dt * _dt * penaltyHess;
          }
          else
-             *hess = pHess;
+             *hess = _K * pHess + _unitPenaltyCoeff * penaltyHess;
          
-     }
+     }*/
      return energy;
 }
 

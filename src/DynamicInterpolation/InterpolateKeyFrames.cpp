@@ -162,6 +162,18 @@ double InterpolateKeyFrames::computePerVertexConstraint(const std::vector<std::c
 double InterpolateKeyFrames::computePerFramePenalty(const std::vector<std::complex<double>>& zvals, const Eigen::MatrixXd& w, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	int nbaseVerts = _basePos.rows();
+	Eigen::VectorXd partDeriv;
+	double energy = unitMagEnergy(zvals, deriv ? &partDeriv : NULL, hessT, isProj);
+
+	if (deriv)
+	{
+		deriv->setZero(4 * nbaseVerts);
+		deriv->segment(0, 2 * nbaseVerts) = partDeriv;
+	}
+
+	return energy;
+	/*
+	int nbaseVerts = _basePos.rows();
 	double energy = 0;
 
 	std::vector<double> energyList(nbaseVerts);
@@ -215,6 +227,7 @@ double InterpolateKeyFrames::computePerFramePenalty(const std::vector<std::compl
 		}
 	}
 	return energy;
+	*/
 }
 
 double InterpolateKeyFrames::computePenalty(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
@@ -617,6 +630,19 @@ double InterpolateKeyFrames::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 			(*deriv) += _smoothCoeff * sDeriv;
 		if (hess)
 			(*hess) += _smoothCoeff * sHess;
+	}
+
+	if (_penaltyCoef > 0)
+	{
+		Eigen::VectorXd pDeriv;
+		Eigen::SparseMatrix<double> pHess;
+		double penaltyTerm = computePenalty(x, deriv ? &pDeriv : NULL, hess ? &pHess : NULL, isProj);
+
+		energy += _penaltyCoef * penaltyTerm;
+		if (deriv)
+			(*deriv) += _penaltyCoef * pDeriv;
+		if (hess)
+			(*hess) += _penaltyCoef * pHess;
 	}
 
 	return energy;

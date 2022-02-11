@@ -135,8 +135,9 @@ int numIter = 1000;
 int quadOrder = 4;
 
 bool useInertial = false;
-double knoppelK = 1.0;
+
 double smoothCoef = 0;
+double unitNormPenalty = 0;
 
 
 enum FunctionType {
@@ -158,8 +159,8 @@ enum InterpolationType {
 };
 
 enum IntermediateFrameType {
-	Geodesic = 0,
-	IEDynamic = 1
+	BVP = 0,
+	IVP = 1
 };
 
 enum InitializationType {
@@ -174,7 +175,7 @@ bool isUseUpMesh = false;
 FunctionType functionType = FunctionType::PlaneWave;
 FunctionType tarFunctionType = FunctionType::PlaneWave;
 InitializationType initializationType = InitializationType::Linear;
-IntermediateFrameType frameType = IntermediateFrameType::IEDynamic;
+IntermediateFrameType frameType = IntermediateFrameType::IVP;
 KnoppelModelType knoppelType = Z_WTar;
 double velMag = 1.0;
 
@@ -720,14 +721,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 	//zdotModel.testPlaneWaveValueDotFromQuad(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0, 2);
 	//zdotModel.testZDotSquarePerface(sourceVec, tarVec, sourceZvals, tarZvals, 1, 0);
 	//zdotModel.testZDotSquareIntegration(sourceVec, tarVec, sourceZvals, tarZvals, 1);
-	if (frameType == IntermediateFrameType::Geodesic)
+	if (frameType == IntermediateFrameType::BVP)
 	{
 		std::cout << "is use upsampled mesh: " << isUseUpMesh << std::endl;
-		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, smoothCoef, knoppelType);
+		InterpolateKeyFrames interpModel = InterpolateKeyFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, quadOrder, smoothCoef, knoppelType, unitNormPenalty);
 		Eigen::VectorXd x;
 		interpModel.convertList2Variable(x);        // linear initialization
-
-		//interpModel.testEnergy(x);
 		//		std::cout << "starting energy: " << interpModel.computeEnergy(x) << std::endl;
 		if (initializationType == InitializationType::Theoretical)
 		{
@@ -880,9 +879,9 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
 			std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
 		}
 	}
-	else if (frameType == IntermediateFrameType::IEDynamic)
+	else if (frameType == IntermediateFrameType::IVP)
 	{
-		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, knoppelK, knoppelType, useInertial, velMag);
+		TimeIntegratedFrames frameModel = TimeIntegratedFrames(triV2D, triF2D, sourceVec, tarVec, sourceZvals, tarZvals, numKeyFrames, smoothCoef, knoppelType, unitNormPenalty, useInertial, velMag);
 		frameModel.solveInterpFrames();
 
 		wFrames = frameModel.getWList();
@@ -1287,6 +1286,27 @@ void callback() {
 	{
 		updateFieldsInView(curFrame);
 	}
+
+	if (ImGui::Combo("frame types", (int*)&frameType, "BVP\0IVP\0\0")) {}
+	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
+
+	ImGui::Checkbox("Try Optimization", &isForceOptimize);
+
+	if (ImGui::CollapsingHeader("model parameters", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::InputDouble("smoothness coef", &smoothCoef))
+		{
+			if (smoothCoef < 0)
+				smoothCoef = 0;
+		}
+		if (ImGui::InputDouble("unit norm penalty coef", &unitNormPenalty))
+		{
+			if (unitNormPenalty < 0)
+				unitNormPenalty = 0;
+		}
+	}
+	
+
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::InputInt("num iterations", &numIter))
@@ -1314,18 +1334,8 @@ void callback() {
 			if (quadOrder <= 0 || quadOrder > 20)
 				quadOrder = 4;
 		}
-		if (ImGui::InputDouble("smoothness coef", &smoothCoef))
-		{
-			if (smoothCoef < 0)
-				smoothCoef = 0;
-		}
-		
-
 	}
-	if (ImGui::Combo("frame types", (int*)&frameType, "Geodesic\0IE Dynamic\0\0")) {}
-	if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Theoretical\0")) {}
-
-	ImGui::Checkbox("Try Optimization", &isForceOptimize);
+	
 
 	if (ImGui::CollapsingHeader("dynamic parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -1335,11 +1345,6 @@ void callback() {
 		{
 			if (velMag < 0)
 				velMag = 1.0;
-		}
-		if (ImGui::InputDouble("knoppel K", &knoppelK))
-		{
-			if (knoppelK < 0)
-				knoppelK = 1.0;
 		}
 	}
 	
