@@ -26,7 +26,6 @@ void IntrinsicFormula::computeMatrixA(const MeshConnectivity &mesh, const Eigen:
             halfEdgeWeight(eid) += cotEntries(i, j);
         }
     }
-    double energy = 0;
     for(int i = 0; i < nedges; i++)
     {
         int vid0 = mesh.edgeVertex(i, 0);
@@ -51,6 +50,54 @@ void IntrinsicFormula::computeMatrixA(const MeshConnectivity &mesh, const Eigen:
         AT.push_back({ 2 * vid1 + 1, 2 * vid0, -halfEdgeWeight(i) * (expw0.imag() - expw1.imag()) });
         AT.push_back({ 2 * vid1 + 1, 2 * vid0 + 1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) });
 
+    }
+    A.resize(2 * nverts, 2 * nverts);
+    A.setFromTriplets(AT.begin(), AT.end());
+}
+
+void IntrinsicFormula::computeMatrixAGivenMag(const MeshConnectivity &mesh, const Eigen::MatrixXd &halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, Eigen::SparseMatrix<double>& A) {
+    std::vector<Eigen::Triplet<double>> AT;
+    int nfaces = mesh.nFaces();
+    int nedges = mesh.nEdges();
+
+    Eigen::VectorXd halfEdgeWeight(nedges);
+    halfEdgeWeight.setZero();
+
+    for (int i = 0; i < nfaces; i++)  // form mass matrix
+    {
+        for (int j = 0; j < 3; j++) {
+            int eid = mesh.faceEdge(i, j);
+            halfEdgeWeight(eid) += cotEntries(i, j);
+        }
+    }
+
+    for (int i = 0; i < nedges; i++) {
+        int vid0 = mesh.edgeVertex(i, 0);
+        int vid1 = mesh.edgeVertex(i, 1);
+
+        double r0 = vertAmp(vid0);
+        double r1 = vertAmp(vid1);
+
+        std::complex<double> expw0 = std::complex<double>(std::cos(halfEdgeW(i, 0)), std::sin(halfEdgeW(i, 0)));
+        std::complex<double> expw1 = std::complex<double>(std::cos(halfEdgeW(i, 1)), std::sin(halfEdgeW(i, 1)));
+
+
+        AT.push_back({2 * vid0, 2 * vid0, 2 * r1 * r1 * halfEdgeWeight(i)});
+        AT.push_back({2 * vid0 + 1, 2 * vid0 + 1, 2 * r1 * r1 * halfEdgeWeight(i)});
+
+        AT.push_back({2 * vid1, 2 * vid1, 2 * r0 * r0 * halfEdgeWeight(i)});
+        AT.push_back({2 * vid1 + 1, 2 * vid1 + 1, 2 * r0 * r0 * halfEdgeWeight(i)});
+
+
+        AT.push_back({2 * vid0, 2 * vid1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1});
+        AT.push_back({2 * vid0 + 1, 2 * vid1, -halfEdgeWeight(i) * (-expw0.imag() + expw1.imag()) * r0 * r1});
+        AT.push_back({2 * vid0, 2 * vid1 + 1, -halfEdgeWeight(i) * (expw0.imag() - expw1.imag()) * r0 * r1});
+        AT.push_back({2 * vid0 + 1, 2 * vid1 + 1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1});
+
+        AT.push_back({2 * vid1, 2 * vid0, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1});
+        AT.push_back({2 * vid1, 2 * vid0 + 1, -halfEdgeWeight(i) * (-expw0.imag() + expw1.imag()) * r0 * r1});
+        AT.push_back({2 * vid1 + 1, 2 * vid0, -halfEdgeWeight(i) * (expw0.imag() - expw1.imag()) * r0 * r1});
+        AT.push_back({2 * vid1 + 1, 2 * vid0 + 1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1});
     }
     A.resize(2 * nverts, 2 * nverts);
     A.setFromTriplets(AT.begin(), AT.end());
@@ -129,6 +176,89 @@ double IntrinsicFormula::KnoppelEnergy(const MeshConnectivity& mesh, const Eigen
             (*deriv) = A * fvals;
         }
            
+        if (hess)
+            (*hess) = AT;
+    }
+
+    return energy;
+}
+
+double IntrinsicFormula::KnoppelEnergyGivenMag(const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess)
+{
+    std::vector<Eigen::Triplet<double>> AT;
+    int nfaces = mesh.nFaces();
+    int nedges = mesh.nEdges();
+    int nverts = zvals.size();
+
+    Eigen::VectorXd halfEdgeWeight(nedges);
+    halfEdgeWeight.setZero();
+
+    for (int i = 0; i < nfaces; i++)  // form mass matrix
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            int eid = mesh.faceEdge(i, j);
+            halfEdgeWeight(eid) += cotEntries(i, j);
+        }
+    }
+    double energy = 0;
+
+    for (int i = 0; i < nedges; i++)
+    {
+        int vid0 = mesh.edgeVertex(i, 0);
+        int vid1 = mesh.edgeVertex(i, 1);
+
+        double r0 = vertAmp(vid0);
+        double r1 = vertAmp(vid1);
+
+        std::complex<double> expw0 = std::complex<double>(std::cos(halfEdgeW(i, 0)), std::sin(halfEdgeW(i, 0)));
+        std::complex<double> expw1 = std::complex<double>(std::cos(halfEdgeW(i, 1)), std::sin(halfEdgeW(i, 1)));
+
+        std::complex<double> z0 = zvals[vid0];
+        std::complex<double> z1 = zvals[vid1];
+
+
+        energy += 0.5 * (norm((r1 * z0 * expw0 - r0 * z1)) + norm((r0 * z1 * expw1 - r1 * z0))) * halfEdgeWeight(i);
+
+        if (deriv || hess)
+        {
+            AT.push_back({ 2 * vid0, 2 * vid0, 2 * r1 * r1 * halfEdgeWeight(i) });
+            AT.push_back({ 2 * vid0 + 1, 2 * vid0 + 1, 2 * r1 * r1 * halfEdgeWeight(i) });
+
+            AT.push_back({ 2 * vid1, 2 * vid1, 2 * r0 * r0 * halfEdgeWeight(i) });
+            AT.push_back({ 2 * vid1 + 1, 2 * vid1 + 1, 2 * r0 * r0 * halfEdgeWeight(i) });
+
+
+            AT.push_back({ 2 * vid0, 2 * vid1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1 });
+            AT.push_back({ 2 * vid0 + 1, 2 * vid1, -halfEdgeWeight(i) * (-expw0.imag() + expw1.imag()) * r0 * r1 });
+            AT.push_back({ 2 * vid0, 2 * vid1 + 1, -halfEdgeWeight(i) * (expw0.imag() - expw1.imag()) * r0 * r1 });
+            AT.push_back({ 2 * vid0 + 1, 2 * vid1 + 1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1 });
+
+            AT.push_back({ 2 * vid1, 2 * vid0, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1 });
+            AT.push_back({ 2 * vid1, 2 * vid0 + 1, -halfEdgeWeight(i) * (-expw0.imag() + expw1.imag()) * r0 * r1 });
+            AT.push_back({ 2 * vid1 + 1, 2 * vid0, -halfEdgeWeight(i) * (expw0.imag() - expw1.imag()) * r0 * r1 });
+            AT.push_back({ 2 * vid1 + 1, 2 * vid0 + 1, -halfEdgeWeight(i) * (expw0.real() + expw1.real()) * r0 * r1 });
+        }
+    }
+
+    if (deriv || hess)
+    {
+        Eigen::SparseMatrix<double> A;
+
+        A.resize(2 * nverts, 2 * nverts);
+        A.setFromTriplets(AT.begin(), AT.end());
+
+        if (deriv)
+        {
+            Eigen::VectorXd fvals(2 * nverts);
+            for (int i = 0; i < nverts; i++)
+            {
+                fvals(2 * i) = zvals[i].real();
+                fvals(2 * i + 1) = zvals[i].imag();
+            }
+            (*deriv) = A * fvals;
+        }
+
         if (hess)
             (*hess) = AT;
     }
@@ -378,6 +508,56 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(const MeshConnectivity 
     for(int i = 0; i < nverts; i++)
     {
         zvals.push_back(std::complex<double>(evecs(2 * i, 0), evecs(2 * i + 1, 0)));
+    }
+}
+
+void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConnectivity &mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals)
+{
+    std::vector<Eigen::Triplet<double>> BT;
+    int nfaces = mesh.nFaces();
+    int nedges = mesh.nEdges();
+
+    for(int i = 0; i < nfaces; i++)  // form mass matrix
+    {
+        for(int j =0; j < 3; j++)
+        {
+            int vid = mesh.faceVertex(i, j);
+            BT.push_back({2 * vid, 2 * vid, faceArea(i) / 3.0});
+            BT.push_back({2 * vid + 1, 2 * vid + 1, faceArea(i) / 3.0});
+        }
+    }
+    Eigen::SparseMatrix<double> A;
+    computeMatrixAGivenMag(mesh, halfEdgeW, vertAmp, faceArea, cotEntries, nverts, A);
+
+    Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
+    B.setFromTriplets(BT.begin(), BT.end());
+    /* std::cout << A.toDense() << std::endl;
+     std::cout << B.toDense() << std::endl;*/
+
+    Spectra::SymShiftInvert<double> op(A, B);
+    Spectra::SparseSymMatProd<double> Bop(B);
+    Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -1e-6);
+    geigs.init();
+    int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
+
+    Eigen::VectorXd evalues;
+    Eigen::MatrixXd evecs;
+
+    evalues = geigs.eigenvalues();
+    evecs = geigs.eigenvectors();
+    if (nconv != 1 || geigs.info() != Spectra::CompInfo::Successful)
+    {
+        std::cout << "Eigensolver failed to converge!!" << std::endl;
+    }
+
+    std::cout << "Eigenvalue is " << evalues[0] << std::endl;
+
+    zvals.clear();
+    for(int i = 0; i < nverts; i++)
+    {
+        std::complex<double> z = std::complex<double>(evecs(2 * i, 0), evecs(2 * i + 1, 0));
+        z *= vertAmp(i) / std::abs(z);
+        zvals.push_back(z);
     }
 }
 

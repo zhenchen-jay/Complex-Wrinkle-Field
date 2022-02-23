@@ -70,6 +70,14 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 			H = hessian + reg * I;
 			solver.compute(H);
 			reg = std::max(2 * reg, 1e-16);
+
+            if(reg > 1e4)
+            {
+                std::cout << "reg is too large, use SPD hessian instead." << std::endl;
+                reg = 1e-6;
+                isProj = true;
+                f = objFunc(x0, &grad, &hessian, isProj);
+            }
 		}
 
 		neggrad = -grad;

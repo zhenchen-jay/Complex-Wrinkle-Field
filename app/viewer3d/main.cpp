@@ -49,6 +49,7 @@
 //#include "../../include/IntrinsicFormula/ComputeZdotFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
 //#include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromEdge.h"
+#include "../../include/IntrinsicFormula/IntrinsicKnoppelDrivenFormula.h"
 #include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 #include <igl/cylinder.h>

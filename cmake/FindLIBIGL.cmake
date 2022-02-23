@@ -6,6 +6,7 @@
 if(LIBIGL_FOUND)
     return()
 endif()
+message(${CMAKE_SOURCE_DIR})
 
 find_path(LIBIGL_INCLUDE_DIR igl/readOBJ.h
     HINTS
@@ -26,6 +27,7 @@ find_path(LIBIGL_INCLUDE_DIR igl/readOBJ.h
 	${CMAKE_SOURCE_DIR}/../Tools/libigl
 	${CMAKE_SOURCE_DIR}/../tools/libigl
         /Users/zhenc/Projects/Tools/libigl
+        /Users/zchen96/UT/Research/Projects/Tools/libigl
     PATH_SUFFIXES include
 )
 

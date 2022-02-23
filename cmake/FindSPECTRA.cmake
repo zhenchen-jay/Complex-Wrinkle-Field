@@ -50,6 +50,7 @@ find_path( SPECTRA_INCLUDE_DIR
                   ../../tools/spectra/include
                   C:/Users/csyzz/Projects/Tools/spectra/include/Spectra
                 /home/zchen96/Projects/tools/spectra/
+                /Users/zchen96/UT/Research/Projects/Tools/spectra
             PATH_SUFFIXES include include/Spectra
           )
 

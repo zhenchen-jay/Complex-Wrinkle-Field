@@ -105,12 +105,14 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
      std::vector<Eigen::Triplet<double>> penaltyT;
      Eigen::SparseMatrix<double> penaltyHess;
 
-     double penalty = unitMagEnergy(z, deriv ? &penaltyDeriv : NULL, hess ? &penaltyT : NULL, isProj);
+//     double penalty = unitMagEnergy(z, deriv ? &penaltyDeriv : NULL, hess ? &penaltyT : NULL, isProj);
 
      if (_useInertial)
-         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * p + _unitPenaltyCoeff * _dt * _dt * penalty;
+         energy = 0.5 * (x - xtilde).dot(x - xtilde) + _K * _dt * _dt * p;
+//     + _unitPenaltyCoeff * _dt * _dt * penalty;
      else
-         energy = _K * p + _unitPenaltyCoeff * penalty;
+         energy = _K * p;
+//     + _unitPenaltyCoeff * penalty;
 
      if(deriv)
      {
@@ -118,16 +120,16 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
          {
              *deriv = x - xtilde;
              (*deriv) += _K * _dt * _dt * pDeriv;
-             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * _dt * _dt * penaltyDeriv;
+//             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * _dt * _dt * penaltyDeriv;
          }
          else
          {
              deriv->setZero(x.rows());
              (*deriv) = _K * pDeriv;
-             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * penaltyDeriv;
+//             deriv->segment(0, 2 * nverts) = _unitPenaltyCoeff * penaltyDeriv;
          }
      }
-     /*if(hess)
+     if(hess)
      {
          pHess.resize(x.rows(), x.rows());
          pHess.setFromTriplets(pT.begin(), pT.end());
@@ -140,12 +142,14 @@ double TimeIntegratedFrames::computeEnergy(const Eigen::VectorXd &x, Eigen::Vect
              hess->resize(x.rows(), x.rows());
              hess->setIdentity();
 
-             (*hess) += _K * _dt * _dt * pHess + _unitPenaltyCoeff * _dt * _dt * penaltyHess;
+             (*hess) += _K * _dt * _dt * pHess;
+//             + _unitPenaltyCoeff * _dt * _dt * penaltyHess;
          }
          else
-             *hess = _K * pHess + _unitPenaltyCoeff * penaltyHess;
+             *hess = _K * pHess;
+//         + _unitPenaltyCoeff * penaltyHess;
          
-     }*/
+     }
      return energy;
 }
 
