@@ -2,6 +2,7 @@
 #include "../../include/IntrinsicFormula/AmpSolver.h"
 #include <SymGEigsShiftSolver.h>
 #include <MatOp/SparseCholesky.h>
+#include <Eigen/CholmodSupport>
 #include <MatOp/SparseSymShiftSolve.h>
 #include <iostream>
 
@@ -16,16 +17,16 @@ void IntrinsicFormula::computeMatrixA(const MeshConnectivity &mesh, const Eigen:
     int nedges = mesh.nEdges();
 
     Eigen::VectorXd halfEdgeWeight(nedges);
-    halfEdgeWeight.setZero();
+    halfEdgeWeight.setConstant(1.0);
 
-    for(int i = 0; i < nfaces; i++)  // form mass matrix
-    {
-        for(int j =0; j < 3; j++)
-        {
-            int eid = mesh.faceEdge(i, j);
-            halfEdgeWeight(eid) += cotEntries(i, j);
-        }
-    }
+//    for (int i = 0; i < nfaces; i++)  // form mass matrix
+//    {
+//        for (int j = 0; j < 3; j++)
+//        {
+//            int eid = mesh.faceEdge(i, j);
+//            halfEdgeWeight(eid) += cotEntries(i, j);
+//        }
+//    }
     for(int i = 0; i < nedges; i++)
     {
         int vid0 = mesh.edgeVertex(i, 0);
@@ -61,15 +62,16 @@ void IntrinsicFormula::computeMatrixAGivenMag(const MeshConnectivity &mesh, cons
     int nedges = mesh.nEdges();
 
     Eigen::VectorXd halfEdgeWeight(nedges);
-    halfEdgeWeight.setZero();
+    halfEdgeWeight.setConstant(1.0);
 
-    for (int i = 0; i < nfaces; i++)  // form mass matrix
-    {
-        for (int j = 0; j < 3; j++) {
-            int eid = mesh.faceEdge(i, j);
-            halfEdgeWeight(eid) += cotEntries(i, j);
-        }
-    }
+//    for (int i = 0; i < nfaces; i++)  // form mass matrix
+//    {
+//        for (int j = 0; j < 3; j++)
+//        {
+//            int eid = mesh.faceEdge(i, j);
+//            halfEdgeWeight(eid) += cotEntries(i, j);
+//        }
+//    }
 
     for (int i = 0; i < nedges; i++) {
         int vid0 = mesh.edgeVertex(i, 0);
@@ -111,16 +113,16 @@ double IntrinsicFormula::KnoppelEnergy(const MeshConnectivity& mesh, const Eigen
     int nverts = zvals.size();
 
     Eigen::VectorXd halfEdgeWeight(nedges);
-    halfEdgeWeight.setZero();
+    halfEdgeWeight.setConstant(1.0);
 
-    for (int i = 0; i < nfaces; i++)  // form mass matrix
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            int eid = mesh.faceEdge(i, j);
-            halfEdgeWeight(eid) += cotEntries(i, j);
-        }
-    }
+//    for (int i = 0; i < nfaces; i++)  // form mass matrix
+//    {
+//        for (int j = 0; j < 3; j++)
+//        {
+//            int eid = mesh.faceEdge(i, j);
+//            halfEdgeWeight(eid) += cotEntries(i, j);
+//        }
+//    }
     double energy = 0;
     
     for (int i = 0; i < nedges; i++)
@@ -188,19 +190,19 @@ double IntrinsicFormula::KnoppelEnergyGivenMag(const MeshConnectivity& mesh, con
     std::vector<Eigen::Triplet<double>> AT;
     int nfaces = mesh.nFaces();
     int nedges = mesh.nEdges();
-    int nverts = zvals.size();
+    int nverts = vertAmp.size();
 
     Eigen::VectorXd halfEdgeWeight(nedges);
-    halfEdgeWeight.setZero();
+    halfEdgeWeight.setConstant(1.0);
 
-    for (int i = 0; i < nfaces; i++)  // form mass matrix
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            int eid = mesh.faceEdge(i, j);
-            halfEdgeWeight(eid) += cotEntries(i, j);
-        }
-    }
+//    for (int i = 0; i < nfaces; i++)  // form mass matrix
+//    {
+//        for (int j = 0; j < 3; j++)
+//        {
+//            int eid = mesh.faceEdge(i, j);
+//            halfEdgeWeight(eid) += cotEntries(i, j);
+//        }
+//    }
     double energy = 0;
 
     for (int i = 0; i < nedges; i++)
@@ -247,6 +249,9 @@ double IntrinsicFormula::KnoppelEnergyGivenMag(const MeshConnectivity& mesh, con
 
         A.resize(2 * nverts, 2 * nverts);
         A.setFromTriplets(AT.begin(), AT.end());
+
+        // check whether A is PD
+
 
         if (deriv)
         {
@@ -529,6 +534,19 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
     Eigen::SparseMatrix<double> A;
     computeMatrixAGivenMag(mesh, halfEdgeW, vertAmp, faceArea, cotEntries, nverts, A);
 
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
+    Eigen::SparseMatrix<double> I = A;
+    I.setIdentity();
+    double eps = 1e-16;
+    auto tmpA = A + eps * I;
+    solver.compute(tmpA);
+    while(solver.info() != Eigen::Success)
+    {
+        std::cout << "matrix is not PD after adding "<< eps << " * I" << std::endl;
+        solver.compute(tmpA);
+        eps *= 2;
+    }
+
     Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
     B.setFromTriplets(BT.begin(), BT.end());
     /* std::cout << A.toDense() << std::endl;
@@ -536,7 +554,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
 
     Spectra::SymShiftInvert<double> op(A, B);
     Spectra::SparseSymMatProd<double> Bop(B);
-    Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -1e-6);
+    Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -2 * eps);
     geigs.init();
     int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
 
@@ -548,6 +566,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
     if (nconv != 1 || geigs.info() != Spectra::CompInfo::Successful)
     {
         std::cout << "Eigensolver failed to converge!!" << std::endl;
+        exit(1);
     }
 
     std::cout << "Eigenvalue is " << evalues[0] << std::endl;

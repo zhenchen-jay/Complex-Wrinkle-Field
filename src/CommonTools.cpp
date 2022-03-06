@@ -2,7 +2,8 @@
 #include <iostream>
 #include <deque>
 #include <queue>
-//#include <Eigen/SPQRSupport>
+#include <Eigen/SPQRSupport>
+#include <igl/per_vertex_normals.h>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
 {
@@ -479,6 +480,9 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 	Eigen::MatrixXd vertOmega(nverts, 3);
 	vertOmega.setZero();
 
+    Eigen::MatrixXd vertNormals;
+    igl::per_vertex_normals(pos, mesh.faces(), vertNormals);
+
 	Eigen::SparseMatrix<double> A;
 	std::vector<Eigen::Triplet<double>> T;
 
@@ -500,13 +504,42 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 	A.resize(2 * nedges, 3 * nverts);
 	A.setFromTriplets(T.begin(), T.end());
 
-	/*Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
-	Eigen::VectorXd sol = solver.solve(edgeVec);
+    Eigen::SparseMatrix<double> AT, AAT;
+    AT = A.transpose();
+    AAT = AT * A;
+
+    Eigen::VectorXd ATb = AT * edgeVec;
+
+    T.clear();
+    for (int k=0; k<AAT.outerSize(); ++k)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(AAT,k); it; ++it)
+        {
+            T.push_back({it.row(), it.col(), it.value()});
+        }
+
+    for(int i = 0; i < nverts; i++)
+    {
+        for(int j = 0; j < 3; j++)
+        {
+            T.push_back({3 * i + j, 3 * nverts + i, vertNormals(i, j)});
+            T.push_back({3 * nverts + i, 3 * i + j, vertNormals(i, j)});
+        }
+    }
+
+    A.resize(4 * nverts, 4 * nverts);
+    A.setFromTriplets(T.begin(), T.end());
+
+    Eigen::VectorXd rhs(4 * nverts);
+    rhs.setZero();
+    rhs.segment(0, 3 * nverts) = ATb;
+
+	Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
+	Eigen::VectorXd sol = solver.solve(rhs);
 
 	for (int i = 0; i < nverts; i++)
 	{
 		vertOmega.row(i) = sol.segment<3>(3 * i);
-	}*/
+	}
 	return vertOmega;
 }
 
