@@ -400,40 +400,6 @@ bool IntrinsicKeyFrameInterpolationFromHalfEdge::load(const std::string& fileNam
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)(numFrames + 2), GRAIN_SIZE);
 	tbb::parallel_for(rangex, loadZandOmega);
-
-	//for (int i = 0; i < numFrames + 2; i++)
-	//{
-	//	//std::cout << i << std::endl;
-	//	std::ifstream zfs(workingFolder + "zvals_" + std::to_string(i) + ".txt");
-	//	_zList[i].resize(V.rows());
-	//	for (int j = 0; j < _zList[i].size(); j++)
-	//	{
-	//		//std::cout << j << std::endl;
-	//		std::string line;
-	//		std::getline(zfs, line);
-	//		//std::cout << line << std::endl;
-	//		std::stringstream ss(line);
-	//		std::string x, y;
-	//		ss >> x;
-	//		ss >> y;
-	//		//std::cout << x << " " << y << std::endl;
-	//		_zList[i][j] = std::complex<double>(std::stod(x), std::stod(y));
-	//	}
-	//	
-	//	std::ifstream wfs(workingFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
-	//	
-	//	_wList[i].resize(mesh.nEdges(), 2);
-	//	for (int j = 0; j < _wList[i].rows(); j++)
-	//	{
-	//		std::string line;
-	//		std::getline(wfs, line);
-	//		std::stringstream ss(line);
-	//		std::string x, y;
-	//		ss >> x;
-	//		ss >> y;
-	//		_wList[i].row(j) << std::stod(x), std::stod(y);
-	//	}
-	//}
 	return true;
 
 }

@@ -6,6 +6,7 @@
 namespace IntrinsicFormula {
     class IntrinsicKnoppelDrivenFormula {
     public:
+        IntrinsicKnoppelDrivenFormula() {}
         IntrinsicKnoppelDrivenFormula(const MeshConnectivity mesh, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<Eigen::MatrixXd> &refEdgeOmegaList, const std::vector<Eigen::VectorXd> &refAmpList, const std::vector<std::complex<double>> &initZvals, const std::vector<std::complex<double>> &tarZvals, const Eigen::MatrixXd &initEdgeOmega, const Eigen::MatrixXd &tarEdgeOmega, int numFrames = 20, double spatialRatio = 1.0, double quadOrder = 4) : _numFrames(numFrames), _spatialRatio(spatialRatio)
         {
             _mesh = mesh;
@@ -43,6 +44,12 @@ namespace IntrinsicFormula {
 
         std::vector<Eigen::MatrixXd> getWList() { return _edgeOmegaList; }
         std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
+
+        void setwzLists(std::vector<std::vector<std::complex<double>>> &zList, std::vector<Eigen::MatrixXd> &wList)
+        {
+            _zvalsList = zList;
+            _edgeOmegaList = wList;
+        }
 
         void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
         {
