@@ -332,7 +332,7 @@ bool saveProblem()
 
     igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
 
-    std::string outputFolder = workingFolder + "/optSol/";
+    std::string outputFolder = workingFolder + "optSol/";
     if (!std::filesystem::exists(outputFolder))
     {
         std::cout << "create directory: " << outputFolder << std::endl;
