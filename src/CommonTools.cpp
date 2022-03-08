@@ -514,7 +514,7 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
     for (int k=0; k<AAT.outerSize(); ++k)
         for (Eigen::SparseMatrix<double>::InnerIterator it(AAT,k); it; ++it)
         {
-            T.push_back({it.row(), it.col(), it.value()});
+            T.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
         }
 
     for(int i = 0; i < nverts; i++)
