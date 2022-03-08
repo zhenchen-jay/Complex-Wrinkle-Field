@@ -1,5 +1,8 @@
 {
-    "mesh_name": "torus_simulated.obj",
+    "mesh_name": "mesh.obj",
     "num_frame": 20,
-    "quad_order": 4
+    "opt_sol": "/optSol/",
+    "quad_order": 4,
+    "ref_amp": "/amp/",
+    "ref_omega": "/omega/"
 }
