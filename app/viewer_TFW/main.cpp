@@ -303,11 +303,11 @@ bool loadProblem()
     }
     std::cout << "global amp range: " << globalAmpMin << ", " << globalAmpMax << std::endl;
 
-    for(int i = 1; i < numFrames + 2; i++)
-    {
-        refOmegaList[i] = (1 + 1.5 / (numFrames + 1) * i) * refOmegaList[0];
-        refAmpList[i] =  refAmpList[0] / (1 + 1.5 / (numFrames + 1) * i);
-    }
+    // for(int i = 1; i < numFrames + 2; i++)
+    // {
+    //     refOmegaList[i] = (1 + 1.5 / (numFrames + 1) * i) * refOmegaList[0];
+    //     refAmpList[i] =  refAmpList[0] / (1 + 1.5 / (numFrames + 1) * i);
+    // }
     return true;
 }
 

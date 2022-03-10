@@ -1,5 +1,4 @@
-#ifndef INTRINSIC_GEOMETRY
-#define INTRINSIC_GEOMETRY
+#pragma once
 
 #include <Eigen/Core>
 #include <vector>
@@ -19,5 +18,3 @@ public:
     Eigen::MatrixXd Ts;                 // Transition matrices. Ts.block<2,2>(2*i,0) maps vectors from barycentric coordinates of face edgeFace(i,0) to barycentric coordinates of edgeFace(i,1). Ts.block<2,2>(2*i, 2) is opposite.
     Eigen::MatrixXd Js;                 // Js.block<2,2>(2*i,0) rotates vectors on face i (in face i's barycentric coordinates) to the perpendicular vector (under the metric abars[i])
 };
-
-#endif
