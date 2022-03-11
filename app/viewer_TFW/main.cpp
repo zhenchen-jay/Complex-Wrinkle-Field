@@ -49,12 +49,16 @@
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 #include "../../include/json.hpp"
 
-Eigen::MatrixXd triV, upsampledTriV;
+Eigen::MatrixXd refPos;
 Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh, upsampledTriMesh;
 
+std::vector<Eigen::MatrixXd> basePosList;
+std::vector<Eigen::MatrixXd> upBasePosList;
+
 std::vector<Eigen::MatrixXd> omegaList;
 std::vector<std::vector<std::complex<double>>> zList;
+
 
 // reference amp and omega
 std::vector<Eigen::MatrixXd> refOmegaList;
@@ -144,7 +148,7 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Matrix
     return true;
 }
 
-void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF)
+void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
     triMesh = MeshConnectivity(triF);
 
@@ -179,23 +183,28 @@ bool loadProblem()
 
     std::string meshFile = jval["mesh_name"];
     meshFile = workingFolder + meshFile;
-    igl::readOBJ(meshFile, triV, triF);
-    initialization(triV, triF);
 
+   
+    igl::readOBJ(meshFile, refPos, triF);
+    triMesh = MeshConnectivity(triF);
+    
     quadOrder = jval["quad_order"];
     numFrames = jval["num_frame"];
 
     std::string refAmp = jval["ref_amp"];
     std::string refOmega = jval["ref_omega"];
     std::string optSol = jval["opt_sol"];
+    std::string baseMesh = jval["basemesh"];
 
     // edge omega List
     int iter = 0;
     int nedges = triMesh.nEdges();
-    int nverts = triV.rows();
+    int nverts = refPos.rows();
 
     refAmpList.resize(numFrames + 2);
     refOmegaList.resize(numFrames + 2);
+    basePosList.resize(numFrames + 2, refPos);
+    upBasePosList.resize(numFrames + 2);
 
     for (uint32_t i = 0; i < numFrames + 2; ++i) {
         //std::cout << i << std::endl;
@@ -225,6 +234,14 @@ bool loadProblem()
             return false;
         }
         refOmegaList[i] = edgeW;
+
+        std::string basemeshPath = workingFolder + baseMesh + "/mesh_" + std::to_string(i) + ".obj";
+        if (!igl::readOBJ(basemeshPath, basePosList[i], triF))
+        {
+            basePosList[i] = refPos;
+        }
+
+        initialization(basePosList[i], triF, upBasePosList[i], upsampledTriF);
     }
 
     isLoadOpt = true;
@@ -324,13 +341,14 @@ bool saveProblem()
     jval["ref_amp"] = "/amp/";
     jval["ref_omega"] = "/omega/";
     jval["opt_sol"] = "/optSol/";
+    jval["basemesh"] = "/basemesh/";
 
     std::string filePath = saveFileName;
     std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
     int id = filePath.rfind("/");
     std::string workingFolder = filePath.substr(0, id + 1);
 
-    igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
+    igl::writeOBJ(workingFolder + "mesh.obj", basePosList[0], triF);
 
     std::string outputFolder = workingFolder + "optSol/";
     if (!std::filesystem::exists(outputFolder))
@@ -359,7 +377,7 @@ bool saveProblem()
     if (!std::filesystem::exists(outputFolder))
     {
         std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directories(outputFolder))
+        if (!std::filesystem::create_directory(outputFolder))
         {
             std::cout << "create folder failed." << outputFolder << std::endl;
             exit(1);
@@ -375,7 +393,7 @@ bool saveProblem()
     if (!std::filesystem::exists(outputFolder))
     {
         std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directories(outputFolder))
+        if (!std::filesystem::create_directory(outputFolder))
         {
             std::cout << "create folder failed." << outputFolder << std::endl;
             exit(1);
@@ -385,6 +403,22 @@ bool saveProblem()
     {
         std::ofstream wfs(outputFolder + "omega_" + std::to_string(i) + ".txt");
         wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refOmegaList[i] << std::endl;
+    }
+
+    outputFolder = workingFolder + "/basemesh/";
+    if (!std::filesystem::exists(outputFolder))
+    {
+        std::cout << "create directory: " << outputFolder << std::endl;
+        if (!std::filesystem::create_directory(outputFolder))
+        {
+            std::cout << "create folder failed." << outputFolder << std::endl;
+            exit(1);
+        }
+    }
+
+    for (int i = 0; i < basePosList.size(); i++)
+    {
+        igl::writeOBJ(outputFolder + "mesh_" + std::to_string(i) + ".obj", basePosList[i], triF);
     }
 
     std::ofstream o(workingFolder + "data.json");
@@ -397,16 +431,16 @@ bool saveProblem()
 void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
     Eigen::VectorXd faceArea;
-    igl::doublearea(triV, triF, faceArea);
+    igl::doublearea(refPos, triF, faceArea);
     faceArea /= 2;
     Eigen::MatrixXd cotEntries;
-    igl::cotmatrix_entries(triV, triF, cotEntries);
+    igl::cotmatrix_entries(refPos, triF, cotEntries);
 
     using complex = std::complex<double>;
     std::vector<complex> initZvals, tarZvals;
 
-    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[0], refAmpList[0], faceArea, cotEntries, triV.rows(), initZvals);
-    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refOmegaList.size() - 1], faceArea, cotEntries, triV.rows(), tarZvals);
+    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[0], refAmpList[0], faceArea, cotEntries, refPos.rows(), initZvals);
+    IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refOmegaList.size() - 1], faceArea, cotEntries, refPos.rows(), tarZvals);
 
     interpModel = IntrinsicFormula::IntrinsicKnoppelDrivenFormula(MeshConnectivity(triF), faceArea, cotEntries, refOmegaList, refAmpList, initZvals, tarZvals, refOmegaList[0], refOmegaList[refOmegaList.size() - 1], numFrames, spatialRatio, quadOrder);
 
@@ -433,7 +467,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
         for(int i = 0; i < wList.size(); i++)
         {
             std::vector<complex> zvals;
-            IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[i], refAmpList[i], faceArea, cotEntries, triV.rows(), zvals);
+            IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[i], refAmpList[i], faceArea, cotEntries, refPos.rows(), zvals);
             zList[i] = zvals;
         }
 
@@ -592,7 +626,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
         renderF.block(0, 0, nfaces, 3) = baseF;
         if (omegaVec)
         {
-            Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(*omegaVec, triV, triMesh);
+            Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(*omegaVec, basePos, MeshConnectivity(baseF));
 
             for (int i = 0; i < nverts; i++)
                 renderVec.row(i) = vertOmega.row(i);
@@ -682,9 +716,9 @@ void registerMesh(int frameId) {
     Eigen::MatrixXd interpVec;
     Eigen::MatrixXd interpColor;
 
-    double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
+    double shiftz = 1.5 * (basePosList[frameId].col(2).maxCoeff() - basePosList[frameId].col(2).minCoeff());
 
-    registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
+    registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
                        ampFieldsList[frameId],
                        phaseFieldsList[frameId], &omegaList[frameId], interpP, interpF, interpVec,
                        interpColor);
@@ -738,7 +772,8 @@ void callback() {
     {
         if (loopLevel >= 0)
         {
-            initialization(triV, triF);
+            for(int i = 0; i < basePosList.size(); i++)
+                initialization(basePosList[i], triF, upBasePosList[i], upsampledTriF);
             if (isForceOptimize)	//already solve for the interp states
             {
                 updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
@@ -853,8 +888,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    initialization(triV, triF);
-
     // Options
     polyscope::options::autocenterStructures = true;
     polyscope::view::windowWidth = 1024;
@@ -864,7 +897,7 @@ int main(int argc, char** argv)
     polyscope::init();
 
     // Register the mesh with Polyscope
-    polyscope::registerSurfaceMesh("input mesh", triV, triF);
+    polyscope::registerSurfaceMesh("input mesh", refPos, triF);
 
     polyscope::view::upDir = polyscope::view::UpDir::ZUp;
 
