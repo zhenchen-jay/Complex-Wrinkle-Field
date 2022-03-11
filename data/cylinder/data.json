@@ -1,4 +1,5 @@
 {
+    "basemesh": "basemesh",
     "mesh_name": "mesh.obj",
     "num_frame": 20,
     "opt_sol": "/optSol/",
