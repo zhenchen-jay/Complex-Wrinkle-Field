@@ -132,39 +132,39 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
         }
         for (int j = 0; j < nverts; j++) {
             double ampSq = _zvalsList[i + 1][j].real() * _zvalsList[i + 1][j].real() +
-                           _zvalsList[i + 1][j].imag() * _zvalsList[i + 1][j].imag();
+                _zvalsList[i + 1][j].imag() * _zvalsList[i + 1][j].imag();
             double refAmpSq = _refAmpList[i + 1][j] * _refAmpList[i + 1][j];
 
             energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
 
             if (deriv) {
                 (*deriv)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                                                      (2.0 * _zvalsList[i + 1][j].real());
+                    (2.0 * _zvalsList[i + 1][j].real());
                 (*deriv)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                                                          (2.0 * _zvalsList[i + 1][j].imag());
+                    (2.0 * _zvalsList[i + 1][j].imag());
             }
 
             if (hess) {
                 Eigen::Matrix2d tmpHess;
                 tmpHess << 2.0 * _zvalsList[i + 1][j].real() * 2.0 * _zvalsList[i + 1][j].real(), 2.0 * _zvalsList[i +
-                                                                                                                   1][j].real() *
-                                                                                                  2.0 * _zvalsList[i +
-                                                                                                                   1][j].imag(),
-                        2.0 * _zvalsList[i + 1][j].real() * 2.0 * _zvalsList[i + 1][j].imag(), 2.0 * _zvalsList[i +
-                                                                                                                1][j].imag() *
-                                                                                               2.0 * _zvalsList[i +
-                                                                                                                1][j].imag();
+                    1][j].real() *
+                    2.0 * _zvalsList[i +
+                    1][j].imag(),
+                    2.0 * _zvalsList[i + 1][j].real() * 2.0 * _zvalsList[i + 1][j].imag(), 2.0 * _zvalsList[i +
+                    1][j].imag() *
+                    2.0 * _zvalsList[i +
+                    1][j].imag();
 
                 tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
                 tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                           (2.0 * Eigen::Matrix2d::Identity());
+                    (2.0 * Eigen::Matrix2d::Identity());
 
                 if (isProj)
                     tmpHess = SPDProjection(tmpHess);
 
                 for (int k = 0; k < 2; k++)
                     for (int l = 0; l < 2; l++)
-                        T.push_back({i * DOFsPerframe + 2 * j + k, i * DOFsPerframe + 2 * j + l, tmpHess(k, l)});
+                        T.push_back({ i * DOFsPerframe + 2 * j + k, i * DOFsPerframe + 2 * j + l, tmpHess(k, l) });
 
             }
         }

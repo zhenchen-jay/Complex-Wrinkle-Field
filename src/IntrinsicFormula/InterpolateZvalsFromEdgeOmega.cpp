@@ -47,8 +47,10 @@ std::complex<double> IntrinsicFormula::getZvalsFromEdgeOmega(const Eigen::Vector
 				hessexpip((i + 2) % 3, (i + 1) % 3) = expip * bary((i + 2) % 3) * bary((i + 1) % 3);
 				hessexpip((i + 2) % 3, (i + 2) % 3) = -expip * bary((i + 1) % 3) * bary((i + 1) % 3);
 
-				hess->block<2, 3>(2 * i, 6) += hatWeight(i) * gradZval * gradexpip.transpose();
-				hess->block<3, 2>(6, 2 * i) += hatWeight(i) * gradexpip * gradZval.transpose();
+				Eigen::Matrix<std::complex<double>, 2, 3> tmpM = hatWeight(i) * gradZval * gradexpip.transpose();
+
+				hess->block<2, 3>(2 * i, 6) += tmpM;
+				hess->block<3, 2>(6, 2 * i) += tmpM.transpose();
 				hess->block<3, 3>(6, 6) += hatWeight(i) * vertZvals[i] * hessexpip;
 				
 			}
@@ -81,35 +83,60 @@ std::complex<double> IntrinsicFormula::getZvalsFromHalfEdgeOmega(const Eigen::Ve
 
 		if (deriv || hess)
 		{
-			Eigen::Vector2cd gradZval;
+			/*Eigen::Vector2cd gradZval;
 			gradZval << 1, I;
 
 			Eigen::Matrix<std::complex<double>, 6, 1> gradexpip;
 			gradexpip.setZero();
 
 			gradexpip(2 * ((i + 1) % 3) + 1) = expip * bary((i + 2) % 3) * I;
-			gradexpip(2 * ((i + 2) % 3)) = expip * bary((i + 1) % 3) * I;
+			gradexpip(2 * ((i + 2) % 3)) = expip * bary((i + 1) % 3) * I;*/
 
 			if (deriv)
 			{
 
-				deriv->segment<2>(2 * i) += hatWeight(i) * expip * gradZval;
-				deriv->segment<6>(6) += hatWeight(i) * vertZvals[i] * gradexpip;
+				//deriv->segment<2>(2 * i) += hatWeight(i) * expip * gradZval;
+				//deriv->segment<6>(6) += hatWeight(i) * vertZvals[i] * gradexpip;
 
+				(*deriv)(2 * i) += hatWeight(i) * expip;
+				(*deriv)(2 * i + 1) += hatWeight(i) * expip * I;
+				(*deriv)(6 + 2 * ((i + 1) % 3) + 1) += hatWeight(i) * vertZvals[i] * expip * bary((i + 2) % 3) * I;
+				(*deriv)(6 + 2 * ((i + 2) % 3)) += hatWeight(i) * vertZvals[i] * expip * bary((i + 1) % 3) * I;
 			}
 
 			if (hess)
 			{
-				Eigen::Matrix<std::complex<double>, 6, 6> hessexpip;
+				/*Eigen::Matrix<std::complex<double>, 6, 6> hessexpip;
 				hessexpip.setZero();
 				hessexpip(2 * ((i + 1) % 3) + 1, 2 * ((i + 1) % 3) + 1) = -expip * bary((i + 2) % 3) * bary((i + 2) % 3);
 				hessexpip(2 * ((i + 1) % 3) + 1, 2 * ((i + 2) % 3)) = -expip * bary((i + 2) % 3) * bary((i + 1) % 3);
 				hessexpip(2 * ((i + 2) % 3), 2 * ((i + 1) % 3) + 1) = -expip * bary((i + 2) % 3) * bary((i + 1) % 3);
 				hessexpip(2 * ((i + 2) % 3), 2 * ((i + 2) % 3)) = -expip * bary((i + 1) % 3) * bary((i + 1) % 3);
-
-				hess->block<2, 6>(2 * i, 6) += hatWeight(i) * gradZval * gradexpip.transpose();
-				hess->block<6, 2>(6, 2 * i) += hatWeight(i) * gradexpip * gradZval.transpose();
 				hess->block<6, 6>(6, 6) += hatWeight(i) * vertZvals[i] * hessexpip;
+
+				Eigen::Matrix<std::complex<double>, 2, 6> tmpM = hatWeight(i) * gradZval * gradexpip.transpose();	
+				
+				hess->block<2, 6>(2 * i, 6) += tmpM;
+				hess->block<6, 2>(6, 2 * i) += tmpM.transpose();*/
+
+				
+				(*hess)(2 * i, 6 + 2 * ((i + 1) % 3) + 1) += hatWeight(i) * bary((i + 2) % 3) * (expip * I);
+				(*hess)(2 * i, 6 + 2 * ((i + 2) % 3)) += hatWeight(i) * bary((i + 1) % 3) * (expip * I);
+				(*hess)(2 * i + 1, 6 + 2 * ((i + 1) % 3) + 1) += I * hatWeight(i) * bary((i + 2) % 3) * (expip * I);
+				(*hess)(2 * i + 1, 6 + 2 * ((i + 2) % 3)) += I * hatWeight(i) * bary((i + 1) % 3) * (expip * I);
+
+				(*hess)(6 + 2 * ((i + 1) % 3) + 1, 2 * i) += hatWeight(i) * bary((i + 2) % 3) * (expip * I);
+				(*hess)(6 + 2 * ((i + 2) % 3), 2 * i) += hatWeight(i) * bary((i + 1) % 3) * (expip * I);
+				(*hess)(6 + 2 * ((i + 1) % 3) + 1, 2 * i + 1) += I * hatWeight(i) * bary((i + 2) % 3) * (expip * I);
+				(*hess)(6 + 2 * ((i + 2) % 3), 2 * i + 1) += I * hatWeight(i) * bary((i + 1) % 3) * (expip * I);
+
+
+				(*hess)(6 + 2 * ((i + 1) % 3) + 1, 6 + 2 * ((i + 1) % 3) + 1) += -expip * bary((i + 2) % 3) * bary((i + 2) % 3) * hatWeight(i) * vertZvals[i];
+				(*hess)(6 + 2 * ((i + 1) % 3) + 1, 6 + 2 * ((i + 2) % 3)) += -expip * bary((i + 2) % 3) * bary((i + 1) % 3) * hatWeight(i) * vertZvals[i];
+				(*hess)(6 + 2 * ((i + 2) % 3), 6 + 2 * ((i + 1) % 3) + 1) += -expip * bary((i + 2) % 3) * bary((i + 1) % 3) * hatWeight(i) * vertZvals[i];
+				(*hess)(6 + 2 * ((i + 2) % 3), 6 + 2 * ((i + 2) % 3)) += -expip * bary((i + 1) % 3) * bary((i + 1) % 3) * hatWeight(i) * vertZvals[i];
+
+				
 
 			}
 		}

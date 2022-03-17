@@ -77,19 +77,6 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 		    hess->setZero();
 			Eigen::Matrix<std::complex<double>, 24, 24> hessDeltaZ;
 
-			//Eigen::Matrix<double, 12, 12> swapMat;
-			//swapMat.setIdentity();
-
-			//for (int i = 0; i < 3; i++)
-			//{
-			//	if (wflag(i) == 1)	// do swap
-			//	{
-			//		swapMat.block<2, 2>(6 + 2 * i, 6 + 2 * i) << 0, 1, 1, 0;
-			//	}
-			//}
-
-			//hessDeltaZ.block<12, 12>(0, 0) = -swapMat * hessCur * swapMat.transpose();
-			//hessDeltaZ.block<12, 12>(12, 12) = swapMat * hessNext * swapMat.transpose();
 
 			hessDeltaZ.block<12, 12>(0, 0) = -hessCur;
 			hessDeltaZ.block<12, 12>(12, 12) = hessNext;

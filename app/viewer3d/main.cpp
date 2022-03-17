@@ -102,7 +102,7 @@ bool isShowComparison = false;
 
 PaintGeometry mPaint;
 
-int numFrames = 50;
+int numFrames = 20;
 int curFrame = 0;
 
 double sourceFreq = 1.0;
@@ -121,13 +121,14 @@ double fTol = 0;
 int numIter = 1000;
 int quadOrder = 4;
 int numComb = 2;
-double wrinkleAmpScalingRatio = 0.0;
+float wrinkleAmpScalingRatio = 0.01;
 
 int numSource = 1;
 int numTarSource = 1;
 
 std::string workingFolder;
-IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel;
+//IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge interpModel;
+IntrinsicFormula::IntrinsicKnoppelDrivenFormula interpModel;
 
 enum InitializationType{
     Random = 0,
@@ -142,18 +143,10 @@ enum DirectionType
     GEODESIC = 3,
     GEODESICPERP = 4
 };
-enum OptSolverType
-{
-    Newton = 0,
-    LBFGS = 1,
-    Composite = 2,	// use lbfgs to get a warm start
-    MultilevelNewton = 3 // use multilevel newton solver on the time
-};
 
 InitializationType initializationType = InitializationType::Linear;
 DirectionType sourceDir = DIRPV1;
 DirectionType tarDir = DIRPV2;
-OptSolverType solverType = Newton;
 
 
 bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
@@ -254,11 +247,28 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
     Eigen::VectorXd faceArea;
     igl::doublearea(triV, triF, faceArea);
     faceArea /= 2;
-    interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, numFrames, quadOrder, sourceZvals, sourceVec, tarZvals, tarVec);
+    Eigen::MatrixXd cotEntries;
+    igl::cotmatrix_entries(triV, triF, cotEntries);
+
+    refOmegaList.resize(numFrames + 2);
+    refAmpList.resize(numFrames + 2, Eigen::VectorXd::Zero(sourceZvals.size()));
+
+    double dt = 1.0 / (numFrames + 1);
+    for (int i = 0; i < numFrames + 2; i++)
+    {
+        double t = dt * i;
+        refOmegaList[i] = (1 - t) * sourceVec + t * tarVec;
+
+        for (int j = 0; j < sourceZvals.size(); j++)
+        {
+            refAmpList[i](j) = (1 - t) * std::abs(sourceZvals[j]) + t * std::abs(tarZvals[j]);
+        }
+    }
+
+    interpModel = IntrinsicFormula::IntrinsicKnoppelDrivenFormula(MeshConnectivity(triF), faceArea, cotEntries, refOmegaList, refAmpList, sourceZvals, tarZvals, refOmegaList[0], refOmegaList[refOmegaList.size() - 1], numFrames, 1.0, quadOrder);
+
     Eigen::VectorXd x;
     interpModel.convertList2Variable(x);        // linear initialization
-    interpModel.setBaseMesh(triV);
-//    interpModel.postProcess(x);
     if (initializationType == InitializationType::Random)
     {
         x.setRandom();
@@ -275,37 +285,15 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
         wList.resize(numFrames + 2);
         zList.resize(numFrames + 2);
 
-        wList[0] = sourceVec;
-        wList[numFrames + 1] = tarVec;
+        wList = refOmegaList;
 
-        zList[0] = sourceZvals;
-        zList[numFrames + 1] = tarZvals;
-
-        Eigen::VectorXd faceArea;
-        Eigen::MatrixXd cotEntries;
-        igl::doublearea(triV, triF, faceArea);
-        faceArea /= 2;
-        igl::cotmatrix_entries(triV, triF, cotEntries);
-        int nverts = triV.rows();
-
-        // linear interpolate in between
-        for (int i = 1; i <= numFrames; i++)
+        for (int i = 0; i < wList.size(); i++)
         {
-            double t = dt * i;
-            wList[i] = (1 - t) * sourceVec + t * tarVec;
-
-            IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, wList[i], faceArea, cotEntries, nverts, zList[i]);
-
-            Eigen::VectorXd curAmp;
-            ampSolver(triV, triMesh, wList[i] / 10, curAmp);
-
-            for (int j = 0; j < triV.rows(); j++)
-            {
-                double curNorm = std::abs(zList[i][j]);
-                if (curNorm)
-                    zList[i][j] = curAmp(j) / curNorm * zList[i][j];
-            }
+            std::vector<std::complex<double>> zvals;
+            IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(triMesh, refOmegaList[i], refAmpList[i], faceArea, cotEntries, triV.rows(), zvals);
+            zList[i] = zvals;
         }
+
         interpModel.setwzLists(zList, wList);
         interpModel.convertList2Variable(x);
     }
@@ -313,7 +301,11 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
     {
         // do nothing, since it is initialized as the linear interpolation.
     }
+    Eigen::VectorXd deriv;
+    Eigen::SparseMatrix<double> H;
+    double E = interpModel.computeEnergy(x, &deriv, &H, false);
 
+    std::cout << "optimization start!" << std::endl;
     auto initWFrames = interpModel.getWList();
     auto initZFrames = interpModel.getVertValsList();
     if (isForceOptimize)
@@ -352,38 +344,7 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
         OptSolver::testFuncGradHessian(funVal, x);
 
         auto x0 = x;
-        if(solverType == Newton)
-            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder, postProcess);
-        else if (solverType == LBFGS)
-            OptSolver::lbfgsSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm);
-        else if (solverType == Composite)
-        {
-            OptSolver::lbfgsSolver(funVal, maxStep, x, 1000, 1e-4, 1e-5, 1e-5, true, getVecNorm);
-            OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
-        }
-        else if (solverType == MultilevelNewton)    // we use 4-level approach
-        {
-            int N = numKeyFrames + 2;
-            int base = std::ceil(std::exp(std::log(N) / 2));
-            std::cout << "base: " << base << std::endl;
-            std::vector<std::vector<std::complex<double>>> zvalsList(2);
-            zvalsList[0] = sourceZvals;
-            zvalsList[1] = tarZvals;
-            std::vector<Eigen::MatrixXd> omegaList(2);
-            omegaList[0] = sourceOmegaFields;
-            omegaList[1] = tarOmegaFields;
-
-            for(int i = 1; i <= 2; i++)
-            {
-                interpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, base - 1, quadOrder, zvalsList, omegaList);
-                interpModel.convertList2Variable(x);
-                std::cout << "level: " << i << ", x size: " << x.size() << std::endl;
-                OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
-                zvalsList = interpModel.getVertValsList();
-                omegaList = interpModel.getWList();
-            }
-
-        }
+        OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder, postProcess);
         std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
     }
     interpModel.convertVariable2List(x);
@@ -395,18 +356,12 @@ void solveKeyFrames(const Eigen::MatrixXd& sourceVec, const Eigen::MatrixXd& tar
     {
         double zdotNorm = interpModel._zdotModel.computeZdotIntegration(zFrames[i], wFrames[i], zFrames[i + 1], wFrames[i + 1], NULL, NULL);
 
-        if(solverType != MultilevelNewton)
-        {
-            double initZdotNorm = interpModel._zdotModel.computeZdotIntegration(initZFrames[i], initWFrames[i], initZFrames[i + 1], initWFrames[i + 1], NULL, NULL);
+        double initZdotNorm = interpModel._zdotModel.computeZdotIntegration(initZFrames[i], initWFrames[i], initZFrames[i + 1], initWFrames[i + 1], NULL, NULL);
 
-            std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
-        }
-        else
-            std::cout << "frame " << i << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
-
+        std::cout << "frame " << i << ", before optimization: ||zdot||^2: " << initZdotNorm << ", after optimization, ||zdot||^2 = " << zdotNorm << std::endl;
     }
-    if(isForceOptimize)
-        interpModel.save(workingFolder + "/data.json", triV, triF);
+    /*if(isForceOptimize)
+        interpModel.save(workingFolder + "/data.json", triV, triF);*/
 
 
 }
@@ -556,14 +511,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
         mPaint.setNormalization(false);
         Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec);
         renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
-        //    mPaint.setNormalization(false);
-//    Eigen::RowVector3d rowcolor;
-//
-//    igl::colormap(igl::COLOR_MAP_TYPE_VIRIDIS, 4.0 / 9.0, rowcolor.data());
-//    for(int i = 0; i < nupverts; i++)
-//    {
-//        renderColor.row(curVerts + i) = rowcolor;
-//    }
+
         curVerts += nupverts;
         curFaces += nupfaces;
     }
@@ -672,42 +620,15 @@ void registerMesh(int frameId)
 
         double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
         int totalfames = ampFieldsList.size();
-        registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax, ampFieldsList[0],
-                           phaseFieldsList[0], &sourceVertexOmegaFields, sourceP, sourceF, sourceVec, sourceColor);
-        registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
-                           ampFieldsList[totalfames - 1], phaseFieldsList[totalfames - 1], &tarVertexOmegaFields, tarP,
-                           tarF, tarVec, tarColor);
         registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax, ampFieldsList[frameId],
                            phaseFieldsList[frameId], &vertexOmegaList[frameId], interpP, interpF, interpVec,
                            interpColor);
 
 
-        Eigen::MatrixXi shifF = sourceF;
-
-        int nPartVerts = sourceP.rows();
-        int nPartFaces = sourceF.rows();
-
-        dataV.setZero(3 * nPartVerts, 3);
-        curColor.setZero(3 * nPartVerts, 3);
-        dataVec.setZero(3 * nPartVerts, 3);
-        dataF.setZero(3 * nPartFaces, 3);
-
-        shifF.setConstant(nPartVerts);
-
-        dataV.block(0, 0, nPartVerts, 3) = sourceP;
-        dataVec.block(0, 0, nPartVerts, 3) = sourceVec;
-        curColor.block(0, 0, nPartVerts, 3) = sourceColor;
-        dataF.block(0, 0, nPartFaces, 3) = sourceF;
-
-        dataV.block(nPartVerts, 0, nPartVerts, 3) = tarP;
-        dataVec.block(nPartVerts, 0, nPartVerts, 3) = tarVec;
-        curColor.block(nPartVerts, 0, nPartVerts, 3) = tarColor;
-        dataF.block(nPartFaces, 0, nPartFaces, 3) = tarF + shifF;
-
-        dataV.block(nPartVerts * 2, 0, nPartVerts, 3) = interpP;
-        dataVec.block(nPartVerts * 2, 0, nPartVerts, 3) = interpVec;
-        curColor.block(nPartVerts * 2, 0, nPartVerts, 3) = interpColor;
-        dataF.block(nPartFaces * 2, 0, nPartFaces, 3) = interpF + 2 * shifF;
+        dataV = interpP;
+        curColor = interpColor;
+        dataVec = interpVec;
+        dataF = interpF;
 
         polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
     }
@@ -774,70 +695,78 @@ void callback() {
     float p = ImGui::GetStyle().FramePadding.x;
     if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
     {
-        std::string loadJson = igl::file_dialog_open();
-        if (interpModel.load(loadJson, triV, triF))
-        {
+        std::string meshPath = igl::file_dialog_open();
+        igl::readOBJ(meshPath, triV, triF);
+        // Initialize polyscope
+        polyscope::init();
 
-            initialization();
-            omegaList = interpModel.getWList();
-            zList = interpModel.getVertValsList();
+        // Register the mesh with Polyscope
+        polyscope::registerSurfaceMesh("input mesh", triV, triF);
 
-            numFrames = omegaList.size() - 2;
-            updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+        //std::string loadJson = igl::file_dialog_open();
+        //if (interpModel.load(loadJson, triV, triF))
+        //{
 
-            globalAmpMax = ampFieldsList[0].maxCoeff();
-            globalAmpMin = ampFieldsList[0].minCoeff();
-            for(int i = 1; i < ampFieldsList.size(); i++)
-            {
-                globalAmpMax = std::max(globalAmpMax, ampFieldsList[i].maxCoeff());
-                globalAmpMin = std::min(globalAmpMin, ampFieldsList[i].minCoeff());
-            }
+        //    initialization();
+        //    omegaList = interpModel.getWList();
+        //    zList = interpModel.getVertValsList();
 
-            vertexOmegaList.resize(omegaList.size());
-            for (int i = 0; i < omegaList.size(); i++)
-            {
-                vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
-            }
+        //    numFrames = omegaList.size() - 2;
+        //    updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
 
-            sourceOmegaFields = omegaList[0];
-            sourceVertexOmegaFields = vertexOmegaList[0];
+        //    globalAmpMax = ampFieldsList[0].maxCoeff();
+        //    globalAmpMin = ampFieldsList[0].minCoeff();
+        //    for(int i = 1; i < ampFieldsList.size(); i++)
+        //    {
+        //        globalAmpMax = std::max(globalAmpMax, ampFieldsList[i].maxCoeff());
+        //        globalAmpMin = std::min(globalAmpMin, ampFieldsList[i].minCoeff());
+        //    }
 
-            tarOmegaFields = omegaList[omegaList.size() - 1];
-            tarVertexOmegaFields = vertexOmegaList[omegaList.size() - 1];
+        //    vertexOmegaList.resize(omegaList.size());
+        //    for (int i = 0; i < omegaList.size(); i++)
+        //    {
+        //        vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
+        //    }
 
-            sourceZvals = zList[0];
-            tarZvals = zList[omegaList.size() - 1];
+        //    sourceOmegaFields = omegaList[0];
+        //    sourceVertexOmegaFields = vertexOmegaList[0];
 
-            KnoppelPhaseFieldsList.resize(ampFieldsList.size());
-            Eigen::VectorXd faceArea;
-            Eigen::MatrixXd cotEntries;
-            igl::doublearea(triV, triF, faceArea);
-            faceArea /= 2;
-            igl::cotmatrix_entries(triV, triF, cotEntries);
-            int nverts = triV.rows();
-            for (int i = 0; i < ampFieldsList.size(); i++)
-            {
-                double t = 1.0 / (ampFieldsList.size() - 1) * i;
-                Eigen::MatrixXd interpVecs = (1 - t) * sourceOmegaFields + t * tarOmegaFields;
-                std::vector<std::complex<double>> interpZvals;
-                IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, interpVecs, faceArea, cotEntries, nverts, interpZvals);
-                Eigen::VectorXd upTheta;
-                IntrinsicFormula::getUpsamplingTheta(triMesh, interpVecs, interpZvals, bary, upTheta);
-                KnoppelPhaseFieldsList[i] = upTheta;
-            }
+        //    tarOmegaFields = omegaList[omegaList.size() - 1];
+        //    tarVertexOmegaFields = vertexOmegaList[omegaList.size() - 1];
 
-            // linear baseline
-            auto tmpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, (ampFieldsList.size() - 2), quadOrder, sourceZvals, sourceOmegaFields, tarZvals, tarOmegaFields);
-            updateMagnitudePhase(tmpModel.getWList(), tmpModel.getVertValsList(), linearAmpFieldsList, linearPhaseFieldsList);
+        //    sourceZvals = zList[0];
+        //    tarZvals = zList[omegaList.size() - 1];
 
-            updateFieldsInView(curFrame);
-        }
+        //    KnoppelPhaseFieldsList.resize(ampFieldsList.size());
+        //    Eigen::VectorXd faceArea;
+        //    Eigen::MatrixXd cotEntries;
+        //    igl::doublearea(triV, triF, faceArea);
+        //    faceArea /= 2;
+        //    igl::cotmatrix_entries(triV, triF, cotEntries);
+        //    int nverts = triV.rows();
+        //    for (int i = 0; i < ampFieldsList.size(); i++)
+        //    {
+        //        double t = 1.0 / (ampFieldsList.size() - 1) * i;
+        //        Eigen::MatrixXd interpVecs = (1 - t) * sourceOmegaFields + t * tarOmegaFields;
+        //        std::vector<std::complex<double>> interpZvals;
+        //        IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmega(triMesh, interpVecs, faceArea, cotEntries, nverts, interpZvals);
+        //        Eigen::VectorXd upTheta;
+        //        IntrinsicFormula::getUpsamplingTheta(triMesh, interpVecs, interpZvals, bary, upTheta);
+        //        KnoppelPhaseFieldsList[i] = upTheta;
+        //    }
+
+        //    // linear baseline
+        //    auto tmpModel = IntrinsicFormula::IntrinsicKeyFrameInterpolationFromHalfEdge(MeshConnectivity(triF), faceArea, (ampFieldsList.size() - 2), quadOrder, sourceZvals, sourceOmegaFields, tarZvals, tarOmegaFields);
+        //    updateMagnitudePhase(tmpModel.getWList(), tmpModel.getVertValsList(), linearAmpFieldsList, linearPhaseFieldsList);
+
+        //    updateFieldsInView(curFrame);
+        //}
     }
     ImGui::SameLine(0, p);
     if (ImGui::Button("Save", ImVec2((w - p) / 2.f, 0)))
     {
         std::string saveFolder = igl::file_dialog_save();
-        interpModel.save(saveFolder, triV, triF);
+        //interpModel.save(saveFolder, triV, triF);
     }
 
     if(ImGui::Button("Load reference", ImVec2(-1, 0)))
@@ -948,7 +877,7 @@ void callback() {
     {
         updateFieldsInView(curFrame);
     }
-    if (ImGui::InputDouble("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio))
+    if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
     {
         if(wrinkleAmpScalingRatio >= 0)
             updateFieldsInView(curFrame);
@@ -1002,12 +931,12 @@ void callback() {
 
     if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (ImGui::InputDouble("drag speed", &dragSpeed))
+       /* if (ImGui::InputDouble("drag speed", &dragSpeed))
         {
             if (dragSpeed <= 0)
                 dragSpeed = 0.5;
-        }
-        if (ImGui::DragInt("current frame", &curFrame, dragSpeed, 0, numFrames + 1))
+        }*/
+        if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames + 1))
         {
             if(curFrame >= 0 && curFrame <= numFrames + 1)
                 updateFieldsInView(curFrame);
@@ -1057,8 +986,6 @@ void callback() {
                 numComb = 0;
         }
         if (ImGui::Combo("initialization types", (int*)&initializationType, "Random\0Linear\0Knoppel\0")) {}
-        if (ImGui::Combo("Solver types", (int*)&solverType, "Newton\0L-BFGS\0Composite\0Multilevel-Newton\0")) {}
-
     }
 
 
@@ -1359,11 +1286,12 @@ void callback() {
 
     if (ImGui::Button("output images", ImVec2(-1, 0)))
     {
-        for(curFrame = 0; curFrame < ampFieldsList.size(); curFrame++)
+        for(int i = 0; i < ampFieldsList.size(); i++)
         {
             updateFieldsInView(curFrame);
-            polyscope::options::screenshotExtension = ".jpg";
-            polyscope::screenshot();
+            //polyscope::options::screenshotExtension = ".jpg";
+            std::string name = "output_" + std::to_string(i) + ".jpg";
+            polyscope::screenshot(name);
         }
     }
 
