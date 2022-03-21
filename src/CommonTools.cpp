@@ -338,7 +338,7 @@ Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A)
 	}
 	Eigen::MatrixXd D = evals.asDiagonal();
 	Eigen::MatrixXd V = es.eigenvectors();
-	posHess = V * D * V.inverse();
+	posHess = V * D * V.transpose();
 
 	return posHess;
 }
@@ -441,11 +441,11 @@ void combField(const Eigen::MatrixXi& F, const Eigen::MatrixXd& w, Eigen::Matrix
 	{
 		int vid1 = mesh.edgeVertex(i, 0);
 		int vid2 = mesh.edgeVertex(i, 1);
-		
+
 
 		Eigen::Vector3d curw = w.row(vid1);
 		Eigen::Vector3d nextw = w.row(vid2);
-		
+
 		double innerp = curw.dot(nextw);
 		int sign = (innerp < 0 ? -1 : 1);
 
@@ -578,4 +578,38 @@ double unitMagEnergy(const std::vector<std::complex<double>>& zvals, Eigen::Vect
 	}
 
 	return energy;
+}
+
+Eigen::Vector3d rotateSingleVector(const Eigen::Vector3d& vec, const Eigen::Vector3d& axis, double angle)
+{
+	Eigen::Vector3d rotVec;
+
+	// first normalize axis
+	double ux = axis(0) / axis.norm(), uy = axis(1) / axis.norm(), uz = axis(2) / axis.norm();
+	Eigen::Matrix3d rotMat;
+
+	double c = std::cos(angle);
+	double s = std::sin(angle);
+	rotMat << c + ux * ux * (1 - c), ux* uy* (1 - c) - uz * s, ux* uz* (1 - c) + uy * s,
+		uy* ux* (1 - c) + uz * s, c + uy * uy * (1 - c), uy* uz* (1 - c) - ux * s,
+		uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);
+
+	rotVec = rotMat * vec;
+	return rotVec;
+}
+
+void rotateIntrinsicVector(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const std::vector<RotateVertexInfo>& rotVerts, Eigen::MatrixXd& rotHalfEdgeW)
+{
+	Eigen::MatrixXd vertNormals;
+	igl::per_vertex_normals(V, mesh.faces(), vertNormals);
+
+	Eigen::MatrixXd vertVec = intrinsicHalfEdgeVec2VertexVec(halfEdgeW, V, mesh);
+
+	for (int i = 0; i < rotVerts.size(); i++)
+	{
+		int vid = rotVerts[i].vid;
+		vertVec.row(vid) = rotateSingleVector(vertVec.row(vid), vertNormals.row(vid), rotVerts[i].angle);
+	}
+
+	rotHalfEdgeW = vertexVec2IntrinsicHalfEdgeVec(vertVec, V, mesh);
 }
