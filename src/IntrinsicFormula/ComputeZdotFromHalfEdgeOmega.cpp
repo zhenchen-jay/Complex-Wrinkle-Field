@@ -74,7 +74,6 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 
 		if (hess)
 		{
-		    hess->setZero();
 			Eigen::Matrix<std::complex<double>, 24, 24> hessDeltaZ;
 
 
@@ -100,6 +99,7 @@ double ComputeZdotFromHalfEdgeOmega::computeZdotIntegrationFromQuad(const std::v
 
 			}
 
+			// this part is timing bottleneck
 			(*hess) = gradDeltaZ.real() * (gradDeltaZ.real()).transpose() + gradDeltaZ.imag() * gradDeltaZ.imag().transpose();
 			(*hess) += deltaz.real() * hessDeltaZ.real() + deltaz.imag() * hessDeltaZ.imag();
 			(*hess) *= 2 * componentWeights;

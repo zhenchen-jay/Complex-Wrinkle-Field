@@ -141,7 +141,8 @@ enum DirectionType
     DIRPV2 = 1,
     LOADFROMFILE = 2,
     GEODESIC = 3,
-    GEODESICPERP = 4
+    GEODESICPERP = 4, 
+    ROTATEDVEC = 5
 };
 
 InitializationType initializationType = InitializationType::Linear;
@@ -908,7 +909,7 @@ void callback() {
     }
     if (ImGui::CollapsingHeader("target Vector Fields Info", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0Load From File\0Geodesic\0Geodesic Perp\0"))
+        if (ImGui::Combo("target direction", (int*)&tarDir, "PV1\0PV2\0Load From File\0Geodesic\0Geodesic Perp\0Rotated source\0"))
         {
             if(tarDir == LOADFROMFILE)
             {
@@ -1090,6 +1091,11 @@ void callback() {
             sourceOmegaFields *= 2 * M_PI * sourceFreq;
             sourceVertexOmegaFields *= 2 * M_PI * sourceFreq;
         }
+        else if (sourceDir == DirectionType::ROTATEDVEC)
+        {
+            sourceOmegaFields *= sourceFreq;
+            sourceVertexOmegaFields *= sourceFreq;
+        }
         else
         {
             sourceOmegaFields *= sourceFreq;
@@ -1174,10 +1180,20 @@ void callback() {
             tarOmegaFields *= 2 * M_PI * tarFreq;
             tarVertexOmegaFields *= 2 * M_PI * tarFreq;
         }
+        else if (tarDir == DirectionType::ROTATEDVEC)
+        {
+            std::vector<RotateVertexInfo> rotVerts;
+            for (int i = 0; i < triV.rows() / 2; i++)
+            {
+                rotVerts.push_back({ i, M_PI / 2.0 });
+            }
+            rotateIntrinsicVector(triV, triMesh, sourceOmegaFields, rotVerts, tarOmegaFields);
+            tarVertexOmegaFields = intrinsicHalfEdgeVec2VertexVec(tarOmegaFields, triV, triMesh);
+        }
         else
         {
-            tarOmegaFields *= sourceFreq;
-            tarVertexOmegaFields *= sourceFreq;
+            tarOmegaFields *= tarFreq;
+            tarVertexOmegaFields *= tarFreq;
         }
 
         Eigen::VectorXd faceArea;

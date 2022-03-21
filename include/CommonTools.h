@@ -23,6 +23,12 @@ struct QuadraturePoints
     double weight;
 };
 
+struct RotateVertexInfo
+{
+	int vid;
+	double angle;
+};
+
 std::vector<QuadraturePoints> buildQuadraturePoints(int order); // this is based one the paper: http://lsec.cc.ac.cn/~tcui/myinfo/paper/quad.pdf and the corresponding source codes: http://lsec.cc.ac.cn/phg/download.htm (quad.c)
 
 Eigen::Vector3d computeHatWeight(double u, double v);
@@ -35,3 +41,6 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 
 void combField(const Eigen::MatrixXi& F, const Eigen::MatrixXd& w, Eigen::MatrixXd& combedW);
 double unitMagEnergy(const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess, bool isProj = false);
+
+Eigen::Vector3d rotateSingleVector(const Eigen::Vector3d& vec, const Eigen::Vector3d& axis, double angle);
+void rotateIntrinsicVector(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const std::vector<RotateVertexInfo>& rotVerts, Eigen::MatrixXd& rotHalfEdgeW);
