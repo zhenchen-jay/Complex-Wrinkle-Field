@@ -375,8 +375,9 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 
     MeshConnectivity mesh(triF);
 
-    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range) {
-        for (uint32_t i = range.begin(); i < range.end(); ++i)
+//    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range) {
+//        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        for(int i = 0; i < interpZList.size(); i++)
         {
             interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
             magList[i].setZero(interpZList[i].size());
@@ -388,10 +389,10 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
                 phaseList[i](j) = std::arg(interpZList[i][j]);
             }
         }
-    };
+//    };
 
-    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
-    tbb::parallel_for(rangex, computeMagPhase);
+//    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
+//    tbb::parallel_for(rangex, computeMagPhase);
 }
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
@@ -698,6 +699,7 @@ void callback() {
     {
         std::string meshPath = igl::file_dialog_open();
         igl::readOBJ(meshPath, triV, triF);
+        initialization();
         // Initialize polyscope
         polyscope::init();
 
@@ -1024,6 +1026,8 @@ void callback() {
         Eigen::MatrixXd sdisFields, sdisFieldsPerp; // per face vectors
         getDisFields(sourceGamma, sD, sdisFields, sdisFieldsPerp);
 
+        std::cout << "generate distance field finished." << std::endl;
+
         for(int i = 0; i < numComb; i++)
         {
             combField(triF, PD1, PD1);
@@ -1111,7 +1115,7 @@ void callback() {
             tarGamma(i) = std::rand() % (triV.rows());
         }
         tarGamma.resize(1);
-        tarGamma(0) = 189;
+        tarGamma(0) = triV.rows() / 2;
 
         std::cout << "source vertex id (target): " << tarGamma.transpose() << std::endl;
         Eigen::MatrixXd tdisFields, tdisFieldsPerp; // per face vectors
@@ -1314,7 +1318,60 @@ void callback() {
     ImGui::PopItemWidth();
 }
 
+void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
+{
+    double area = length * width;
+    int N = (0.25 * std::sqrt(area / triarea));
+    N = N > 1 ? N : 1;
+    double deltaX = length / (4.0 * N);
+    double deltaY = width / (4.0 * N);
 
+    Eigen::MatrixXd planeV;
+    Eigen::MatrixXi planeE;
+
+    int M = 2 * N + 1;
+    planeV.resize(4 * M - 4, 2);
+    planeE.resize(4 * M - 4, 2);
+
+    for (int i = 0; i < M; i++)
+    {
+        planeV.row(i) << -length / 2, i * width / (M - 1) - width / 2;
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(M - 1 + i) << i * length / (M - 1)-length / 2, width / 2;
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(2 * (M - 1) + i) << length / 2, width/2 - i * width / (M - 1);
+    }
+    for (int i = 1; i < M - 1; i++)
+    {
+        planeV.row(3 * (M - 1) + i) << length / 2- i * length / (M - 1), - width / 2;
+    }
+
+    for (int i = 0; i < 4 * (M - 1); i++)
+    {
+        planeE.row(i) << i, (i + 1) % (4 * (M - 1));
+    }
+
+    Eigen::MatrixXd V2d;
+    Eigen::MatrixXi F;
+    Eigen::MatrixXi H(0, 2);
+    std::cout << triarea << std::endl;
+    // Create an output string stream
+    std::ostringstream streamObj;
+    //Add double to stream
+    streamObj << triarea;
+    const std::string flags = "q20a" + std::to_string(triarea);
+
+    igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+    irregularV.resize(V2d.rows(), 3);
+    irregularV.setZero();
+    irregularV.block(0, 0, irregularV.rows(), 2) = V2d.block(0, 0, irregularV.rows(), 2);
+    irregularF = F;
+    igl::writeOBJ("irregularPlane.obj", irregularV, irregularF);
+}
 
 
 int main(int argc, char** argv)
@@ -1329,6 +1386,7 @@ int main(int argc, char** argv)
     int id = meshPath.rfind("/");
     workingFolder = meshPath.substr(0, id + 1); // include "/"
     //std::cout << workingFolder << std::endl;
+    generateSquare(2, 1, 0.01, triV, triF);
 
     if (!igl::readOBJ(meshPath, triV, triF))
     {
