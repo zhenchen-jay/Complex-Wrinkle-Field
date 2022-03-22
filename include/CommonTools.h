@@ -29,6 +29,20 @@ struct RotateVertexInfo
 	double angle;
 };
 
+enum VecMotionType
+{
+    Rotate = 0,
+    Tilt = 1,
+    Enlarge = 2,
+    None = 3
+};
+
+struct VertexOpInfo
+{
+    VecMotionType optType;
+    double optValue;
+};
+
 std::vector<QuadraturePoints> buildQuadraturePoints(int order); // this is based one the paper: http://lsec.cc.ac.cn/~tcui/myinfo/paper/quad.pdf and the corresponding source codes: http://lsec.cc.ac.cn/phg/download.htm (quad.c)
 
 Eigen::Vector3d computeHatWeight(double u, double v);
