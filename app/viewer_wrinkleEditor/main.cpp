@@ -44,7 +44,7 @@
 #include "../../include/Optimization/LinearConstrainedSolver.h"
 #include "../../include/IntrinsicFormula/InterpolateZvalsFromEdgeOmega.h"
 #include "../../include/IntrinsicFormula/AmpSolver.h"
-#include "../../include/IntrinsicFormula/WrinkleGluingProcess.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingProcess.h"
 #include "../../include/IntrinsicFormula/ComputeZdotFromHalfEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../include/IntrinsicFormula/IntrinsicKnoppelDrivenFormula.h"
@@ -73,14 +73,10 @@ std::vector<Eigen::VectorXd> ampFieldsList;
 
 
 // reference amp and omega
-std::vector<Eigen::MatrixXd> refOmegaList0;
-std::vector<Eigen::VectorXd> refAmpList0;
+std::vector<Eigen::MatrixXd> refOmegaList;
+std::vector<Eigen::VectorXd> refAmpList;
 
-std::vector<Eigen::MatrixXd> refOmegaList1;
-std::vector<Eigen::VectorXd> refAmpList1;
-
-std::vector<VertexOpInfo> vertexOpInfoList0;
-std::vector<VertexOpInfo> vertexOpInfoList1;
+std::vector<VertexOpInfo> vertexOpInfo;
 
 
 Eigen::MatrixXd dataV;
@@ -117,14 +113,13 @@ double triarea = 0.004;
 
 std::string workingFolder;
 
-IntrinsicFormula::WrinkleGluingProcess glueModel;
-VecMotionType ref0Motion = Rotate;
-VecMotionType ref1Motion = Rotate;
-double ref0MotionValue = M_PI / 2;
-double ref1MotionValue = M_PI / 2;
+IntrinsicFormula::WrinkleEditingProcess editModel;
+VecMotionType selectedMotion = Rotate;
+double selectedMotionValue = M_PI / 2;
+Eigen::VectorXi selectedVids;
 
-FunctionType ref0Func = PlaneWave;
-FunctionType ref1Func = PlaneWave;
+FunctionType refFunc = PlaneWave;
+std::vector<std::vector<VertexOpInfo>> vertOptInfoList;
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
 {
@@ -192,6 +187,13 @@ void initialization()
 
 	triMesh = MeshConnectivity(triF);
 	upsampledTriMesh = MeshConnectivity(upsampledTriF);
+
+	selectedVids.setZero(triV.rows());
+	for (int i = 0; i < triV.rows(); i++)
+	{
+		if (std::abs(triV(i, 0)) < 0.25)
+			selectedVids(i) = 1;
+	}
 }
 
 void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
@@ -205,37 +207,14 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	Eigen::VectorXi faceFlag;
 	faceFlag.setConstant(triF.rows(), -1);
 
-	for(int i = 0; i < triF.rows(); i++)
-	{
-		double centerx = 0;
-		for(int j = 0; j < 3; j++)
-			centerx += triV(triF(i, j), 0) / 3.0;
-		if(centerx < -0.25)
-			faceFlag(i) = 0;
-		else if (centerx > 0.25)
-			faceFlag(i) = 1;
-	}
-	std::vector<std::vector<Eigen::VectorXd>> refAmpLists(refAmpList0.size());
-	for(int i = 0; i < refAmpList0.size(); i++)
-	{
-		refAmpLists[i].push_back(refAmpList0[i]);
-		refAmpLists[i].push_back(refAmpList1[i]);
-	}
 
-	std::vector<std::vector<Eigen::MatrixXd>> refOmegaLists(refOmegaList0.size());
-	for(int i = 0; i < refAmpList0.size(); i++)
-	{
-		refOmegaLists[i].push_back(refOmegaList0[i]);
-		refOmegaLists[i].push_back(refOmegaList1[i]);
-	}
-
-	glueModel = IntrinsicFormula::WrinkleGluingProcess(triV, triMesh, faceFlag, quadOrder);
+	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, quadOrder, refAmpList, refOmegaList);
 	
-	glueModel.initialization(refAmpLists, refOmegaLists);
+	editModel.initialization(vertOptInfoList);
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
 	std::cout << "convert list to variable." << std::endl;
-	glueModel._model.convertList2Variable(x);
+	editModel._model.convertList2Variable(x);
 
 	
 	if(isForceOptimize)
@@ -243,7 +222,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv;
 			Eigen::SparseMatrix<double> H;
-			double E = glueModel._model.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+			double E = editModel._model.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
 			if (grad)
 			{
@@ -262,7 +241,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		};
 
 		auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-			glueModel._model.getComponentNorm(x, znorm, wnorm);
+			editModel._model.getComponentNorm(x, znorm, wnorm);
 		};
 
 		auto postProcess = [&](Eigen::VectorXd& x)
@@ -278,11 +257,11 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	}
 	std::cout << "convert variable to list." << std::endl;
-	glueModel._model.convertVariable2List(x);
+	editModel._model.convertVariable2List(x);
 	std::cout << "get w list" << std::endl;
-	wFrames = glueModel.getWList();
+	wFrames = editModel.getWList();
 	std::cout << "get z list" << std::endl;
-	zFrames = glueModel.getVertValsList();
+	zFrames = editModel.getVertValsList();
 }
 
 void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
@@ -361,10 +340,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	for (int i = 0; i < nverts; i++)
 	{
-		if (vertFlag(i) == 0)
+		if (vertFlag(i) == 1)
 			renderColor.row(i) << 1.0, 0, 0;
-		else if (vertFlag(i) == 1)
-			renderColor.row(i) << 0, 1.0, 0;
 	}
 	renderV.block(curVerts, 0, nverts, 3) = basePos - shiftV;
 	renderF.block(curFaces, 0, nfaces, 3) = baseF;
@@ -481,9 +458,9 @@ void registerMesh(int frameId)
 
 	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
-	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(glueModel.getRefWList()[frameId], triV, triMesh);
+	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(editModel.getRefWList()[frameId], triV, triMesh);
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
-		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], glueModel.getRefAmpList()[frameId], refVertOmega, glueModel.getVertFlag(), interpP, interpF, interpVec, interpColor);
+		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModel.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
 
 	dataV = interpP;
@@ -560,25 +537,17 @@ void callback() {
 			updateFieldsInView(curFrame);
 	}
 
-	if (ImGui::CollapsingHeader("First Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Combo("ref func 0", (int*) &ref0Func, "WhirlPool\0PlaneWave\0");
-		ImGui::Combo("ref motion 0", (int*)&ref0Motion, "Ratate\0Tilt\0Enlarge\0None\0");
-		if (ImGui::InputDouble("ref motion value 0", &ref0MotionValue))
-		{
-			if (ref0MotionValue < 0)
-				ref0MotionValue = 0;
-		}
-
+		ImGui::Combo("ref func", (int*) &refFunc, "WhirlPool\0PlaneWave\0");
 	}
-	if (ImGui::CollapsingHeader("Second Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Combo("ref func 1", (int*) &ref1Func, "WhirlPool\0PlaneWave\0");
-		ImGui::Combo("ref motion 1", (int*)&ref1Motion, "Ratate\0Tilt\0Enlarge\0None\0");
-		if (ImGui::InputDouble("ref motion value 1", &ref1MotionValue))
+		ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
+		if (ImGui::InputDouble("motion value", &selectedMotionValue))
 		{
-			if (ref1MotionValue < 0)
-				ref1MotionValue = 0;
+			if (selectedMotionValue < 0)
+				selectedMotionValue = 0;
 		}
 	}
 
@@ -635,22 +604,21 @@ void callback() {
 
 	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
 	{
-		refAmpList0.clear();
-		refAmpList1.clear();
-		refOmegaList0.clear();
-		refOmegaList1.clear();
+		refAmpList.clear();
+		refOmegaList.clear();
+		vertOptInfoList.clear();
 
 		Eigen::MatrixXd w;
 		Eigen::VectorXd amp;
 		std::vector<std::complex<double>> z;
-		if(ref0Func == Whirlpool)
+		if(refFunc == Whirlpool)
 		{
 			generateWhirlPool(-0.5, 0.25, w, z, 1);
 		}
 		else
 		{
 			Eigen::Vector2d dir;
-			dir << 4 * M_PI, 0;
+			dir << 2 * M_PI, 0;
 			generatePlaneWave(dir, w, z);
 		}
 		amp.setZero(triV.rows());
@@ -660,56 +628,27 @@ void callback() {
 		Eigen::MatrixXd vertFields3D(triV.rows(), 3);
 		vertFields3D.block(0, 0, triV.rows(), 2) = w;
 		vertFields3D.col(2).setZero();
+		w = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, triMesh);
 
 		double dt = 1.0 / (numFrames - 1);
 
-		double initval0 = ref0Motion != Enlarge ? 0 : 1;
+		double initval = selectedMotion != Enlarge ? 0 : 1;
 
 		for(int i = 0; i < numFrames; i++)
 		{
-			double value = (ref0MotionValue - initval0) * dt * i + initval0;
-			std::vector<VertexOpInfo> motionVec(triV.rows(), {ref0Motion, value});
-			Eigen::VectorXd ampNew;
-			Eigen::MatrixXd omegaNew;
-			WrinkleFieldsEditor::editWrinkles(triV, triMesh, amp, vertFields3D, motionVec, ampNew, omegaNew);
+			double value = (selectedMotionValue - initval) * dt * i + initval;
+			std::vector<VertexOpInfo> motionVec(triV.rows(), { None, 0 });
+			for (int j = 0; j < selectedVids.rows(); j++)
+			{
+				if (selectedVids(j) == 1)
+					motionVec[j] = { selectedMotion, value };
+			}
+			vertOptInfoList.push_back(motionVec);
 
-			refAmpList0.push_back(ampNew);
-			omegaNew = vertexVec2IntrinsicHalfEdgeVec(omegaNew, triV, triMesh);
-			refOmegaList0.push_back(omegaNew);
+			double c = dt * i * 2.0 + 1.0;
+			refAmpList.push_back(amp / c);
+			refOmegaList.push_back(w * c);
 		}
-
-		if(ref1Func == Whirlpool)
-		{
-			generateWhirlPool(0.5, 0.25, w, z, 1);
-		}
-		else
-		{
-			Eigen::Vector2d dir;
-			dir << 0, 4 * M_PI;
-			generatePlaneWave(dir, w, z);
-		}
-		amp.setZero(triV.rows());
-		for(int i = 0; i < amp.size(); i++)
-			amp(i) = std::abs(z[i]);
-
-		vertFields3D.block(0, 0, triV.rows(), 2) = w;
-		vertFields3D.col(2).setZero();
-
-		double initval1 = ref1Motion != Enlarge ? 0 : 1;
-		for(int i = 0; i < numFrames; i++)
-		{
-			double value = (ref1MotionValue - initval1) * dt * i + initval1;
-			std::vector<VertexOpInfo> motionVec(triV.rows(), {ref1Motion, value});
-			Eigen::VectorXd ampNew;
-			Eigen::MatrixXd omegaNew;
-			WrinkleFieldsEditor::editWrinkles(triV, triMesh, amp, vertFields3D, motionVec, ampNew, omegaNew);
-
-			refAmpList1.push_back(ampNew);
-			omegaNew = vertexVec2IntrinsicHalfEdgeVec(omegaNew, triV, triMesh);
-			refOmegaList1.push_back(omegaNew);
-		}
-
-
 
 		// solve for the path from source to target
 		solveKeyFrames(omegaList, zList);
@@ -724,12 +663,12 @@ void callback() {
 		}
 		
 		// update global maximum amplitude
-		globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), glueModel.getRefAmpList()[0].maxCoeff());
-		globalAmpMin = std::min(ampFieldsList[0].minCoeff(), glueModel.getRefAmpList()[0].minCoeff());
+		globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), editModel.getRefAmpList()[0].maxCoeff());
+		globalAmpMin = std::min(ampFieldsList[0].minCoeff(), editModel.getRefAmpList()[0].minCoeff());
 		for(int i = 1; i < ampFieldsList.size(); i++)
 		{
-			globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), glueModel.getRefAmpList()[i].maxCoeff()));
-			globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), glueModel.getRefAmpList()[i].minCoeff()));
+			globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), editModel.getRefAmpList()[i].maxCoeff()));
+			globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), editModel.getRefAmpList()[i].minCoeff()));
 		}
 		updateFieldsInView(curFrame);
 	}

@@ -20,6 +20,13 @@ namespace IntrinsicFormula
         std::vector<Eigen::MatrixXd> getWList() { return _model.getWList(); }
         std::vector<std::vector<std::complex<double>>> getVertValsList() { return _model.getVertValsList(); }
 
+        std::vector<Eigen::MatrixXd> getRefWList() { return _combinedRefOmegaList; }
+        std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
+        Eigen::VectorXi getVertFlag() { return _vertFlag; }
+        Eigen::VectorXi getEdgeFlag() { return _edgeFlag; }
+        Eigen::VectorXi getFaceFlag() { return _faceFlag; }
+
+
     private:
         void computeCombinedRefAmpList(const std::vector<std::vector<Eigen::VectorXd>> &refAmpList);
 
