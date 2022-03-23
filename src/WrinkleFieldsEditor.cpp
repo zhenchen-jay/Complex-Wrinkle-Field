@@ -13,18 +13,18 @@ void WrinkleFieldsEditor::editWrinkles(const Eigen::MatrixXd &pos, const MeshCon
     Eigen::MatrixXd normals;
     igl::per_vertex_normals(pos, mesh.faces(), normals);
 
-//    auto vertEditor = [&](const tbb::blocked_range<uint32_t>& range) {
-//        for (uint32_t i = range.begin(); i < range.end(); ++i)
+    //auto vertEditor = [&](const tbb::blocked_range<uint32_t>& range) {
+        //for (uint32_t i = range.begin(); i < range.end(); ++i)
     for (uint32_t i = 0; i < nverts; ++i)
         {
             Eigen::Vector3d omegaVert;
             editWrinklesPerVertex(pos, mesh, normals, amp, omega, vertInfo, i, ampNew(i), omegaVert);
             omegaNew.row(i) = omegaVert;
         }
-//    };
-//
-//    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)(nverts), GRAIN_SIZE);
-//    tbb::parallel_for(rangex, vertEditor);
+    //};
+
+    //tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)(nverts), GRAIN_SIZE);
+    //tbb::parallel_for(rangex, vertEditor);
 }
 
 void WrinkleFieldsEditor::editWrinklesPerVertex(const Eigen::MatrixXd &pos, const MeshConnectivity &mesh,
@@ -51,8 +51,8 @@ void WrinkleFieldsEditor::editWrinklesPerVertex(const Eigen::MatrixXd &pos, cons
     }
     else if (vertInfo[vid].optType == Enlarge)
     {
-        omegaNew = omega.row(vid) * vertInfo[vid].optValue;
-        ampNew = amp(vid) / vertInfo[vid].optValue;
+        omegaNew *= vertInfo[vid].optValue;
+        ampNew /= vertInfo[vid].optValue;
     }
     else if (vertInfo[vid].optType == Tilt)
     {
@@ -66,7 +66,8 @@ void WrinkleFieldsEditor::editWrinklesPerVertex(const Eigen::MatrixXd &pos, cons
                 uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);
 
         omegaNew = rotMat * omegaNew;
-        omegaNew *= omegaNew.norm() / c;
+        omegaNew /= omegaNew.norm();
+        omegaNew *= omega.row(vid).norm() / c;
         ampNew *= c;
     }
 

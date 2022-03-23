@@ -50,7 +50,7 @@ void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::V
 
     int nFrames = _combinedRefAmpList.size() - 2;
     roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-    roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+    roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 
     _model = IntrinsicKnoppelDrivenFormula(_mesh, _faceArea, _cotMatrixEntries, _combinedRefOmegaList, _combinedRefAmpList, initZvals, tarZvals, _combinedRefOmegaList[0], _combinedRefOmegaList[nFrames + 1], nFrames, 1.0, _quadOrd);
 }
@@ -72,7 +72,8 @@ void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vect
 	for (int k = 0; k < L.outerSize(); ++k)
 		for (Eigen::SparseMatrix<double>::InnerIterator it(L, k); it; ++it)
 		{
-			T.push_back(Eigen::Triplet<double>(it.row(), it.col(), -it.value() + c)); //
+			//T.push_back(Eigen::Triplet<double>(it.row(), it.col(), -it.value() + c)); 
+			T.push_back(Eigen::Triplet<double>(it.row(), it.col(), -it.value())); 
 		}
 	// projection matrix
 	std::vector<int> fixedVid;
@@ -92,6 +93,8 @@ void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vect
 
 	Eigen::SparseMatrix<double> ampMat(nverts + fixedVid.size(), nverts + fixedVid.size());
 	ampMat.setFromTriplets(T.begin(), T.end());
+
+	//Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> ampSolver;
 	Eigen::SPQR<Eigen::SparseMatrix<double>> ampSolver;
 	ampSolver.compute(ampMat);
 
@@ -108,7 +111,7 @@ void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vect
 		int id = 0;
 		for (int j = 0; j < nverts; j++)
 		{
-            rhs(j) = c * lastAmp(j);
+            //rhs(j) = c * lastAmp(j);
 			if (_vertFlag(j) != -1)
 			{
 				rhs(nverts + id) = refAmpList[i][_vertFlag(j)](j);
@@ -116,6 +119,7 @@ void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vect
 			}
 		}
 		Eigen::VectorXd sol = ampSolver.solve(rhs);
+		std::cout << "\nFrame " << std::to_string(i) << ": residual: " << (ampMat * sol - rhs).norm() << std::endl;
 		_combinedRefAmpList[i] = sol.segment(0, nverts);
         lastAmp = _combinedRefAmpList[i];
 	}
@@ -316,6 +320,7 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 
 	for (int k = 0; k < nFrames; k++)
 	{
+		std::cout << "Frame " << std::to_string(k) << ": ";
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv;
             std::vector<Eigen::Triplet<double>> T;
@@ -350,12 +355,11 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 		};
         
 		Eigen::VectorXd x0 = projVar(k);
-        OptSolver::testFuncGradHessian(funVal, x0);
 		OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
 
 		Eigen::VectorXd deriv;
 		double E = funVal(x0, &deriv, NULL, false);
-		std::cout << "Frame " << std::to_string(k) << ": terminated with gradient norm: " << deriv.norm() << std::endl;
+		std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
 
         prevw = unProjVar(x0, k);
         _combinedRefOmegaList[k] = prevw;
