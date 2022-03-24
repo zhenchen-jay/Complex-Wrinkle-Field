@@ -4,6 +4,7 @@
 #include "IntrinsicKnoppelDrivenFormula.h"
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
+#include <set>
 
 namespace IntrinsicFormula
 {
@@ -32,16 +33,26 @@ namespace IntrinsicFormula
 
         void computeCombinedRefOmegaList(const std::vector<std::vector<Eigen::MatrixXd>> &refOmegaList);
 
+
+        double amplitudeEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, Eigen::VectorXd *deriv = NULL, std::vector<Eigen::Triplet<double>> *hessT = NULL);
+        double amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, int fid, Eigen::Vector3d* deriv = NULL, Eigen::Matrix3d* hess = NULL);
+
         double curlFreeEnergy(const Eigen::MatrixXd &w, Eigen::VectorXd *deriv = NULL,
                               std::vector<Eigen::Triplet<double>> *hessT = NULL);
 
         double curlFreeEnergyPerface(const Eigen::MatrixXd &w, int faceId, Eigen::Matrix<double, 6, 1> *deriv = NULL,
                                      Eigen::Matrix<double, 6, 6> *hess = NULL);
+
+        double divFreeEnergy(const Eigen::MatrixXd &w, Eigen::VectorXd *deriv = NULL, std::vector<Eigen::Triplet<double>> *hessT = NULL);
+        double divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd *deriv = NULL, Eigen::MatrixXd *hess = NULL);
+
     public:
         // testing functions
         void testCurlFreeEnergy(const Eigen::MatrixXd &w);
-
         void testCurlFreeEnergyPerface(const Eigen::MatrixXd &w, int faceId);
+
+        void testDivFreeEnergy(const Eigen::MatrixXd &w);
+        void testDivFreeEnergyPervertex(const Eigen::MatrixXd &w, int vertId);
 
     private:
         Eigen::MatrixXd _pos;
@@ -50,12 +61,20 @@ namespace IntrinsicFormula
         Eigen::VectorXi _vertFlag;
         Eigen::VectorXi _edgeFlag;
 
+        std::vector<int> _effectiveFids;
+        std::vector<int> _effectiveEids;
+        std::vector<int> _effectiveVids;
+
         Eigen::MatrixXd _cotMatrixEntries;
         Eigen::VectorXd _faceArea;
         std::vector<Eigen::VectorXd> _combinedRefAmpList;
         std::vector<Eigen::MatrixXd> _combinedRefOmegaList;
 
         int _quadOrd;
+        std::vector<std::vector<int>> _vertNeiFaces;
+        std::vector<std::vector<int>> _vertNeiEdges;
+        Eigen::VectorXd _vertArea;
+        Eigen::VectorXd _edgeCotCoeffs;
 
     public:
         IntrinsicKnoppelDrivenFormula _model;

@@ -31,8 +31,6 @@ public:
     int oppositeVertexIndex(int edge, int faceidx) const; // index i so that F(edgeFace(edge, faceidx), i) is *not* part of the edge
     int oppositeVertex(int edge, int faceidx) const;
     
-
-    
     
 private:
     Eigen::MatrixXi F;
