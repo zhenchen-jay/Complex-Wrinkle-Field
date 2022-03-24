@@ -614,3 +614,29 @@ void rotateIntrinsicVector(const Eigen::MatrixXd& V, const MeshConnectivity& mes
 
 	rotHalfEdgeW = vertexVec2IntrinsicHalfEdgeVec(vertVec, V, mesh);
 }
+
+void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::vector<std::vector<int>>& vertNeiEdges, std::vector<std::vector<int>>& vertNeiFaces)
+{
+    vertNeiEdges.resize(nverts);
+    vertNeiFaces.resize(nverts);
+
+    int nfaces = mesh.nFaces();
+    int nedges = mesh.nEdges();
+
+    for(int i = 0; i < nfaces; i++)
+    {
+        for(int j = 0; j < 3; j++)
+        {
+            vertNeiFaces[mesh.faceVertex(i, j)].push_back(i);
+        }
+    }
+
+    for(int i = 0; i < nedges; i++)
+    {
+        for(int j = 0; j < 2; j++)
+        {
+            vertNeiEdges[mesh.edgeVertex(i, j)].push_back(i);
+        }
+    }
+
+}

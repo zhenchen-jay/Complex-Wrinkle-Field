@@ -3,6 +3,7 @@
 #include <igl/cotmatrix_entries.h>
 #include <igl/cotmatrix.h>
 #include <igl/doublearea.h>
+#include <igl/boundary_loop.h>
 #include <Eigen/SPQRSupport>
 
 using namespace IntrinsicFormula;
@@ -27,17 +28,51 @@ WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const Mes
 	_edgeFlag.resize(nedges);
 	_edgeFlag.setConstant(-1);
 
+    _vertArea.setZero(nverts);
+    buildVertexNeighboringInfo(_mesh, _pos.rows(), _vertNeiEdges, _vertNeiFaces);
+
+    _edgeCotCoeffs.setZero(nedges);
+
+    _effectiveVids.clear();
+    _effectiveEids.clear();
+    _effectiveVids.clear();
+
+    std::vector<int> bnds;
+    igl::boundary_loop(_mesh.faces(), bnds);
+
+    std::set<int> edgeset;
+    std::set<int> vertset;
+
 	for (int i = 0; i < nfaces; i++)
 	{
-		if (faceFlag(i) != -1)
-		{
-			for(int j = 0; j < 3; j++)
-			{
-				_vertFlag(mesh.faceVertex(i, j)) = faceFlag(i);
-				_edgeFlag(mesh.faceEdge(i, j)) = faceFlag(i);
-			}
-		}
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = _mesh.faceVertex(i, j);
+            int eid = _mesh.faceEdge(i, j);
+
+            _vertArea(vid) += _faceArea(i) / _vertNeiFaces.size() / 3.0;
+            _edgeCotCoeffs(eid) += _cotMatrixEntries(i, j);
+
+            if (faceFlag(i) != -1)
+            {
+                _vertFlag(vid) = faceFlag(i);
+                _edgeFlag(eid) = faceFlag(i);
+            }
+            else
+            {
+                _effectiveFids.push_back(i);
+//                if(std::find(bnds.begin(), bnds.end(), vid) == bnds.end() && vertset.count(vid) == 0)     // not on boundary
+                if(vertset.count(vid) == 0)
+                     vertset.insert(vid);
+                if(edgeset.count(eid) == 0)
+                    edgeset.insert(eid);
+            }
+        }
 	}
+    std::copy(vertset.begin(), vertset.end(), std::back_inserter(_effectiveVids));
+    std::copy(edgeset.begin(), edgeset.end(), std::back_inserter(_effectiveEids));
+
+
 }
 
 void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList)
@@ -53,6 +88,73 @@ void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::V
     roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 
     _model = IntrinsicKnoppelDrivenFormula(_mesh, _faceArea, _cotMatrixEntries, _combinedRefOmegaList, _combinedRefAmpList, initZvals, tarZvals, _combinedRefOmegaList[0], _combinedRefOmegaList[nFrames + 1], nFrames, 1.0, _quadOrd);
+}
+
+double WrinkleGluingProcess::amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd &amp, const Eigen::MatrixXd &w,
+                                                                  int fid, Eigen::Vector3d *deriv,
+                                                                  Eigen::Matrix3d *hess)
+{
+    double energy = 0;
+
+    double curlSq = curlFreeEnergyPerface(w, fid, NULL, NULL);
+    Eigen::Vector3d wSq;
+
+    for(int i = 0; i < 3; i++)
+    {
+        double wij = 0;
+        double wik = 0;
+
+        int eidij = _mesh.faceEdge(fid, (i + 2) % 3);
+        int eidik = _mesh.faceEdge(fid, (i + 1) % 3);
+        int vid = _mesh.faceVertex(fid, i);
+        int vidj = _mesh.faceVertex(fid, (i + 1) % 2);
+        int vidk = _mesh.faceVertex(fid, (i + 2) % 2);
+
+        if (vid == _mesh.edgeVertex(eidij, 0))
+        {
+            wij = w(eidij, 0);
+        }
+        else
+        {
+            wij = w(eidij, 1);
+        }
+
+        if (vid == _mesh.edgeVertex(eidik, 0))
+        {
+            wik = w(eidik, 0);
+        }
+        else
+        {
+            wik = w(eidik, 1);
+        }
+
+        double eij = (_pos.row(vidj) - _pos.row(vid)).norm();
+        double eik = (_pos.row(vidk) - _pos.row(vid)).norm();
+        wSq(i) = wij * wij * eij * eij + 2 * wij * wik * eij * eik + wik * wik * eik * eik;
+    }
+
+
+
+    for(int i = 0; i < 3; i++)
+    {
+        int vid = _mesh.faceVertex(fid, i);
+        energy += 0.5 * amp(vid) * amp(vid) / 3 * (wSq(i) * _faceArea(fid) + curlSq);
+
+        if(deriv)
+            (*deriv)(i) += amp(vid) * (wSq(i) * _faceArea(fid) + curlSq) / 3;
+        if(hess)
+            (*hess)(i, i) += (wSq(i) * _faceArea(fid) + curlSq) / 3;
+    }
+
+    return energy;
+}
+
+double WrinkleGluingProcess::amplitudeEnergyWithGivenOmega(const Eigen::VectorXd &amp, const Eigen::MatrixXd &w,
+                                                           Eigen::VectorXd *deriv,
+                                                           std::vector<Eigen::Triplet<double>> *hessT)
+{
+    double energy = 0;
+    return energy;
 }
 
 void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList)
@@ -160,7 +262,7 @@ double WrinkleGluingProcess::curlFreeEnergyPerface(const Eigen::MatrixXd& w, int
 	E = 0.5 * (diff0 * diff0 + diff1 * diff1);
 	if (deriv)
 	{
-		*deriv = (select0 * select0.transpose() + select1 * select1.transpose()) * edgews;
+		*deriv = select0 * diff0 + select1 * diff1;
 	}
 	if (hess)
 	{
@@ -175,20 +277,21 @@ double WrinkleGluingProcess::curlFreeEnergy(const Eigen::MatrixXd& w, Eigen::Vec
 {
 	double E = 0;
 	int nedges = _mesh.nEdges();
-	int nfaces = _mesh.nFaces();
+    int nEffectiveFaces = _effectiveFids.size();
 
-	std::vector<double> energyList(nfaces);
-	std::vector<Eigen::Matrix<double, 6, 1>> derivList(nfaces);
-	std::vector<Eigen::Matrix<double, 6, 6>> hessList(nfaces);
+	std::vector<double> energyList(nEffectiveFaces);
+	std::vector<Eigen::Matrix<double, 6, 1>> derivList(nEffectiveFaces);
+	std::vector<Eigen::Matrix<double, 6, 6>> hessList(nEffectiveFaces);
 
 	auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			energyList[i] = curlFreeEnergyPerface(w, i, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
+            int fid = _effectiveFids[i];
+			energyList[i] = curlFreeEnergyPerface(w, fid, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
 		}
 	};
 
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nfaces, GRAIN_SIZE);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nEffectiveFaces, GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeEnergy);
 
 	if (deriv)
@@ -196,17 +299,18 @@ double WrinkleGluingProcess::curlFreeEnergy(const Eigen::MatrixXd& w, Eigen::Vec
     if(hessT)
         hessT->clear();
 
-	for (int i = 0; i < nfaces; i++)
+	for (int efid = 0; efid < nEffectiveFaces; efid++)
 	{
-		E += energyList[i];
+		E += energyList[efid];
+        int fid = _effectiveFids[efid];
 
 		if (deriv)
 		{
 			for (int j = 0; j < 3; j++)
 			{
-				int eid = _mesh.faceEdge(i, j);
-				(*deriv)(2 * eid) += derivList[i](2 * j);
-				(*deriv)(2 * eid + 1) += derivList[i](2 * j + 1);
+				int eid = _mesh.faceEdge(fid, j);
+				(*deriv)(2 * eid) += derivList[efid](2 * j);
+				(*deriv)(2 * eid + 1) += derivList[efid](2 * j + 1);
 			}
 		}
 
@@ -214,14 +318,14 @@ double WrinkleGluingProcess::curlFreeEnergy(const Eigen::MatrixXd& w, Eigen::Vec
 		{
 			for (int j = 0; j < 3; j++)
 			{
-				int eid = _mesh.faceEdge(i, j);
+				int eid = _mesh.faceEdge(fid, j);
 				for (int k = 0; k < 3; k++)
 				{
-					int eid1 = _mesh.faceEdge(i, k);
-					hessT->push_back({ 2 * eid, 2 * eid1, hessList[i](2 * j, 2 * k) });
-					hessT->push_back({ 2 * eid, 2 * eid1 + 1, hessList[i](2 * j, 2 * k + 1) });
-					hessT->push_back({ 2 * eid + 1, 2 * eid1, hessList[i](2 * j + 1, 2 * k) });
-					hessT->push_back({ 2 * eid + 1, 2 * eid1 + 1, hessList[i](2 * j + 1, 2 * k + 1) });
+					int eid1 = _mesh.faceEdge(fid, k);
+					hessT->push_back({ 2 * eid, 2 * eid1, hessList[efid](2 * j, 2 * k) });
+					hessT->push_back({ 2 * eid, 2 * eid1 + 1, hessList[efid](2 * j, 2 * k + 1) });
+					hessT->push_back({ 2 * eid + 1, 2 * eid1, hessList[efid](2 * j + 1, 2 * k) });
+					hessT->push_back({ 2 * eid + 1, 2 * eid1 + 1, hessList[efid](2 * j + 1, 2 * k + 1) });
 				}
 			}
 		}
@@ -230,10 +334,124 @@ double WrinkleGluingProcess::curlFreeEnergy(const Eigen::MatrixXd& w, Eigen::Vec
 	return E;
 }
 
+
+double WrinkleGluingProcess::divFreeEnergyPervertex(const Eigen::MatrixXd &w, int vertId, Eigen::VectorXd *deriv,
+                                                    Eigen::MatrixXd *hess)
+{
+    double energy = 0;
+    int neiEdges = _vertNeiEdges[vertId].size();
+
+
+    Eigen::VectorXd selectedVec0, selectedVec1;
+    selectedVec0.setZero(2 * neiEdges);
+    selectedVec1.setZero(2 * neiEdges);
+
+    Eigen::VectorXd edgew;
+    edgew.setZero(2 * neiEdges);
+
+    for(int i = 0; i < neiEdges; i++)
+    {
+        int eid = _vertNeiEdges[vertId][i];
+        if(_mesh.edgeVertex(eid, 0) == vertId)
+        {
+            selectedVec0(2 * i) = _edgeCotCoeffs(eid);
+            selectedVec1(2 * i + 1) = _edgeCotCoeffs(eid);
+        }
+        else
+        {
+            selectedVec0(2 * i + 1) = _edgeCotCoeffs(eid);
+            selectedVec1(2 * i) = _edgeCotCoeffs(eid);
+        }
+
+        edgew(2 * i) = w(eid, 0);
+        edgew(2 * i + 1)  = w(eid, 1);
+//        std::cout << "eid: " << eid << ", vids: " << _mesh.edgeVertex(eid, 0) << ", " << _mesh.edgeVertex(eid, 1) << ", edge omegas: " << w.row(eid) <<std::endl;
+//        std::cout << "vid: " << _mesh.edgeVertex(eid, 0) << " " << _pos.row(_mesh.edgeVertex(eid, 0)) << std::endl;
+//        std::cout << "vid: " << _mesh.edgeVertex(eid, 1) << " " << _pos.row(_mesh.edgeVertex(eid, 1)) << std::endl << std::endl;
+    }
+    double diff0 = selectedVec0.dot(edgew);
+    double diff1 = selectedVec1.dot(edgew);
+
+    energy = 0.5 * (diff0 * diff0 + diff1 * diff1);
+    if(deriv)
+    {
+        (*deriv) = (diff0 * selectedVec0 + diff1 * selectedVec1);
+    }
+    if(hess)
+    {
+//        std::cout << edgew.transpose() << std::endl;
+//        std::cout << selectedVec0.transpose() << std::endl;
+        (*hess) = (selectedVec0 * selectedVec0.transpose() + selectedVec1 * selectedVec1.transpose());
+    }
+
+    return energy;
+}
+
+double WrinkleGluingProcess::divFreeEnergy(const Eigen::MatrixXd &w, Eigen::VectorXd *deriv,
+                                           std::vector<Eigen::Triplet<double>> *hessT)
+{
+    double energy = 0;
+    int nedges = _mesh.nEdges();
+    int nEffectiveVerts = _effectiveVids.size();
+
+    std::vector<double> energyList(nEffectiveVerts);
+    std::vector<Eigen::VectorXd> derivList(nEffectiveVerts);
+    std::vector<Eigen::MatrixXd> hessList(nEffectiveVerts);
+
+    auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            int vid = _effectiveVids[i];
+            energyList[i] = divFreeEnergyPervertex(w, vid, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nEffectiveVerts, GRAIN_SIZE);
+    tbb::parallel_for(rangex, computeEnergy);
+
+    if (deriv)
+        deriv->setZero(2 * nedges);
+    if(hessT)
+        hessT->clear();
+
+    for(int efid = 0; efid < nEffectiveVerts; efid++)
+    {
+        int vid = _effectiveVids[efid];
+        energy += energyList[efid];
+
+        if(deriv)
+        {
+             for(int j = 0; j < _vertNeiEdges[vid].size(); j++)
+             {
+                 int eid = _vertNeiEdges[vid][j];
+                 (*deriv)(2 * eid) += derivList[efid](2 * j);
+                 (*deriv)(2 * eid + 1) += derivList[efid](2 * j + 1);
+             }
+        }
+
+        if (hessT)
+        {
+            for(int j = 0; j < _vertNeiEdges[vid].size(); j++)
+            {
+                int eid = _vertNeiEdges[vid][j];
+                for(int k = 0; k < _vertNeiEdges[vid].size(); k++)
+                {
+                    int eid1 = _vertNeiEdges[vid][k];
+                    hessT->push_back({ 2 * eid, 2 * eid1, hessList[efid](2 * j, 2 * k) });
+                    hessT->push_back({ 2 * eid, 2 * eid1 + 1, hessList[efid](2 * j, 2 * k + 1) });
+                    hessT->push_back({ 2 * eid + 1, 2 * eid1, hessList[efid](2 * j + 1, 2 * k) });
+                    hessT->push_back({ 2 * eid + 1, 2 * eid1 + 1, hessList[efid](2 * j + 1, 2 * k + 1) });
+                }
+            }
+        }
+    }
+
+    return energy;
+}
+
 void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList)
 {
 	int nedges = _mesh.nEdges();
-	int nfaces = _mesh.nFaces();
 	int nFrames = refOmegaList.size();
 
     _combinedRefOmegaList.resize(nFrames);
@@ -322,12 +540,16 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 	{
 		std::cout << "Frame " << std::to_string(k) << ": ";
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-			Eigen::VectorXd deriv;
-            std::vector<Eigen::Triplet<double>> T;
+			Eigen::VectorXd deriv, deriv1;
+            std::vector<Eigen::Triplet<double>> T, T1;
 			Eigen::SparseMatrix<double> H;
 			Eigen::MatrixXd w = unProjVar(x, k);
 
 			double E = curlFreeEnergy(w, grad ? &deriv : NULL, hess ? &T : NULL);
+            E += divFreeEnergy(w, grad ? &deriv1 : NULL, hess ? &T1 : NULL);
+            std::copy(T1.begin(), T1.end(), std::back_inserter(T));
+            deriv += deriv1;
+
             H.resize(2 * w.rows(), 2 * w.rows());
             H.setFromTriplets(T.begin(), T.end());
 
@@ -437,3 +659,64 @@ void WrinkleGluingProcess::testCurlFreeEnergyPerface(const Eigen::MatrixXd &w, i
 
 }
 
+void WrinkleGluingProcess::testDivFreeEnergy(const Eigen::MatrixXd &w)
+{
+    Eigen::VectorXd deriv;
+    std::vector<Eigen::Triplet<double>> T;
+    Eigen::SparseMatrix<double> hess;
+    double E = divFreeEnergy(w, &deriv, &T);
+    hess.resize(2 * w.rows(), 2 * w.rows());
+    hess.setFromTriplets(T.begin(), T.end());
+
+    std::cout << "tested div free energy: " << E << ", gradient norm: " << deriv.norm() << std::endl;
+
+    Eigen::VectorXd dir = deriv;
+    dir.setRandom();
+
+    for(int i = 3; i < 10; i++)
+    {
+        double eps = std::pow(0.1, i);
+        Eigen::VectorXd deriv1;
+        Eigen::MatrixXd w1 = w;
+        for(int j = 0; j < w.rows(); j++)
+        {
+            w1(j, 0) += eps * dir(2 * j);
+            w1(j, 1) += eps * dir(2 * j + 1);
+        }
+        double E1 = divFreeEnergy(w1, &deriv1, NULL);
+
+        std::cout << "\neps: " << eps << std::endl;
+        std::cout << "gradient check: " << std::abs((E1 - E) / eps - dir.dot(deriv)) << std::endl;
+        std::cout << "hess check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+    }
+}
+
+void WrinkleGluingProcess::testDivFreeEnergyPervertex(const Eigen::MatrixXd &w, int vertId)
+{
+    Eigen::VectorXd deriv;
+    Eigen::MatrixXd hess;
+    double E = divFreeEnergyPervertex(w, vertId, &deriv, &hess);
+    Eigen::VectorXd dir = deriv;
+    dir.setRandom();
+
+    std::cout << "tested div free energy for vertex: " << vertId << ", energy: " << E << ", gradient norm: " << deriv.norm() << std::endl;
+
+    for(int i = 3; i < 10; i++)
+    {
+        double eps = std::pow(0.1, i);
+        Eigen::MatrixXd w1 = w;
+        for(int j = 0; j < _vertNeiEdges[vertId].size(); j++)
+        {
+            int eid = _vertNeiEdges[vertId][j];
+            w1(eid, 0) += eps * dir(2 * j);
+            w1(eid, 1) += eps * dir(2 * j + 1);
+        }
+        Eigen::VectorXd deriv1;
+        double E1 = divFreeEnergyPervertex(w1, vertId, &deriv1, NULL);
+
+        std::cout << "\neps: " << eps << std::endl;
+        std::cout << "gradient check: " << std::abs((E1 - E) / eps - dir.dot(deriv)) << std::endl;
+        std::cout << "hess check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+    }
+
+}
