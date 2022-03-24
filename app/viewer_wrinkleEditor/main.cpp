@@ -677,7 +677,7 @@ void callback() {
 	{
 		for(int i = 0; i < ampFieldsList.size(); i++)
 		{
-			updateFieldsInView(curFrame);
+			updateFieldsInView(i);
 			//polyscope::options::screenshotExtension = ".jpg";
 			std::string name = "output_" + std::to_string(i) + ".jpg";
 			polyscope::screenshot(name);
