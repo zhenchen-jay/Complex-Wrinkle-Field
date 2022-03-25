@@ -12,18 +12,18 @@ void RegionEdition::faceErosion(const Eigen::VectorXi &faceFlag,
         {
             int nNeis = _faceNeighboring[i].size();
             bool isOnSelectedBnds = false;
-            std::cout << "\nfid: " << i;
             for(int j = 0; j < nNeis; j++)
             {
                 int fid = _faceNeighboring[i][j];
-                std::cout << ", neighboring faceId: (" << fid << " , " << faceFlag[fid] << "), ";
-                if(!faceFlag[fid])
-                    isOnSelectedBnds = true;
+                if(fid != -1)
+                {
+                    if(!faceFlag[fid])
+                        isOnSelectedBnds = true;
+                }
+
             }
 
-            if(isOnSelectedBnds)
-                faceFlagNew[i] = 0;
-//            faceFlagNew[i] = isOnSelectedBnds ? 0 : 1;   // only keep the interior selected faces
+            faceFlagNew[i] = isOnSelectedBnds ? 0 : 1;   // only keep the interior selected faces
         }
 
     }
