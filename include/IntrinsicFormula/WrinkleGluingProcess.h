@@ -29,7 +29,7 @@ namespace IntrinsicFormula
 
 
     private:
-        void computeCombinedRefAmpList(const std::vector<std::vector<Eigen::VectorXd>> &refAmpList);
+        void computeCombinedRefAmpList(const std::vector<std::vector<Eigen::VectorXd>> &refAmpList, std::vector<Eigen::MatrixXd>* combinedOmegaList = NULL);
 
         void computeCombinedRefOmegaList(const std::vector<std::vector<Eigen::MatrixXd>> &refOmegaList);
 
@@ -54,6 +54,9 @@ namespace IntrinsicFormula
         void testDivFreeEnergy(const Eigen::MatrixXd &w);
         void testDivFreeEnergyPervertex(const Eigen::MatrixXd &w, int vertId);
 
+        void testAmpEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w);
+        void testAmpEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, int faceId);
+
     private:
         Eigen::MatrixXd _pos;
         MeshConnectivity _mesh;
@@ -75,6 +78,8 @@ namespace IntrinsicFormula
         std::vector<std::vector<int>> _vertNeiEdges;
         Eigen::VectorXd _vertArea;
         Eigen::VectorXd _edgeCotCoeffs;
+
+        std::vector<std::vector<Eigen::Matrix2d>> _faceVertMetrics;
 
     public:
         IntrinsicKnoppelDrivenFormula _model;
