@@ -16,6 +16,9 @@ void IntrinsicKnoppelDrivenFormula::convertList2Variable(Eigen::VectorXd& x)
 
     int numFrames = _zvalsList.size() - 2;
 
+    if(!_isFixedBndZvals)
+        numFrames = _zvalsList.size();
+
     int DOFsPerframe = (2 * nverts + 2 * nedges);
 
     int DOFs = numFrames * DOFsPerframe;
@@ -26,14 +29,32 @@ void IntrinsicKnoppelDrivenFormula::convertList2Variable(Eigen::VectorXd& x)
     {
         for (int j = 0; j < nverts; j++)
         {
-            x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][j].real();
-            x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][j].imag();
+            if(_isFixedBndZvals)
+            {
+                x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][j].real();
+                x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][j].imag();
+            }
+            else
+            {
+                x(i * DOFsPerframe + 2 * j) = _zvalsList[i][j].real();
+                x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i][j].imag();
+            }
+
         }
 
         for (int j = 0; j < nedges; j++)
         {
-            x(i * DOFsPerframe + 2 * nverts + 2 * j) = _edgeOmegaList[i + 1](j, 0);
-            x(i * DOFsPerframe + 2 * nverts + 2 * j + 1) = _edgeOmegaList[i + 1](j, 1);
+            if(_isFixedBndZvals)
+            {
+                x(i * DOFsPerframe + 2 * nverts + 2 * j) = _edgeOmegaList[i + 1](j, 0);
+                x(i * DOFsPerframe + 2 * nverts + 2 * j + 1) = _edgeOmegaList[i + 1](j, 1);
+            }
+            else
+            {
+                x(i * DOFsPerframe + 2 * nverts + 2 * j) = _edgeOmegaList[i](j, 0);
+                x(i * DOFsPerframe + 2 * nverts + 2 * j + 1) = _edgeOmegaList[i](j, 1);
+            }
+
         }
     }
 }
@@ -44,19 +65,34 @@ void IntrinsicKnoppelDrivenFormula::convertVariable2List(const Eigen::VectorXd& 
     int nedges = _edgeOmegaList[0].rows();
 
     int numFrames = _zvalsList.size() - 2;
+    if(!_isFixedBndZvals)
+        numFrames = _zvalsList.size();
+
     int DOFsPerframe = (2 * nverts + 2 * nedges);
 
     for (int i = 0; i < numFrames; i++)
     {
         for (int j = 0; j < nverts; j++)
         {
-            _zvalsList[i + 1][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
+            if(_isFixedBndZvals)
+                _zvalsList[i + 1][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
+            else
+                _zvalsList[i][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
         }
 
         for (int j = 0; j < nedges; j++)
         {
-            _edgeOmegaList[i + 1](j, 0) = x(i * DOFsPerframe + 2 * nverts + 2 * j);
-            _edgeOmegaList[i + 1](j, 1) = x(i * DOFsPerframe + 2 * nverts + 2 * j + 1);
+            if(_isFixedBndZvals)
+            {
+                _edgeOmegaList[i + 1](j, 0) = x(i * DOFsPerframe + 2 * nverts + 2 * j);
+                _edgeOmegaList[i + 1](j, 1) = x(i * DOFsPerframe + 2 * nverts + 2 * j + 1);
+            }
+            else
+            {
+                _edgeOmegaList[i](j, 0) = x(i * DOFsPerframe + 2 * nverts + 2 * j);
+                _edgeOmegaList[i](j, 1) = x(i * DOFsPerframe + 2 * nverts + 2 * j + 1);
+            }
+
         }
     }
 }
@@ -67,6 +103,10 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
     int nedges = _edgeOmegaList[0].rows();
 
     int numFrames = _zvalsList.size() - 2;
+
+    if(!_isFixedBndZvals)
+        numFrames = _zvalsList.size();
+
     int DOFsPerframe = (2 * nverts + 2 * nedges);
     int DOFs = numFrames * DOFsPerframe;
 
@@ -88,14 +128,22 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
 
         if (deriv)
         {
-            if (i == 0)
-                deriv->segment(0, DOFsPerframe) += curDeriv.segment(DOFsPerframe, DOFsPerframe);
-            else if (i == _zvalsList.size() - 2)
-                deriv->segment((i - 1) * DOFsPerframe, DOFsPerframe) += curDeriv.segment(0, DOFsPerframe);
+            if(!_isFixedBndZvals)
+            {
+                deriv->segment(i * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;
+            }
             else
             {
-                deriv->segment((i - 1) * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;
+                if (i == 0)
+                    deriv->segment(0, DOFsPerframe) += curDeriv.segment(DOFsPerframe, DOFsPerframe);
+                else if (i == _zvalsList.size() - 2)
+                    deriv->segment((i - 1) * DOFsPerframe, DOFsPerframe) += curDeriv.segment(0, DOFsPerframe);
+                else
+                {
+                    deriv->segment((i - 1) * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;
+                }
             }
+
 
         }
 
@@ -103,20 +151,28 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
         {
             for (auto& it : curT)
             {
-                if (i == 0)
+                if(!_isFixedBndZvals)
                 {
-                    if (it.row() >= DOFsPerframe && it.col() >= DOFsPerframe)
-                        T.push_back({ it.row() - DOFsPerframe, it.col() - DOFsPerframe, it.value() });
-                }
-                else if (i == _zvalsList.size() - 2)
-                {
-                    if (it.row() < DOFsPerframe && it.col() < DOFsPerframe)
-                        T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+                    T.push_back({ it.row() + i * DOFsPerframe, it.col() + i * DOFsPerframe, it.value() });
                 }
                 else
                 {
-                    T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+                    if (i == 0)
+                    {
+                        if (it.row() >= DOFsPerframe && it.col() >= DOFsPerframe)
+                            T.push_back({ it.row() - DOFsPerframe, it.col() - DOFsPerframe, it.value() });
+                    }
+                    else if (i == _zvalsList.size() - 2)
+                    {
+                        if (it.row() < DOFsPerframe && it.col() < DOFsPerframe)
+                            T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+                    }
+                    else
+                    {
+                        T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+                    }
                 }
+
 
             }
             curT.clear();
@@ -124,40 +180,36 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
     }
 
     for(int i = 0; i < numFrames; i++) {
-
+        int id = i + 1;
+        if(!_isFixedBndZvals)
+            id = i;
         // vertex amp diff
         double aveAmp = 0;
-        for (int j = 0; j < nverts; j++) {
-            aveAmp += _refAmpList[i + 1][j] / nverts;
+        for (int j = 0; j < nverts; j++)
+        {
+            aveAmp += _refAmpList[id][j] / nverts;
         }
         for (int j = 0; j < nverts; j++) {
-            double ampSq = _zvalsList[i + 1][j].real() * _zvalsList[i + 1][j].real() +
-                _zvalsList[i + 1][j].imag() * _zvalsList[i + 1][j].imag();
-            double refAmpSq = _refAmpList[i + 1][j] * _refAmpList[i + 1][j];
+            double ampSq = _zvalsList[id][j].real() * _zvalsList[id][j].real() +
+                _zvalsList[id][j].imag() * _zvalsList[id][j].imag();
+            double refAmpSq = _refAmpList[id][j] * _refAmpList[id][j];
 
             energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
 
             if (deriv) {
                 (*deriv)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                    (2.0 * _zvalsList[i + 1][j].real());
+                    (2.0 * _zvalsList[id][j].real());
                 (*deriv)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                    (2.0 * _zvalsList[i + 1][j].imag());
+                    (2.0 * _zvalsList[id][j].imag());
             }
 
             if (hess) {
                 Eigen::Matrix2d tmpHess;
-                tmpHess << 2.0 * _zvalsList[i + 1][j].real() * 2.0 * _zvalsList[i + 1][j].real(), 2.0 * _zvalsList[i +
-                    1][j].real() *
-                    2.0 * _zvalsList[i +
-                    1][j].imag(),
-                    2.0 * _zvalsList[i + 1][j].real() * 2.0 * _zvalsList[i + 1][j].imag(), 2.0 * _zvalsList[i +
-                    1][j].imag() *
-                    2.0 * _zvalsList[i +
-                    1][j].imag();
+                tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
+                    2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
 
                 tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
-                tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
-                    (2.0 * Eigen::Matrix2d::Identity());
+                tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
 
                 if (isProj)
                     tmpHess = SPDProjection(tmpHess);
@@ -171,16 +223,16 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
 
         // edge omega difference
         for (int j = 0; j < nedges; j++) {
-            energy += _spatialRatio * (aveAmp * aveAmp) * (_edgeOmegaList[i + 1] - _refEdgeOmegaList[i + 1]).row(j).dot(
-                    (_edgeOmegaList[i + 1] - _refEdgeOmegaList[i + 1]).row(j));
+            energy += _spatialRatio * (aveAmp * aveAmp) * (_edgeOmegaList[id] - _refEdgeOmegaList[id]).row(j).dot(
+                    (_edgeOmegaList[id] - _refEdgeOmegaList[id]).row(j));
 
             if (deriv) {
                 (*deriv)(i * DOFsPerframe + 2 * nverts + 2 * j) += 2 * _spatialRatio * (aveAmp * aveAmp) *
-                                                                   (_edgeOmegaList[i + 1] - _refEdgeOmegaList[i + 1])(j,
+                                                                   (_edgeOmegaList[id] - _refEdgeOmegaList[id])(j,
                                                                                                                       0);
                 (*deriv)(i * DOFsPerframe + 2 * nverts + 2 * j + 1) += 2 * _spatialRatio * (aveAmp * aveAmp) *
-                                                                       (_edgeOmegaList[i + 1] -
-                                                                        _refEdgeOmegaList[i + 1])(j, 1);
+                                                                       (_edgeOmegaList[id] -
+                                                                        _refEdgeOmegaList[id])(j, 1);
             }
 
             if (hess) {
@@ -195,9 +247,9 @@ double IntrinsicKnoppelDrivenFormula::computeEnergy(const Eigen::VectorXd& x, Ei
         Eigen::VectorXd kDeriv;
         std::vector<Eigen::Triplet<double>> kT;
 
-        double knoppel = IntrinsicFormula::KnoppelEnergyGivenMag(_mesh, _refEdgeOmegaList[i + 1],
-                                                                 _refAmpList[i + 1] / aveAmp, _faceArea, _cotEntries,
-                                                                 _zvalsList[i + 1], deriv ? &kDeriv : NULL,
+        double knoppel = IntrinsicFormula::KnoppelEnergyGivenMag(_mesh, _refEdgeOmegaList[id],
+                                                                 _refAmpList[id] / aveAmp, _faceArea, _cotEntries,
+                                                                 _zvalsList[id], deriv ? &kDeriv : NULL,
                                                                  hess ? &kT : NULL);
         energy += _spatialRatio * knoppel;
 

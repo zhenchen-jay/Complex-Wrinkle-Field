@@ -7,11 +7,12 @@ namespace IntrinsicFormula {
     class IntrinsicKnoppelDrivenFormula {
     public:
         IntrinsicKnoppelDrivenFormula() {}
-        IntrinsicKnoppelDrivenFormula(const MeshConnectivity mesh, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<Eigen::MatrixXd> &refEdgeOmegaList, const std::vector<Eigen::VectorXd> &refAmpList, const std::vector<std::complex<double>> &initZvals, const std::vector<std::complex<double>> &tarZvals, const Eigen::MatrixXd &initEdgeOmega, const Eigen::MatrixXd &tarEdgeOmega, int numFrames = 20, double spatialRatio = 1.0, double quadOrder = 4) : _numFrames(numFrames), _spatialRatio(spatialRatio)
+        IntrinsicKnoppelDrivenFormula(const MeshConnectivity mesh, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<Eigen::MatrixXd> &refEdgeOmegaList, const std::vector<Eigen::VectorXd> &refAmpList, const std::vector<std::complex<double>> &initZvals, const std::vector<std::complex<double>> &tarZvals, const Eigen::MatrixXd &initEdgeOmega, const Eigen::MatrixXd &tarEdgeOmega, int numFrames = 20, double spatialRatio = 1.0, double quadOrder = 4, bool fixedBndZ = true) : _numFrames(numFrames), _spatialRatio(spatialRatio)
         {
             _mesh = mesh;
             _refAmpList = refAmpList;
             _refEdgeOmegaList = refEdgeOmegaList;
+            _isFixedBndZvals = fixedBndZ;
 
             _edgeOmegaList = _refEdgeOmegaList;
             _zvalsList.resize(_numFrames + 2);
@@ -58,6 +59,9 @@ namespace IntrinsicFormula {
 
             int numFrames = _zvalsList.size() - 2;
 
+            if(!_isFixedBndZvals)
+                numFrames = _zvalsList.size() - 1;
+
             znorm = 0;
             wnorm = 0;
 
@@ -95,5 +99,7 @@ namespace IntrinsicFormula {
         Eigen::VectorXd _faceArea;
         Eigen::MatrixXd _cotEntries;
         int _quadOrder;
+
+        bool _isFixedBndZvals;
     };
 }

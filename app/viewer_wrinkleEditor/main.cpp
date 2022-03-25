@@ -51,11 +51,18 @@
 #include "../../include/IntrinsicFormula/IntrinsicKeyFrameInterpolationFromHalfEdge.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 #include "../../include/json.hpp"
+#include "../../include/MeshLib/RegionEdition.h"
 #include <igl/cylinder.h>
 
 enum FunctionType {
 	Whirlpool = 0,
 	PlaneWave = 1
+};
+
+enum RegionOpType
+{
+    Dilation = 0,
+    Erosion = 1
 };
 
 Eigen::MatrixXd triV, upsampledTriV;
@@ -116,10 +123,14 @@ std::string workingFolder;
 IntrinsicFormula::WrinkleEditingProcess editModel;
 VecMotionType selectedMotion = Rotate;
 double selectedMotionValue = M_PI / 2;
+Eigen::VectorXi selectedFids;
 Eigen::VectorXi selectedVids;
 
 FunctionType refFunc = PlaneWave;
 std::vector<std::vector<VertexOpInfo>> vertOptInfoList;
+
+RegionOpType regOpType = Dilation;
+int optTimes = 0;
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
 {
@@ -188,12 +199,32 @@ void initialization()
 	triMesh = MeshConnectivity(triF);
 	upsampledTriMesh = MeshConnectivity(upsampledTriF);
 
-	selectedVids.setZero(triV.rows());
-	for (int i = 0; i < triV.rows(); i++)
+	selectedFids.setZero(triF.rows());
+
+	for (int i = 0; i < triF.rows(); i++)
 	{
-		if (std::abs(triV(i, 0)) < 0.25)
-			selectedVids(i) = 1;
+        double centerx = 0;
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = triMesh.faceVertex(i, j);
+            centerx += triV(vid, 0) / 3;
+        }
+		if (std::abs(centerx) < 0.25)
+			selectedFids(i) = 1;
 	}
+
+    selectedVids.setZero(triV.rows());
+    for (int i = 0; i < triF.rows(); i++)
+    {
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = triMesh.faceVertex(i, j);
+            if (selectedFids(i))
+            {
+                selectedVids(vid) = 1;
+            }
+        }
+    }
 }
 
 void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
@@ -598,7 +629,12 @@ void callback() {
 				quadOrder = 4;
 		}
 	}
-
+    ImGui::Combo("reg opt func", (int*) &regOpType, "Dilation\0Erosion\0");
+    if (ImGui::InputInt("opt times", &optTimes))
+    {
+        if (optTimes <= 0 || optTimes > 20)
+            optTimes = 2;
+    }
 
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
@@ -649,6 +685,32 @@ void callback() {
 			refAmpList.push_back(amp / c);
 			refOmegaList.push_back(w * c);
 		}
+
+        RegionEdition regOpt(triMesh);
+        for(int i = 0; i < optTimes; i++)
+        {
+            Eigen::VectorXi selectedFidNew;
+            if(regOpType == Dilation)
+                regOpt.faceDilation(selectedFids, selectedFidNew);
+
+            else
+                regOpt.faceErosion(selectedFids, selectedFidNew);
+
+            std::cout << (selectedFidNew - selectedFids).norm() << std::endl;
+            selectedFids = selectedFidNew;
+        }
+        selectedVids.setZero(triV.rows());
+        for (int i = 0; i < triF.rows(); i++)
+        {
+            for(int j = 0; j < 3; j++)
+            {
+                int vid = triMesh.faceVertex(i, j);
+                if (selectedFids(i))
+                {
+                    selectedVids(vid) = 1;
+                }
+            }
+        }
 
 		// solve for the path from source to target
 		solveKeyFrames(omegaList, zList);
