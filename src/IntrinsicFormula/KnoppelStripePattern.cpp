@@ -533,6 +533,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
     }
     Eigen::SparseMatrix<double> A;
     computeMatrixAGivenMag(mesh, halfEdgeW, vertAmp, faceArea, cotEntries, nverts, A);
+//    computeMatrixA(mesh, halfEdgeW, faceArea, cotEntries, nverts, A);
 
     Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
     Eigen::SparseMatrix<double> I = A;
@@ -575,6 +576,7 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
     for(int i = 0; i < nverts; i++)
     {
         std::complex<double> z = std::complex<double>(evecs(2 * i, 0), evecs(2 * i + 1, 0));
+//        z *= vertAmp(i);
         z *= vertAmp(i) / std::abs(z);
         zvals.push_back(z);
     }
