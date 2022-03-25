@@ -232,6 +232,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	glueModel = IntrinsicFormula::WrinkleGluingProcess(triV, triMesh, faceFlag, quadOrder);
 //    glueModel.testCurlFreeEnergy(refOmegaList0[0]);
 //    glueModel.testDivFreeEnergy(refOmegaList0[0]);
+	//glueModel.testAmpEnergyWithGivenOmega(Eigen::VectorXd::Random(triV.rows()), refOmegaList0[0]);
 	
 	glueModel.initialization(refAmpLists, refOmegaLists);
 	std::cout << "initilization finished!" << std::endl;
