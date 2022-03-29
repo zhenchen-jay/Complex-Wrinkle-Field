@@ -20,6 +20,11 @@ namespace IntrinsicFormula
     void roundVertexZvalsFromHalfEdgeOmega(const MeshConnectivity &mesh, const Eigen::MatrixXd &halfEdgeW, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals);
     void roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConnectivity &mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals);
 
+    // we compute the zvals for seperately
+    void roundZvalsForSpecificDomainWithGivenMag(const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals);
+    void roundZvalsForSpecificDomainWithBndValues(const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals);
+
+
     void getUpsamplingTheta(const MeshConnectivity &mesh, const Eigen::MatrixXd& halfEdgeW, const std::vector<std::complex<double>>& zvals, const std::vector<std::pair<int, Eigen::Vector3d>> &bary, Eigen::VectorXd& upTheta);
     double lArg(const long &n, const Eigen::Vector3d& bary);
    
