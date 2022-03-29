@@ -137,7 +137,6 @@ double IntrinsicFormula::KnoppelEnergy(const MeshConnectivity& mesh, const Eigen
 		std::complex<double> z0 = zvals[vid0];
 		std::complex<double> z1 = zvals[vid1];
 
-
 		energy += 0.5 * (norm((z0 * expw0 - z1)) + norm((z1 * expw1 - z0))) * halfEdgeWeight(i);
 
 		if (deriv || hess)
@@ -593,11 +592,11 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithGivenMag(const MeshConnect
 		{
 			PT.push_back({ 2 * nDOFs, 2 * i, 1.0 });
 			PT.push_back({ 2 * nDOFs + 1, 2 * i + 1, 1.0 });
-			nDOFs += 2;
+			nDOFs += 1;
 		}
 	}
 	Eigen::SparseMatrix<double> projM;
-	projM.resize(nDOFs, 2 * nverts);
+	projM.resize(2 * nDOFs, 2 * nverts);
 	projM.setFromTriplets(PT.begin(), PT.end());
 
 	std::vector<Eigen::Triplet<double>> BT;
@@ -615,12 +614,13 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithGivenMag(const MeshConnect
 	}
 	Eigen::SparseMatrix<double> A;
 	computeMatrixAGivenMag(mesh, halfEdgeW, vertAmp, faceArea, cotEntries, nverts, A);
+//    computeMatrixA(mesh, halfEdgeW, faceArea, cotEntries, nverts, A);
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
 	B.setFromTriplets(BT.begin(), BT.end());
 	
-	B = projM * B * projM.transpose();
-	A = projM * A * projM.transpose();
+//	B = projM * B * projM.transpose();
+//	A = projM * A * projM.transpose();
 
 	Spectra::SymShiftInvert<double> op(A, B);
 	Spectra::SparseSymMatProd<double> Bop(B);
@@ -641,11 +641,17 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithGivenMag(const MeshConnect
 	std::cout << "Eigenvalue is " << evalues[0] << std::endl;
 
 	zvals.clear();
-	Eigen::VectorXd fullVar = projM.transpose() * evecs;
+    Eigen::VectorXd fullVar = evecs;
+//	Eigen::VectorXd fullVar = projM.transpose() * evecs;
 	for (int i = 0; i < nverts; i++)
 	{
 		std::complex<double> z = std::complex<double>(fullVar(2 * i, 0), fullVar(2 * i + 1, 0));
-		z *= vertAmp(i) / std::abs(z);
+
+        if (vertFlags(i) == 1)
+        {
+            z *= vertAmp(i) / std::abs(z);
+        }
+
 		zvals.push_back(z);
 	}
 }
@@ -663,7 +669,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 		{
 			PT.push_back({ 2 * nDOFs, 2 * i, 1.0 });
 			PT.push_back({ 2 * nDOFs + 1, 2 * i + 1, 1.0 });
-			nDOFs += 2;
+			nDOFs += 1;
 		}
 		else
 		{
@@ -673,7 +679,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 	}
 
 	Eigen::SparseMatrix<double> projM, unProjM;
-	projM.resize(nDOFs, 2 * nverts);
+	projM.resize(2 * nDOFs, 2 * nverts);
 	projM.setFromTriplets(PT.begin(), PT.end());
 
 	unProjM = projM.transpose();
@@ -707,7 +713,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 
 	auto unprojVar = [&](const Eigen::VectorXd& zvec, const Eigen::VectorXd& clampedZvecs)
 	{
-		Eigen::VectorXd fullZvec = unProjM * zvec + clampedZvecs;
+		Eigen::VectorXd fullZvec = unProjM * zvec + clampedVals;
 		return vec2zList(fullZvec);
 	};
 
@@ -738,7 +744,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 	};
 
 	Eigen::VectorXd x0 = projVar(vertZvals);
-	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
+	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, true);
 
 	Eigen::VectorXd deriv;
 	double E = funVal(x0, &deriv, NULL, false);
