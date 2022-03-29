@@ -1,5 +1,6 @@
 #include "../../include/IntrinsicFormula/WrinkleGluingProcess.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 #include <igl/cotmatrix_entries.h>
 #include <igl/cotmatrix.h>
 #include <igl/doublearea.h>
@@ -103,10 +104,106 @@ void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::V
 	std::vector<std::complex<double>> tarZvals;
 
 	int nFrames = _combinedRefAmpList.size() - 2;
-	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 
-	_model = IntrinsicKnoppelDrivenFormula(_mesh, _faceArea, _cotMatrixEntries, _combinedRefOmegaList, _combinedRefAmpList, initZvals, tarZvals, _combinedRefOmegaList[0], _combinedRefOmegaList[nFrames + 1], nFrames, 1.0, _quadOrd,true);
+    Eigen::VectorXi bndVertsFlag = _vertFlag;
+    for(int i = 0; i < bndVertsFlag.rows(); i++)
+    {
+        if(bndVertsFlag(i) != -1)
+            bndVertsFlag(i) = 1;
+        else
+            bndVertsFlag(i) = 0;
+    }
+
+    roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+    roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+
+    roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+    roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+//	roundVertexZvalsFromHalfEdgeOmega(_mesh, _combinedRefOmegaList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+//    roundVertexZvalsFromHalfEdgeOmega(_mesh, _combinedRefOmegaList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+//	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+//    roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+    _edgeOmegaList = _combinedRefOmegaList;
+    _zvalsList.resize(nFrames + 2);
+
+    _zvalsList[0] = initZvals;
+    _zvalsList[nFrames + 1] = tarZvals;
+
+    double dt = 1.0 / (nFrames + 1);
+
+    for(int i = 1; i <= nFrames; i++)
+    {
+        double t = i * dt;
+
+        _zvalsList[i] = tarZvals;
+
+        for(int j = 0; j < tarZvals.size(); j++)
+        {
+            _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+        }
+    }
+
+    _zdotModel = ComputeZdotFromHalfEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
+
+//	_model = IntrinsicKnoppelDrivenFormula(_mesh, _faceArea, _cotMatrixEntries, _combinedRefOmegaList, _combinedRefAmpList, initZvals, tarZvals, _combinedRefOmegaList[0], _combinedRefOmegaList[nFrames + 1], nFrames, 1.0, _quadOrd,true);
+
+    
+}
+
+void WrinkleGluingProcess::convertList2Variable(Eigen::VectorXd& x)
+{
+    int nverts = _zvalsList[0].size();
+    int nedges = _edgeOmegaList[0].rows();
+
+    int numFrames = _zvalsList.size() - 2;
+
+    int DOFsPerframe = (2 * nverts + 2 * nedges);
+
+    int DOFs = numFrames * DOFsPerframe;
+
+    x.setZero(DOFs);
+
+    for (int i = 0; i < numFrames; i++)
+    {
+        for (int j = 0; j < nverts; j++)
+        {
+            x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][j].real();
+            x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][j].imag();
+        }
+
+        for (int j = 0; j < nedges; j++)
+        {
+            x(i * DOFsPerframe + 2 * nverts + 2 * j) = _edgeOmegaList[i + 1](j, 0);
+            x(i * DOFsPerframe + 2 * nverts + 2 * j + 1) = _edgeOmegaList[i + 1](j, 1);
+        }
+    }
+}
+
+void WrinkleGluingProcess::convertVariable2List(const Eigen::VectorXd& x)
+{
+    int nverts = _zvalsList[0].size();
+    int nedges = _edgeOmegaList[0].rows();
+
+    int numFrames = _zvalsList.size() - 2;
+
+    int DOFsPerframe = (2 * nverts + 2 * nedges);
+
+    for (int i = 0; i < numFrames; i++)
+    {
+        for (int j = 0; j < nverts; j++)
+        {
+            _zvalsList[i + 1][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
+        }
+
+        for (int j = 0; j < nedges; j++)
+        {
+            _edgeOmegaList[i + 1](j, 0) = x(i * DOFsPerframe + 2 * nverts + 2 * j);
+            _edgeOmegaList[i + 1](j, 1) = x(i * DOFsPerframe + 2 * nverts + 2 * j + 1);
+        }
+    }
 }
 
 double WrinkleGluingProcess::amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd &amp, const Eigen::MatrixXd &w,
@@ -754,6 +851,11 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 }
 
 
+double WrinkleGluingProcess::computeEnergy(const Eigen::VectorXd &x, Eigen::VectorXd *deriv, Eigen::SparseMatrix<double> *hess, bool isProj)
+{
+    return 0;
+}
+
 ////////////////////////////////////////////// test functions ///////////////////////////////////////////////////////////////////////////
 void WrinkleGluingProcess::testCurlFreeEnergy(const Eigen::MatrixXd &w)
 {
@@ -944,5 +1046,10 @@ void WrinkleGluingProcess::testAmpEnergyWithGivenOmegaPerface(const Eigen::Vecto
 		std::cout << "gradient check: " << std::abs((E1 - E) / eps - dir.dot(deriv)) << std::endl;
 		std::cout << "hess check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
 	}
+
+}
+
+void WrinkleGluingProcess::testEnergy(Eigen::VectorXd x)
+{
 
 }

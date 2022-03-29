@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../CommonTools.h"
-#include "IntrinsicKnoppelDrivenFormula.h"
+#include "ComputeZdotFromHalfEdgeOmega.h"
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <set>
@@ -18,8 +18,45 @@ namespace IntrinsicFormula
 
         void initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList);
 
-        std::vector<Eigen::MatrixXd> getWList() { return _model.getWList(); }
-        std::vector<std::vector<std::complex<double>>> getVertValsList() { return _model.getVertValsList(); }
+        void convertVariable2List(const Eigen::VectorXd& x);
+        void convertList2Variable(Eigen::VectorXd& x);
+
+        std::vector<Eigen::MatrixXd> getWList() { return _edgeOmegaList; }
+        std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
+
+        void setwzLists(std::vector<std::vector<std::complex<double>>> &zList, std::vector<Eigen::MatrixXd> &wList)
+        {
+            _zvalsList = zList;
+            _edgeOmegaList = wList;
+        }
+
+        void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
+        {
+            int nverts = _zvalsList[0].size();
+            int nedges = _edgeOmegaList[0].rows();
+
+            int numFrames = _zvalsList.size() - 2;
+
+            znorm = 0;
+            wnorm = 0;
+
+            for (int i = 0; i < numFrames; i++)
+            {
+                for (int j = 0; j < nverts; j++)
+                {
+                    znorm = std::max(znorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * j)));
+                    znorm = std::max(znorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * j + 1)));
+                }
+                for (int j = 0; j < nedges; j++)
+                {
+                    wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j)));
+                    wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j + 1)));
+                }
+            }
+        }
+
+        double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
+        void testEnergy(Eigen::VectorXd x);
 
         std::vector<Eigen::MatrixXd> getRefWList() { return _combinedRefOmegaList; }
         std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
@@ -74,6 +111,9 @@ namespace IntrinsicFormula
         std::vector<Eigen::VectorXd> _combinedRefAmpList;
         std::vector<Eigen::MatrixXd> _combinedRefOmegaList;
 
+        std::vector<Eigen::MatrixXd> _edgeOmegaList;
+        std::vector<std::vector<std::complex<double>>> _zvalsList;
+
         int _quadOrd;
         std::vector<std::vector<int>> _vertNeiFaces;
         std::vector<std::vector<int>> _vertNeiEdges;
@@ -82,8 +122,12 @@ namespace IntrinsicFormula
 
         std::vector<std::vector<Eigen::Matrix2d>> _faceVertMetrics;
 
-    public:
-        IntrinsicKnoppelDrivenFormula _model;
+//    public:
+//        IntrinsicKnoppelDrivenFormula _model;
+
+    public:	// should be private, when publishing
+        ComputeZdotFromHalfEdgeOmega _zdotModel;
+
 
     };
 }

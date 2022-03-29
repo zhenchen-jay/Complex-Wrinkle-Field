@@ -238,7 +238,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
 	std::cout << "convert list to variable." << std::endl;
-	glueModel._model.convertList2Variable(x);
+	glueModel.convertList2Variable(x);
 
 	
 	if(isForceOptimize)
@@ -246,7 +246,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv;
 			Eigen::SparseMatrix<double> H;
-			double E = glueModel._model.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+			double E = glueModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
 			if (grad)
 			{
@@ -265,7 +265,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		};
 
 		auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-			glueModel._model.getComponentNorm(x, znorm, wnorm);
+			glueModel.getComponentNorm(x, znorm, wnorm);
 		};
 
 		auto postProcess = [&](Eigen::VectorXd& x)
@@ -281,7 +281,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	}
 	std::cout << "convert variable to list." << std::endl;
-	glueModel._model.convertVariable2List(x);
+	glueModel.convertVariable2List(x);
 	std::cout << "get w list" << std::endl;
 	wFrames = glueModel.getWList();
 	std::cout << "get z list" << std::endl;
