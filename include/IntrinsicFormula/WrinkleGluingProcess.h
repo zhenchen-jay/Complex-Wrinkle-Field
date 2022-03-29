@@ -46,6 +46,7 @@ namespace IntrinsicFormula
         double divFreeEnergy(const Eigen::MatrixXd &w, Eigen::VectorXd *deriv = NULL, std::vector<Eigen::Triplet<double>> *hessT = NULL);
         double divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd *deriv = NULL, Eigen::MatrixXd *hess = NULL);
 
+
     public:
         // testing functions
         void testCurlFreeEnergy(const Eigen::MatrixXd &w);
