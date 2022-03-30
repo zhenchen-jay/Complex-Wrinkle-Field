@@ -9,7 +9,7 @@
 
 using namespace IntrinsicFormula;
 
-WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXi& faceFlag, int quadOrd)
+WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio)
 {
 	_pos = pos;
 	_mesh = mesh;
@@ -18,6 +18,7 @@ WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const Mes
 	igl::doublearea(pos, mesh.faces(), _faceArea);
 	_faceArea /= 2.0;
 	_quadOrd = quadOrd;
+	_spatialRatio = spatialRatio;
 
 	int nverts = pos.rows();
 	int nfaces = mesh.nFaces();
@@ -43,6 +44,7 @@ WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const Mes
 
 	std::set<int> edgeset;
 	std::set<int> vertset;
+	_nInterfaces = 0;
 
 	for (int i = 0; i < nfaces; i++)
 	{
@@ -67,6 +69,7 @@ WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const Mes
 					 vertset.insert(vid);
 				if(edgeset.count(eid) == 0)
 					edgeset.insert(eid);
+				_nInterfaces++;
 			}
 		}
 	}
@@ -91,11 +94,11 @@ WrinkleGluingProcess::WrinkleGluingProcess(const Eigen::MatrixXd& pos, const Mes
 			_faceVertMetrics[i][j] = I.inverse();
 		}
 	}
-
+	std::cout << "number of interfaces: " << _nInterfaces << std::endl;
 
 }
 
-void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList)
+void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, const std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList)
 {
 	computeCombinedRefOmegaList(refOmegaList);
 	computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
@@ -114,17 +117,22 @@ void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::V
             bndVertsFlag(i) = 0;
     }
 
-    roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-    roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+	if (_nInterfaces)
+	{
+		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+		roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
 
-    roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-    roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+	}
 
-//	roundVertexZvalsFromHalfEdgeOmega(_mesh, _combinedRefOmegaList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-//    roundVertexZvalsFromHalfEdgeOmega(_mesh, _combinedRefOmegaList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+	else
+	{
+		roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+		roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+	}
 
-//	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-//    roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
 
     _edgeOmegaList = _combinedRefOmegaList;
     _zvalsList.resize(nFrames + 2);
@@ -136,15 +144,34 @@ void WrinkleGluingProcess::initialization(const std::vector<std::vector<Eigen::V
 
     for(int i = 1; i <= nFrames; i++)
     {
-        double t = i * dt;
+       /* double t = i * dt;
 
         _zvalsList[i] = tarZvals;
 
         for(int j = 0; j < tarZvals.size(); j++)
         {
             _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
-        }
+        }*/
+
+		if (_nInterfaces)
+		{
+			roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+			roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+		}
+		else
+		{
+			roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+		}
+
     }
+
+	for (int i = 0; i <= nFrames + 1; i++)
+	{
+		for (int j = 0; j < _zvalsList[i].size(); j++)
+		{
+			_combinedRefAmpList[i][j] = std::abs(_zvalsList[i][j]);
+		}
+	}
 
     _zdotModel = ComputeZdotFromHalfEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
 
@@ -432,8 +459,8 @@ void WrinkleGluingProcess::computeCombinedRefAmpList(const std::vector<std::vect
 		};
 
 		Eigen::VectorXd x0 = projVar(i);
-		//OptSolver::testFuncGradHessian(funVal, x0);
-		OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
+		if (_nInterfaces)
+			OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
 
 		Eigen::VectorXd deriv;
 		double E = funVal(x0, &deriv, NULL, false);
@@ -838,7 +865,9 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 		};
 		
 		Eigen::VectorXd x0 = projVar(k);
-		OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
+
+		if(_nInterfaces)
+			OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
 
 		Eigen::VectorXd deriv;
 		double E = funVal(x0, &deriv, NULL, false);
@@ -853,7 +882,163 @@ void WrinkleGluingProcess::computeCombinedRefOmegaList(const std::vector<std::ve
 
 double WrinkleGluingProcess::computeEnergy(const Eigen::VectorXd &x, Eigen::VectorXd *deriv, Eigen::SparseMatrix<double> *hess, bool isProj)
 {
-    return 0;
+	int nverts = _zvalsList[0].size();
+	int nedges = _edgeOmegaList[0].rows();
+
+	int numFrames = _zvalsList.size() - 2;
+
+	int DOFsPerframe = (2 * nverts + 2 * nedges);
+	int DOFs = numFrames * DOFsPerframe;
+
+	convertVariable2List(x);
+
+	Eigen::VectorXd curDeriv;
+	std::vector<Eigen::Triplet<double>> T, curT;
+
+	double energy = 0;
+	if (deriv)
+	{
+		deriv->setZero(DOFs);
+	}
+
+	for (int i = 0; i < _zvalsList.size() - 1; i++)
+	{
+		energy += _zdotModel.computeZdotIntegration(_zvalsList[i], _edgeOmegaList[i], _zvalsList[i + 1], _edgeOmegaList[i + 1], deriv ? &curDeriv : NULL, hess ? &curT : NULL, isProj);
+
+
+		if (deriv)
+		{
+
+			if (i == 0)
+				deriv->segment(0, DOFsPerframe) += curDeriv.segment(DOFsPerframe, DOFsPerframe);
+			else if (i == _zvalsList.size() - 2)
+				deriv->segment((i - 1) * DOFsPerframe, DOFsPerframe) += curDeriv.segment(0, DOFsPerframe);
+			else
+			{
+				deriv->segment((i - 1) * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;
+			}
+
+
+		}
+
+		if (hess)
+		{
+			for (auto& it : curT)
+			{
+
+				if (i == 0)
+				{
+					if (it.row() >= DOFsPerframe && it.col() >= DOFsPerframe)
+						T.push_back({ it.row() - DOFsPerframe, it.col() - DOFsPerframe, it.value() });
+				}
+				else if (i == _zvalsList.size() - 2)
+				{
+					if (it.row() < DOFsPerframe && it.col() < DOFsPerframe)
+						T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+				}
+				else
+				{
+					T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
+				}
+
+
+			}
+			curT.clear();
+		}
+	}
+
+	for (int i = 0; i < numFrames; i++) {
+		int id = i + 1;
+		
+		// vertex amp diff
+		double aveAmp = 0;
+		for (int j = 0; j < nverts; j++)
+		{
+			aveAmp += _combinedRefAmpList[id][j] / nverts;
+		}
+		for (int j = 0; j < nverts; j++) {
+			double ampSq = _zvalsList[id][j].real() * _zvalsList[id][j].real() +
+				_zvalsList[id][j].imag() * _zvalsList[id][j].imag();
+			double refAmpSq = _combinedRefAmpList[id][j] * _combinedRefAmpList[id][j];
+
+			energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
+
+			if (deriv) {
+				(*deriv)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(2.0 * _zvalsList[id][j].real());
+				(*deriv)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(2.0 * _zvalsList[id][j].imag());
+			}
+
+			if (hess) {
+				Eigen::Matrix2d tmpHess;
+				tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
+					2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
+
+				tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
+				tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+
+				if (isProj)
+					tmpHess = SPDProjection(tmpHess);
+
+				for (int k = 0; k < 2; k++)
+					for (int l = 0; l < 2; l++)
+						T.push_back({ i * DOFsPerframe + 2 * j + k, i * DOFsPerframe + 2 * j + l, tmpHess(k, l) });
+
+			}
+		}
+
+		// edge omega difference
+		for (int j = 0; j < nedges; j++) {
+			energy += _spatialRatio * (aveAmp * aveAmp) * (_edgeOmegaList[id] - _combinedRefOmegaList[id]).row(j).dot(
+				(_edgeOmegaList[id] - _combinedRefOmegaList[id]).row(j));
+
+			if (deriv) {
+				(*deriv)(i * DOFsPerframe + 2 * nverts + 2 * j) += 2 * _spatialRatio * (aveAmp * aveAmp) *
+					(_edgeOmegaList[id] - _combinedRefOmegaList[id])(j,
+						0);
+				(*deriv)(i * DOFsPerframe + 2 * nverts + 2 * j + 1) += 2 * _spatialRatio * (aveAmp * aveAmp) *
+					(_edgeOmegaList[id] -
+						_combinedRefOmegaList[id])(j, 1);
+			}
+
+			if (hess) {
+				T.push_back({ i * DOFsPerframe + 2 * nverts + 2 * j, i * DOFsPerframe + 2 * nverts + 2 * j,
+							 2 * _spatialRatio * (aveAmp * aveAmp) });
+				T.push_back({ i * DOFsPerframe + 2 * nverts + 2 * j + 1, i * DOFsPerframe + 2 * nverts + 2 * j + 1,
+							 2 * _spatialRatio * (aveAmp * aveAmp) });
+			}
+		}
+
+		// knoppel part
+		Eigen::VectorXd kDeriv;
+		std::vector<Eigen::Triplet<double>> kT;
+
+		double knoppel = IntrinsicFormula::KnoppelEnergyGivenMag(_mesh, _combinedRefOmegaList[id],
+			_combinedRefAmpList[id] / aveAmp, _faceArea, _cotMatrixEntries,
+			_zvalsList[id], deriv ? &kDeriv : NULL,
+			hess ? &kT : NULL);
+		energy += _spatialRatio * knoppel;
+
+		if (deriv) {
+			deriv->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialRatio * kDeriv;
+		}
+
+		if (hess) {
+			for (auto& it : kT) {
+				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialRatio * it.value() });
+			}
+		}
+	}
+
+
+	if (hess)
+	{
+		//std::cout << "num of triplets: " << T.size() << std::endl;
+		hess->resize(DOFs, DOFs);
+		hess->setFromTriplets(T.begin(), T.end());
+	}
+	return energy;
 }
 
 ////////////////////////////////////////////// test functions ///////////////////////////////////////////////////////////////////////////
@@ -1051,5 +1236,24 @@ void WrinkleGluingProcess::testAmpEnergyWithGivenOmegaPerface(const Eigen::Vecto
 
 void WrinkleGluingProcess::testEnergy(Eigen::VectorXd x)
 {
+	Eigen::VectorXd deriv;
+	Eigen::SparseMatrix<double> hess;
 
+	double e = computeEnergy(x, &deriv, &hess, false);
+	std::cout << "energy: " << e << std::endl;
+
+	Eigen::VectorXd dir = deriv;
+	dir.setRandom();
+
+	for (int i = 3; i < 9; i++)
+	{
+		double eps = std::pow(0.1, i);
+
+		Eigen::VectorXd deriv1;
+		double e1 = computeEnergy(x + eps * dir, &deriv1, NULL, false);
+
+		std::cout << "eps: " << eps << std::endl;
+		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
+		std::cout << "gradient-hessian check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+	}
 }

@@ -14,9 +14,9 @@ namespace IntrinsicFormula
         WrinkleGluingProcess()
         {}
 
-        WrinkleGluingProcess(const Eigen::MatrixXd &pos, const MeshConnectivity &mesh, const Eigen::VectorXi &faceFlag, int quadOrd);
+        WrinkleGluingProcess(const Eigen::MatrixXd &pos, const MeshConnectivity &mesh, const Eigen::VectorXi &faceFlag, int quadOrd, double spatialRatio = 1);
 
-        void initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList);
+        void initialization(const std::vector<std::vector<Eigen::VectorXd>>& refAmpList, const  std::vector<std::vector<Eigen::MatrixXd>>& refOmegaList);
 
         void convertVariable2List(const Eigen::VectorXd& x);
         void convertList2Variable(Eigen::VectorXd& x);
@@ -121,6 +121,9 @@ namespace IntrinsicFormula
         Eigen::VectorXd _edgeCotCoeffs;
 
         std::vector<std::vector<Eigen::Matrix2d>> _faceVertMetrics;
+        double _spatialRatio;
+
+        int _nInterfaces;
 
 //    public:
 //        IntrinsicKnoppelDrivenFormula _model;

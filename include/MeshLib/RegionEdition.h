@@ -4,6 +4,9 @@
 #include <set>
 #include "MeshConnectivity.h"
 
+void faceFlags2VertFlags(const MeshConnectivity& mesh, int nverts, const Eigen::VectorXi& faceFlags, Eigen::VectorXi& vertFlags);
+void vertFlags2faceFlags(const MeshConnectivity& mesh, const Eigen::VectorXi& vertFlags, Eigen::VectorXi& faceFlags);
+
 class RegionEdition
 {
 public:
