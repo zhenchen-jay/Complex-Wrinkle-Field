@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-add_compile_options(-std=c++11)
+# add_compile_options(-std=c++11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 # set(CMAKE_CXX_COMPILER "/usr/local/bin/g++11")
 
 project("Phase interpolation")
@@ -50,7 +51,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STR
   SET(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG} -g3")
   SET(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
   #SET(CMAKE_CXX_FLAGS_RELEASE        "-mcpu=apple-m1 -O3 -DNDEBUG") # uncomment if you use M1 cpu
-  SET(CMAKE_CXX_FLAGS_RELEASE        "-march=native -O3 -DNDEBUG")
+  SET(CMAKE_CXX_FLAGS_RELEASE        "-O3 -DNDEBUG")
   SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   # using Visual Studio C++
