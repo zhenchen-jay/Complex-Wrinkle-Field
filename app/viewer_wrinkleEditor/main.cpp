@@ -83,8 +83,6 @@ std::vector<Eigen::VectorXd> ampFieldsList;
 std::vector<Eigen::MatrixXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
 
-std::vector<VertexOpInfo> vertexOpInfo;
-
 
 Eigen::MatrixXd dataV;
 Eigen::MatrixXi dataF;
@@ -122,15 +120,21 @@ std::string workingFolder;
 
 IntrinsicFormula::WrinkleEditingProcess editModel;
 VecMotionType selectedMotion = Rotate;
+VecMotionType unselectedMotion = Enlarge;
+
 double selectedMotionValue = M_PI / 2;
+double unselectedMotionValue = 2;
+
+Eigen::VectorXi initSelectedFids;
 Eigen::VectorXi selectedFids;
-Eigen::VectorXi selectedVids;
+Eigen::VectorXi faceFlags;
 
 FunctionType refFunc = PlaneWave;
-std::vector<std::vector<VertexOpInfo>> vertOptInfoList;
 
 RegionOpType regOpType = Dilation;
 int optTimes = 0;
+
+double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
 {
@@ -188,6 +192,27 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
 	}
 }
 
+void getSelecteFids(double minx, double miny, double maxx, double maxy)
+{
+	selectedFids.setZero(triF.rows());
+
+	for (int i = 0; i < triF.rows(); i++)
+	{
+		double centerx = 0;
+		double centery = 0;
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = triMesh.faceVertex(i, j);
+			centerx += triV(vid, 0) / 3;
+			centery += triV(vid, 1) / 3;
+		}
+		if (centerx >= minx && centerx <= maxx && centery >= miny && centery <= maxy)
+			selectedFids(i) = 1;
+	}
+
+	initSelectedFids = selectedFids;
+}
+
 void initialization()
 {
 	Eigen::SparseMatrix<double> S;
@@ -198,33 +223,47 @@ void initialization()
 
 	triMesh = MeshConnectivity(triF);
 	upsampledTriMesh = MeshConnectivity(upsampledTriF);
+	getSelecteFids(bxmin, bymin, bxmax, bymax);
+	
+}
 
-	selectedFids.setZero(triF.rows());
 
-	for (int i = 0; i < triF.rows(); i++)
+void buildWrinkleMotions(const Eigen::VectorXd& amp, const Eigen::MatrixXd& omega)
+{
+	int nverts = triV.rows();
+	Eigen::VectorXi initSelectedVids;
+
+	faceFlags2VertFlags(triMesh, nverts, initSelectedFids, initSelectedVids);
+
+	double dt = 1.0 / (numFrames - 1);
+	double initval0 = selectedMotion != Enlarge ? 0 : 1;
+	double initval1 = unselectedMotion != Enlarge ? 0 : 1;
+
+	refAmpList.resize(numFrames);
+	refOmegaList.resize(numFrames);
+
+	for (int f = 0; f < numFrames; f++)
 	{
-        double centerx = 0;
-        for(int j = 0; j < 3; j++)
-        {
-            int vid = triMesh.faceVertex(i, j);
-            centerx += triV(vid, 0) / 3;
-        }
-		if (std::abs(centerx) < 0.25)
-			selectedFids(i) = 1;
+		std::vector<VertexOpInfo> vertexOpInfoList;
+		vertexOpInfoList.resize(nverts, { None, 0 });
+
+		double value0 = (selectedMotionValue - initval0) * dt * f + initval0;
+		double value1 = (unselectedMotionValue - initval1) * dt * f + initval1;
+
+		for (int i = 0; i < nverts; i++)
+		{
+			if (initSelectedVids(i))
+				vertexOpInfoList[i] = { selectedMotion, value0 };
+			else
+				vertexOpInfoList[i] = { unselectedMotion, value1 };
+		}
+
+		Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(omega, triV, triMesh);
+		WrinkleFieldsEditor::editWrinkles(triV, triMesh, amp, vertOmega, vertexOpInfoList, refAmpList[f], vertOmega);
+		refOmegaList[f] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);
 	}
 
-    selectedVids.setZero(triV.rows());
-    for (int i = 0; i < triF.rows(); i++)
-    {
-        for(int j = 0; j < 3; j++)
-        {
-            int vid = triMesh.faceVertex(i, j);
-            if (selectedFids(i))
-            {
-                selectedVids(vid) = 1;
-            }
-        }
-    }
+	
 }
 
 void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
@@ -239,13 +278,14 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	faceFlag.setConstant(triF.rows(), -1);
 
 
-	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, quadOrder, refAmpList, refOmegaList);
+	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, faceFlags, quadOrder, 1.0);
 	
-	editModel.initialization(vertOptInfoList);
+	editModel.initialization(refAmpList, refOmegaList);
+
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
 	std::cout << "convert list to variable." << std::endl;
-	editModel._model.convertList2Variable(x);
+	editModel.convertList2Variable(x);
 
 	
 	if(isForceOptimize)
@@ -253,7 +293,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv;
 			Eigen::SparseMatrix<double> H;
-			double E = editModel._model.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+			double E = editModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
 			if (grad)
 			{
@@ -272,7 +312,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		};
 
 		auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-			editModel._model.getComponentNorm(x, znorm, wnorm);
+			editModel.getComponentNorm(x, znorm, wnorm);
 		};
 
 		auto postProcess = [&](Eigen::VectorXd& x)
@@ -288,7 +328,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 		std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	}
 	std::cout << "convert variable to list." << std::endl;
-	editModel._model.convertVariable2List(x);
+	editModel.convertVariable2List(x);
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel.getWList();
 	std::cout << "get z list" << std::endl;
@@ -373,6 +413,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	{
 		if (vertFlag(i) == 1)
 			renderColor.row(i) << 1.0, 0, 0;
+		else if (vertFlag(i) == -1)
+			renderColor.row(i) << 0, 1.0, 0;
 	}
 	renderV.block(curVerts, 0, nverts, 3) = basePos - shiftV;
 	renderF.block(curFaces, 0, nfaces, 3) = baseF;
@@ -490,6 +532,17 @@ void registerMesh(int frameId)
 	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
 	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(editModel.getRefWList()[frameId], triV, triMesh);
+
+	Eigen::VectorXi selectedVids, initSelectedVids;
+	faceFlags2VertFlags(triMesh, triV.rows(), selectedFids, selectedVids);
+	faceFlags2VertFlags(triMesh, triV.rows(), initSelectedFids, initSelectedVids);
+
+	for (int i = 0; i < selectedVids.rows(); i++)
+	{
+		if (selectedVids(i) && !initSelectedVids(i))
+			selectedVids(i) = -1;
+	}
+
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
 		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModel.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
@@ -516,8 +569,8 @@ void updateFieldsInView(int frameId)
 
 void callback() {
 	ImGui::PushItemWidth(100);
-//    float w = ImGui::GetContentRegionAvailWidth();
-//    float p = ImGui::GetStyle().FramePadding.x;
+    float w = ImGui::GetContentRegionAvailWidth();
+    float p = ImGui::GetStyle().FramePadding.x;
 //    if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
 //    {
 //        std::string meshPath = igl::file_dialog_open();
@@ -571,6 +624,40 @@ void callback() {
 	if (ImGui::CollapsingHeader("Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("ref func", (int*) &refFunc, "WhirlPool\0PlaneWave\0");
+	}
+
+	if (ImGui::CollapsingHeader("Underline Wrinkle Options", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Combo("underline motion", (int*)&unselectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
+		if (ImGui::InputDouble("underline motion value", &unselectedMotionValue))
+		{
+			if (unselectedMotionValue < 0)
+				unselectedMotionValue = 0;
+		}
+	}
+	if (ImGui::CollapsingHeader("Selected BBox", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::InputDouble("min x", &bxmin)) {}
+		ImGui::SameLine(0, p);
+		if (ImGui::InputDouble("max x", &bxmax)) 
+		{
+			if (bxmax < bxmin)
+				bxmax = bxmin + 0.1;
+		}
+
+		if (ImGui::InputDouble("min y", &bymin)) {}
+		ImGui::SameLine(0, p);
+		if (ImGui::InputDouble("max y", &bymax)) 
+		{
+			if (bymax < bymin)
+				bymax = bymin + 0.1;
+		}
+
+		if (ImGui::Button("update bbox", ImVec2(-1, 0)))
+		{
+			getSelecteFids(bxmin, bymin, bxmax, bymax);
+		}
+
 	}
 	if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -632,8 +719,8 @@ void callback() {
     ImGui::Combo("reg opt func", (int*) &regOpType, "Dilation\0Erosion\0");
     if (ImGui::InputInt("opt times", &optTimes))
     {
-        if (optTimes <= 0 || optTimes > 20)
-            optTimes = 2;
+        if (optTimes < 0 || optTimes > 20)
+            optTimes = 0;
     }
 
 	ImGui::Checkbox("Try Optimization", &isForceOptimize);
@@ -642,8 +729,7 @@ void callback() {
 	{
 		refAmpList.clear();
 		refOmegaList.clear();
-		vertOptInfoList.clear();
-
+		
 		Eigen::MatrixXd w;
 		Eigen::VectorXd amp;
 		std::vector<std::complex<double>> z;
@@ -666,27 +752,9 @@ void callback() {
 		vertFields3D.col(2).setZero();
 		w = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, triMesh);
 
-		double dt = 1.0 / (numFrames - 1);
-
-		double initval = selectedMotion != Enlarge ? 0 : 1;
-
-		for(int i = 0; i < numFrames; i++)
-		{
-			double value = (selectedMotionValue - initval) * dt * i + initval;
-			std::vector<VertexOpInfo> motionVec(triV.rows(), { None, 0 });
-			for (int j = 0; j < selectedVids.rows(); j++)
-			{
-				if (selectedVids(j) == 1)
-					motionVec[j] = { selectedMotion, value };
-			}
-			vertOptInfoList.push_back(motionVec);
-
-			double c = dt * i * 2.0 + 1.0;
-			refAmpList.push_back(amp / c);
-			refOmegaList.push_back(w * c);
-		}
-
+		
         RegionEdition regOpt(triMesh);
+		selectedFids = initSelectedFids;
         for(int i = 0; i < optTimes; i++)
         {
             Eigen::VectorXi selectedFidNew;
@@ -696,22 +764,13 @@ void callback() {
             else
                 regOpt.faceErosion(selectedFids, selectedFidNew);
 
-            std::cout << (selectedFidNew - selectedFids).norm() << std::endl;
+
             selectedFids = selectedFidNew;
         }
-        selectedVids.setZero(triV.rows());
-        for (int i = 0; i < triF.rows(); i++)
-        {
-            for(int j = 0; j < 3; j++)
-            {
-                int vid = triMesh.faceVertex(i, j);
-                if (selectedFids(i))
-                {
-                    selectedVids(vid) = 1;
-                }
-            }
-        }
+		faceFlags = initSelectedFids - selectedFids;
+		
 
+		buildWrinkleMotions(amp, w);
 		// solve for the path from source to target
 		solveKeyFrames(omegaList, zList);
 		// get interploated amp and phase frames
