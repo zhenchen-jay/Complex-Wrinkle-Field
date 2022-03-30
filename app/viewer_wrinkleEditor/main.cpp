@@ -1,4 +1,5 @@
 #include "polyscope/polyscope.h"
+#include "polyscope/pick.h"
 
 #include <igl/PI.h>
 #include <igl/avg_edge_length.h>
@@ -134,7 +135,10 @@ FunctionType refFunc = PlaneWave;
 RegionOpType regOpType = Dilation;
 int optTimes = 0;
 
-double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
+//double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
+int clickedFid = -1;
+int dilationTimes = 3;
+double centerx = -0.5, centery = 0.25, dirx = 1, diry = 0;
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
 {
@@ -192,26 +196,47 @@ void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::c
 	}
 }
 
-void getSelecteFids(double minx, double miny, double maxx, double maxy)
+void getSelecteFids()
 {
-	selectedFids.setZero(triF.rows());
+    selectedFids.setZero(triMesh.nFaces());
+    initSelectedFids = selectedFids;
+    if(clickedFid == -1)
+        return;
+    else
+    {
+        selectedFids(clickedFid) = 1;
+        initSelectedFids = selectedFids;
 
-	for (int i = 0; i < triF.rows(); i++)
-	{
-		double centerx = 0;
-		double centery = 0;
-		for (int j = 0; j < 3; j++)
-		{
-			int vid = triMesh.faceVertex(i, j);
-			centerx += triV(vid, 0) / 3;
-			centery += triV(vid, 1) / 3;
-		}
-		if (centerx >= minx && centerx <= maxx && centery >= miny && centery <= maxy)
-			selectedFids(i) = 1;
-	}
+        RegionEdition regEdt = RegionEdition(triMesh);
 
-	initSelectedFids = selectedFids;
+        for(int i = 0; i < dilationTimes; i++)
+        {
+            regEdt.faceDilation(initSelectedFids, selectedFids);
+            initSelectedFids = selectedFids;
+        }
+    }
 }
+
+//void getSelecteFids(double minx, double miny, double maxx, double maxy)
+//{
+//	selectedFids.setZero(triF.rows());
+//
+//	for (int i = 0; i < triF.rows(); i++)
+//	{
+//		double centerx = 0;
+//		double centery = 0;
+//		for (int j = 0; j < 3; j++)
+//		{
+//			int vid = triMesh.faceVertex(i, j);
+//			centerx += triV(vid, 0) / 3;
+//			centery += triV(vid, 1) / 3;
+//		}
+//		if (centerx >= minx && centerx <= maxx && centery >= miny && centery <= maxy)
+//			selectedFids(i) = 1;
+//	}
+//
+//	initSelectedFids = selectedFids;
+//}
 
 void initialization()
 {
@@ -223,7 +248,8 @@ void initialization()
 
 	triMesh = MeshConnectivity(triF);
 	upsampledTriMesh = MeshConnectivity(upsampledTriF);
-	getSelecteFids(bxmin, bymin, bxmax, bymax);
+	selectedFids.setZero(triMesh.nFaces());
+    initSelectedFids = selectedFids;
 	
 }
 
@@ -566,8 +592,29 @@ void updateFieldsInView(int frameId)
 
 }
 
+int getSelectedFaceId()
+{
+    if(polyscope::pick::haveSelection())
+    {
+        unsigned long id = polyscope::pick::getSelection().second;
+        int nverts = triV.rows();
+        int nedges = triMesh.nEdges();
+        int nfaces = triMesh.nFaces();
+
+        if(id >= nverts && id < nfaces + nverts)
+        {
+            return id - nverts;
+        }
+        else
+            return -1;
+    }
+    else
+        return -1;
+}
+
 
 void callback() {
+    clickedFid = getSelectedFaceId();
 	ImGui::PushItemWidth(100);
     float w = ImGui::GetContentRegionAvailWidth();
     float p = ImGui::GetStyle().FramePadding.x;
@@ -624,6 +671,10 @@ void callback() {
 	if (ImGui::CollapsingHeader("Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("ref func", (int*) &refFunc, "WhirlPool\0PlaneWave\0");
+        ImGui::InputDouble("whirlpool center x", &centerx);
+        ImGui::InputDouble("whirlpool center y", &centery);
+        ImGui::InputDouble("plane wave dir x", &dirx);
+        ImGui::InputDouble("plane wave dir y", &diry);
 	}
 
 	if (ImGui::CollapsingHeader("Underline Wrinkle Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -631,40 +682,50 @@ void callback() {
 		ImGui::Combo("underline motion", (int*)&unselectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
 		if (ImGui::InputDouble("underline motion value", &unselectedMotionValue))
 		{
-			if (unselectedMotionValue < 0)
+			if (unselectedMotionValue < 0 && unselectedMotion == Enlarge)
 				unselectedMotionValue = 0;
 		}
 	}
-	if (ImGui::CollapsingHeader("Selected BBox", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		if (ImGui::InputDouble("min x", &bxmin)) {}
-		ImGui::SameLine(0, p);
-		if (ImGui::InputDouble("max x", &bxmax)) 
-		{
-			if (bxmax < bxmin)
-				bxmax = bxmin + 0.1;
-		}
+    if (ImGui::CollapsingHeader("Selected Region", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::InputInt("clicked face id", &clickedFid);
 
-		if (ImGui::InputDouble("min y", &bymin)) {}
-		ImGui::SameLine(0, p);
-		if (ImGui::InputDouble("max y", &bymax)) 
-		{
-			if (bymax < bymin)
-				bymax = bymin + 0.1;
-		}
-
-		if (ImGui::Button("update bbox", ImVec2(-1, 0)))
-		{
-			getSelecteFids(bxmin, bymin, bxmax, bymax);
-		}
-
-	}
+        if (ImGui::InputInt("dilation times", &dilationTimes))
+        {
+            if (dilationTimes < 0)
+                dilationTimes = 3;
+        }
+    }
+//	if (ImGui::CollapsingHeader("Selected BBox", ImGuiTreeNodeFlags_DefaultOpen))
+//	{
+//		if (ImGui::InputDouble("min x", &bxmin)) {}
+//		ImGui::SameLine(0, p);
+//		if (ImGui::InputDouble("max x", &bxmax))
+//		{
+//			if (bxmax < bxmin)
+//				bxmax = bxmin + 0.1;
+//		}
+//
+//		if (ImGui::InputDouble("min y", &bymin)) {}
+//		ImGui::SameLine(0, p);
+//		if (ImGui::InputDouble("max y", &bymax))
+//		{
+//			if (bymax < bymin)
+//				bymax = bymin + 0.1;
+//		}
+//
+//		if (ImGui::Button("update bbox", ImVec2(-1, 0)))
+//		{
+//			getSelecteFids(bxmin, bymin, bxmax, bymax);
+//		}
+//
+//	}
 	if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
 		if (ImGui::InputDouble("motion value", &selectedMotionValue))
 		{
-			if (selectedMotionValue < 0)
+			if (selectedMotionValue < 0 && selectedMotion == Enlarge)
 				selectedMotionValue = 0;
 		}
 	}
@@ -729,18 +790,20 @@ void callback() {
 	{
 		refAmpList.clear();
 		refOmegaList.clear();
+        getSelecteFids();
 		
 		Eigen::MatrixXd w;
 		Eigen::VectorXd amp;
 		std::vector<std::complex<double>> z;
 		if(refFunc == Whirlpool)
 		{
-			generateWhirlPool(-0.5, 0.25, w, z, 1);
+			generateWhirlPool(centerx, centery, w, z, 1);
 		}
 		else
 		{
 			Eigen::Vector2d dir;
-			dir << 2 * M_PI, 0;
+			dir << dirx, diry;
+            dir *= 2 * M_PI;
 			generatePlaneWave(dir, w, z);
 		}
 		amp.setZero(triV.rows());
@@ -804,6 +867,7 @@ void callback() {
 			polyscope::screenshot(name);
 		}
 	}
+
 
 	ImGui::PopItemWidth();
 }

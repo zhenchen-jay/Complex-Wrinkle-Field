@@ -350,9 +350,9 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	renderF.resize(ndataFaces, 3);
 	renderColor.setZero(ndataVerts, 3);
 
-	renderColor.col(0).setConstant(1.0);
+	renderColor.col(0).setConstant(0);
 	renderColor.col(1).setConstant(1.0);
-	renderColor.col(2).setConstant(1.0);
+	renderColor.col(2).setConstant(0);
 
 	int curVerts = 0;
 	int curFaces = 0;
@@ -367,7 +367,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 		if (vertFlag(i) == 0)
 			renderColor.row(i) << 1.0, 0, 0;
 		else if (vertFlag(i) == 1)
-			renderColor.row(i) << 0, 1.0, 0;
+			renderColor.row(i) << 1.0, 1.0, 1.0;
 	}
 	renderV.block(curVerts, 0, nverts, 3) = basePos - shiftV;
 	renderF.block(curFaces, 0, nfaces, 3) = baseF;
