@@ -100,7 +100,9 @@ WrinkleEditingProcess::WrinkleEditingProcess(const Eigen::MatrixXd& pos, const M
 
 void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::MatrixXd>& refOmegaList)
 {
+	std::cout << "compute reference omega." << std::endl;
 	computeCombinedRefOmegaList(refOmegaList);
+	std::cout << "compute reference amplitude." << std::endl;
 	computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
 	std::vector<std::complex<double>> initZvals;
@@ -117,13 +119,14 @@ void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& r
 			bndVertsFlag(i) = 0;
 	}
 
+	std::cout << "initialize bnd zvals. " << std::endl;
 	if (_nInterfaces)
 	{
 		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-		roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
 
 		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-		roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 	}
 
 	else
@@ -142,6 +145,7 @@ void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& r
 
 	double dt = 1.0 / (nFrames + 1);
 
+	std::cout << "initialize the intermediate frames." << std::endl;
 	for (int i = 1; i <= nFrames; i++)
 	{
 		/* double t = i * dt;
@@ -156,7 +160,7 @@ void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& r
 		if (_nInterfaces)
 		{
 			roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
-			roundZvalsForSpecificDomainWithBndValues(_mesh, _combinedRefOmegaList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+			roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
 		}
 		else
 		{
@@ -416,7 +420,7 @@ void WrinkleEditingProcess::computeCombinedRefAmpList(const std::vector<Eigen::V
 
 	for (int i = 0; i < nFrames; i++)
 	{
-		std::cout << "Frame " << std::to_string(i) << ": ";
+		std::cout << "Frame " << std::to_string(i) << ": free vertices: " << freeVid.size() << std::endl;;
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv, deriv1;
 			std::vector<Eigen::Triplet<double>> T;
@@ -459,12 +463,15 @@ void WrinkleEditingProcess::computeCombinedRefAmpList(const std::vector<Eigen::V
 		};
 
 		Eigen::VectorXd x0 = projVar(i);
-		if (_nInterfaces)
+		if (_nInterfaces && freeVid.size())
+		{
 			OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
 
-		Eigen::VectorXd deriv;
-		double E = funVal(x0, &deriv, NULL, false);
-		std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+			Eigen::VectorXd deriv;
+			double E = funVal(x0, &deriv, NULL, false);
+			std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+		}
+			
 		_combinedRefAmpList[i] = unProjVar(x0, i);
 	}
 }
@@ -774,7 +781,7 @@ void WrinkleEditingProcess::computeCombinedRefOmegaList(const std::vector<Eigen:
 
 	for (int k = 0; k < nFrames; k++)
 	{
-		std::cout << "Frame " << std::to_string(k) << ": ";
+		std::cout << "Frame " << std::to_string(k) << ": free edges: " << freeEid.size() << std::endl;
 		auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 			Eigen::VectorXd deriv, deriv1;
 			std::vector<Eigen::Triplet<double>> T, T1;
@@ -819,13 +826,15 @@ void WrinkleEditingProcess::computeCombinedRefOmegaList(const std::vector<Eigen:
 
 		Eigen::VectorXd x0 = projVar(k);
 
-		if (_nInterfaces)
+		if (_nInterfaces && freeEid.size())
+		{
 			OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
 
-		Eigen::VectorXd deriv;
-		double E = funVal(x0, &deriv, NULL, false);
-		std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
-
+			Eigen::VectorXd deriv;
+			double E = funVal(x0, &deriv, NULL, false);
+			std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+		}
+			
 		prevw = unProjVar(x0, k);
 		_combinedRefOmegaList[k] = prevw;
 		prefullx = mat2vec(prevw);
