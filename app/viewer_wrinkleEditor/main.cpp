@@ -137,7 +137,7 @@ int optTimes = 0;
 
 //double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
 int clickedFid = -1;
-int dilationTimes = 3;
+int dilationTimes = 0;
 double centerx = -0.5, centery = 0.25, dirx = 1, diry = 0;
 
 void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
@@ -215,28 +215,9 @@ void getSelecteFids()
             initSelectedFids = selectedFids;
         }
     }
+	initSelectedFids = selectedFids;
 }
 
-//void getSelecteFids(double minx, double miny, double maxx, double maxy)
-//{
-//	selectedFids.setZero(triF.rows());
-//
-//	for (int i = 0; i < triF.rows(); i++)
-//	{
-//		double centerx = 0;
-//		double centery = 0;
-//		for (int j = 0; j < 3; j++)
-//		{
-//			int vid = triMesh.faceVertex(i, j);
-//			centerx += triV(vid, 0) / 3;
-//			centery += triV(vid, 1) / 3;
-//		}
-//		if (centerx >= minx && centerx <= maxx && centery >= miny && centery <= maxy)
-//			selectedFids(i) = 1;
-//	}
-//
-//	initSelectedFids = selectedFids;
-//}
 
 void initialization()
 {
@@ -299,10 +280,6 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	faceArea /= 2;
 	Eigen::MatrixXd cotEntries;
 	igl::cotmatrix_entries(triV, triF, cotEntries);
-
-	Eigen::VectorXi faceFlag;
-	faceFlag.setConstant(triF.rows(), -1);
-
 
 	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, faceFlags, quadOrder, 1.0);
 	
@@ -597,11 +574,12 @@ int getSelectedFaceId()
     if(polyscope::pick::haveSelection())
     {
         unsigned long id = polyscope::pick::getSelection().second;
-        int nverts = triV.rows();
-        int nedges = triMesh.nEdges();
-        int nfaces = triMesh.nFaces();
+        int nverts = polyscope::getSurfaceMesh("input mesh")->nVertices();
+        
 
-        if(id >= nverts && id < nfaces + nverts)
+        int nlocalFaces = triMesh.nFaces();
+
+        if(id >= nverts && id < nlocalFaces + nverts)
         {
             return id - nverts;
         }
@@ -614,7 +592,8 @@ int getSelectedFaceId()
 
 
 void callback() {
-    clickedFid = getSelectedFaceId();
+	int newId = getSelectedFaceId();
+	clickedFid = newId > 0 && newId < triMesh.nFaces() ? newId : clickedFid;
 	ImGui::PushItemWidth(100);
     float w = ImGui::GetContentRegionAvailWidth();
     float p = ImGui::GetStyle().FramePadding.x;
@@ -820,6 +799,7 @@ void callback() {
 		selectedFids = initSelectedFids;
         for(int i = 0; i < optTimes; i++)
         {
+			std::cout << "dilation option to get interface, step: " << i << std::endl;
             Eigen::VectorXi selectedFidNew;
             if(regOpType == Dilation)
                 regOpt.faceDilation(selectedFids, selectedFidNew);
@@ -832,7 +812,7 @@ void callback() {
         }
 		faceFlags = initSelectedFids - selectedFids;
 		
-
+		std::cout << "build wrinkle motions. " << std::endl;
 		buildWrinkleMotions(amp, w);
 		// solve for the path from source to target
 		solveKeyFrames(omegaList, zList);

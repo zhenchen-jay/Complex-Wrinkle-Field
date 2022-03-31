@@ -1,6 +1,7 @@
 #include "../../include/IntrinsicFormula/KnoppelStripePattern.h"
 #include "../../include/IntrinsicFormula/AmpSolver.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include <igl/cotmatrix.h>
 #include <SymGEigsShiftSolver.h>
 #include <MatOp/SparseCholesky.h>
 #include <Eigen/CholmodSupport>
@@ -583,21 +584,6 @@ void IntrinsicFormula::roundVertexZvalsFromHalfEdgeOmegaVertexMag(const MeshConn
 
 void IntrinsicFormula::roundZvalsForSpecificDomainWithGivenMag(const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals)
 {
-	std::vector<Eigen::Triplet<double>> PT;
-	int nDOFs = 0;
-	for (int i = 0; i < vertFlags.size(); i++)
-	{
-		if (vertFlags(i) == 1)
-		{
-			PT.push_back({ 2 * nDOFs, 2 * i, 1.0 });
-			PT.push_back({ 2 * nDOFs + 1, 2 * i + 1, 1.0 });
-			nDOFs += 1;
-		}
-	}
-	Eigen::SparseMatrix<double> projM;
-	projM.resize(2 * nDOFs, 2 * nverts);
-	projM.setFromTriplets(PT.begin(), PT.end());
-
 	std::vector<Eigen::Triplet<double>> BT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
@@ -666,7 +652,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithGivenMag(const MeshConnect
 	}
 }
 
-void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& vertZvals)
+void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& vertZvals, double smoothnessCoeff)
 {
 	Eigen::VectorXd clampedVals(2 * nverts);
 	clampedVals.setZero();
@@ -687,12 +673,25 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 			clampedVals(2 * i + 1) = vertZvals[i].imag();
 		}
 	}
-
+	if (nDOFs == 0)
+		return;
 	Eigen::SparseMatrix<double> projM, unProjM;
 	projM.resize(2 * nDOFs, 2 * nverts);
 	projM.setFromTriplets(PT.begin(), PT.end());
 
 	unProjM = projM.transpose();
+
+	auto zList2CoordVec = [&](const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& xvec, Eigen::VectorXd& yvec)
+	{
+		xvec.setZero(zvals.size());
+		yvec.setZero(zvals.size());
+
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			xvec(i) = zvals[i].real();
+			yvec(i) = zvals[i].imag();
+		}
+	};
 
 	auto zList2Vec = [&](const std::vector<std::complex<double>>& zvals)
 	{
@@ -727,6 +726,21 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 		return vec2zList(fullZvec);
 	};
 
+	Eigen::SparseMatrix<double> L, lapL;
+	igl::cotmatrix(pos, mesh.faces(), L);
+
+	std::vector<Eigen::Triplet<double>> lapT;
+
+	for (int k = 0; k < L.outerSize(); ++k)
+		for (Eigen::SparseMatrix<double>::InnerIterator it(L, k); it; ++it)
+		{
+			lapT.push_back(Eigen::Triplet<double>(2 * it.row(), 2 * it.col(), -it.value()));
+			lapT.push_back(Eigen::Triplet<double>(2 * it.row() + 1, 2 * it.col() + 1, -it.value()));
+		}
+
+	lapL.resize(2 * nverts, 2 * nverts);
+	lapL.setFromTriplets(lapT.begin(), lapT.end());
+
 	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) 
 	{
 		std::vector<std::complex<double>> zList = unprojVar(x, clampedVals);
@@ -735,14 +749,25 @@ void IntrinsicFormula::roundZvalsForSpecificDomainWithBndValues(const MeshConnec
 		Eigen::SparseMatrix<double> H;
 		double E = KnoppelEnergy(mesh, halfEdgeW, faceArea, cotEntries, zList, grad ? &deriv : NULL, hess ? &T : NULL);
 
+		Eigen::VectorXd fullx = zList2Vec(zList);
+		
+		if (smoothnessCoeff > 0)
+			E += smoothnessCoeff * fullx.dot(lapL * fullx) / 2;
+		
+
 		if (grad)
 		{
+			if (smoothnessCoeff > 0)
+				deriv += smoothnessCoeff * lapL * fullx;
 			(*grad) = projM * deriv;
 		}
 		if (hess)
 		{
 			H.resize(2 * nverts, 2 * nverts);
 			H.setFromTriplets(T.begin(), T.end());
+
+			if (smoothnessCoeff > 0)
+				H += smoothnessCoeff * lapL;
 			(*hess) = projM * H * unProjM;
 		}
 
