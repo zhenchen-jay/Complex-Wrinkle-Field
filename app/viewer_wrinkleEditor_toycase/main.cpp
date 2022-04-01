@@ -55,19 +55,21 @@
 #include "../../include/MeshLib/RegionEdition.h"
 #include <igl/cylinder.h>
 
+enum FunctionType {
+	Whirlpool = 0,
+	PlaneWave = 1
+};
+
 enum RegionOpType
 {
     Dilation = 0,
     Erosion = 1
 };
 
-Eigen::MatrixXd triV;
+Eigen::MatrixXd triV, upsampledTriV;
 Eigen::MatrixXi triF, upsampledTriF;
-MeshConnectivity triMesh;
+MeshConnectivity triMesh, upsampledTriMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
-
-std::vector<Eigen::MatrixXd> basePosList;
-std::vector<Eigen::MatrixXd> upBasePosList;
 
 std::vector<Eigen::MatrixXd> omegaList;
 std::vector<Eigen::MatrixXd> vertexOmegaList;
@@ -98,7 +100,6 @@ PaintGeometry mPaint;
 
 int numFrames = 20;
 int curFrame = 0;
-int selectedFrame = 10;
 
 double globalAmpMax = 1;
 double globalAmpMin = 0;
@@ -120,332 +121,80 @@ std::string workingFolder;
 
 IntrinsicFormula::WrinkleEditingProcess editModel;
 VecMotionType selectedMotion = Rotate;
+VecMotionType unselectedMotion = Enlarge;
 
 double selectedMotionValue = M_PI / 2;
+double unselectedMotionValue = 2;
 
 Eigen::VectorXi initSelectedFids;
 Eigen::VectorXi selectedFids;
 Eigen::VectorXi faceFlags;
 
+FunctionType refFunc = PlaneWave;
+
 RegionOpType regOpType = Dilation;
 int optTimes = 0;
-double sigma = 0.1;
-
-bool isLoadOpt;
 
 //double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
 int clickedFid = -1;
 int dilationTimes = 0;
+double centerx = -0.5, centery = 0.25, dirx = 1, diry = 0;
 
-bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
+void generateWhirlPool(double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1)
 {
-    std::ifstream infile(filename);
-    if(!infile)
-    {
-        std::cerr << "invalid file name" << std::endl;
-        return false;
-    }
-    else
-    {
-        edgeOmega.setZero(nlines, 2);
-        for (int i = 0; i < nlines; i++)
-        {
-            std::string line;
-            std::getline(infile, line);
-            std::stringstream ss(line);
+	z.resize(triV.rows());
+	w.resize(triV.rows(), 2);
+	std::cout << "whirl pool center: " << centerx << ", " << centery << std::endl;
+	bool isnegative = false;
+	if(pow < 0)
+	{
+		isnegative = true;
+		pow *= -1;
+	}
 
-            std::string x, y;
-            ss >> x;
-            ss >> y;
-            if (!ss)
-            {
-                edgeOmega.row(i) << std::stod(x), -std::stod(x);
-            }
-            else
-                edgeOmega.row(i) << std::stod(x), std::stod(y);
-        }
-    }
-    return true;
+	for (int i = 0; i < z.size(); i++)
+	{
+		double x = triV(i, 0) - centerx;
+		double y = triV(i, 1) - centery;
+		double rsquare = x * x + y * y;
+
+		if(isnegative)
+		{
+			z[i] = std::pow(std::complex<double>(x, -y), pow);
+
+			if (std::abs(std::sqrt(rsquare)) < 1e-10)
+				w.row(i) << 0, 0;
+			else
+				w.row(i) << pow * y / rsquare, -pow * x / rsquare;
+		}
+		else
+		{
+			z[i] = std::pow(std::complex<double>(x, y), pow);
+
+			if (std::abs(std::sqrt(rsquare)) < 1e-10)
+				w.row(i) << 0, 0;
+			else
+				//			w.row(i) << -y / rsquare, x / rsquare;
+				w.row(i) << -pow * y / rsquare, pow * x / rsquare;
+		}
+	}
 }
 
-void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
+void generatePlaneWave(Eigen::Vector2d v, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z)
 {
-    Eigen::SparseMatrix<double> S;
-    std::vector<int> facemap;
+	z.resize(triV.rows());
+	w.resize(triV.rows(), 2);
+	std::cout << "plane wave direction: " << v.transpose() << std::endl;
 
-    meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
-    std::cout << "upsampling finished" << std::endl;
-
-    triMesh = MeshConnectivity(triF);
-    selectedFids.setZero(triMesh.nFaces());
-    initSelectedFids = selectedFids;
-
+	for (int i = 0; i < z.size(); i++)
+	{
+		double theta = v.dot(triV.row(i).segment<2>(0));
+		double x = std::cos(theta);
+		double y = std::sin(theta);
+		z[i] = std::complex<double>(x, y);
+		w.row(i) = v;
+	}
 }
-
-bool loadProblem()
-{
-    std::string loadFileName = igl::file_dialog_open();
-
-    std::cout << "load file in: " << loadFileName << std::endl;
-    using json = nlohmann::json;
-    std::ifstream inputJson(loadFileName);
-    if (!inputJson) {
-        std::cerr << "missing json file in " << loadFileName << std::endl;
-        return false;
-    }
-
-    std::string filePath = loadFileName;
-    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-    int id = filePath.rfind("/");
-    std::string workingFolder = filePath.substr(0, id + 1);
-    std::cout << "working folder: " << workingFolder << std::endl;
-
-    json jval;
-    inputJson >> jval;
-
-    std::string meshFile = jval["mesh_name"];
-    meshFile = workingFolder + meshFile;
-
-
-    igl::readOBJ(meshFile, triV, triF);
-    triMesh = MeshConnectivity(triF);
-
-    quadOrder = jval["quad_order"];
-    numFrames = jval["num_frame"];
-
-    std::string refAmp = jval["ref_amp"];
-    std::string refOmega = jval["ref_omega"];
-    std::string optSol = jval["opt_sol"];
-    std::string baseMesh = jval["basemesh"];
-
-    // edge omega List
-    int iter = 0;
-    int nedges = triMesh.nEdges();
-    int nverts = triV.rows();
-
-    refAmpList.resize(numFrames);
-    refOmegaList.resize(numFrames);
-    basePosList.resize(numFrames, triV);
-    upBasePosList.resize(numFrames);
-
-    for (uint32_t i = 0; i < numFrames; ++i) {
-        //std::cout << i << std::endl;
-        std::ifstream afs(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt");
-
-        if (!afs) {
-            std::cout << "missing amp file: " << std::endl;
-            return false;
-        }
-
-        Eigen::VectorXd amp(nverts);
-
-        for (int j = 0; j < nverts; j++) {
-            std::string line;
-            std::getline(afs, line);
-            std::stringstream ss(line);
-            std::string x;
-            ss >> x;
-            amp(j) = std::stod(x);
-        }
-        refAmpList[i] = amp;
-
-        std::string edgePath = workingFolder + refOmega + "/omega_" + std::to_string(i) + ".txt";
-        Eigen::MatrixXd edgeW;
-        if (!loadEdgeOmega(edgePath, nedges, edgeW)) {
-            std::cout << "missing edge file." << std::endl;
-            return false;
-        }
-        refOmegaList[i] = edgeW;
-
-        std::string basemeshPath = workingFolder + baseMesh + "/mesh_" + std::to_string(i) + ".obj";
-        if (!igl::readOBJ(basemeshPath, basePosList[i], triF))
-        {
-            basePosList[i] = triV;
-        }
-
-        initialization(basePosList[i], triF, upBasePosList[i], upsampledTriF);
-    }
-
-    isLoadOpt = true;
-    zList.clear();
-    omegaList.clear();
-    for(int i = 0; i < numFrames; i++)
-    {
-        std::string zvalFile = workingFolder + optSol + "/zvals_" + std::to_string(i) + ".txt";
-        std::string halfEdgeOmegaFile = workingFolder + optSol + "/halfEdgeOmega_" + std::to_string(i) + ".txt";
-
-        std::ifstream zfs(zvalFile);
-        if(!zfs)
-        {
-            isLoadOpt = false;
-            break;
-        }
-
-        std::vector<std::complex<double>> zvals(nverts);
-
-        for (int j = 0; j < nverts; j++) {
-            std::string line;
-            std::getline(zfs, line);
-            std::stringstream ss(line);
-            std::string x, y;
-            ss >> x;
-            ss >> y;
-            zvals[j] = std::complex<double>(std::stod(x), std::stod(y));
-        }
-
-
-        Eigen::MatrixXd edgeOmega;
-        if (!loadEdgeOmega(halfEdgeOmegaFile, nedges, edgeOmega)) {
-            isLoadOpt = false;
-            break;
-        }
-
-        zList.push_back(zvals);
-        omegaList.push_back(edgeOmega);
-    }
-
-    if(isLoadOpt)
-    {
-        std::cout << "load zvals and omegas from file!" << std::endl;
-    }
-    else
-    {
-        std::cout << "failed to load zvals and omegas from file, set them to be random values!" << std::endl;
-        zList.resize(numFrames);
-        omegaList.resize(numFrames);
-
-        for(int i = 0; i < numFrames; i++)
-        {
-            omegaList[i].setRandom(nedges, 2);
-            Eigen::Vector2d rnd = Eigen::Vector2d::Random();
-            zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
-        }
-    }
-
-    globalAmpMin = std::numeric_limits<double>::infinity();
-    globalAmpMax = -std::numeric_limits<double>::infinity();
-
-    for(int j = 0; j < zList[0].size(); j++)
-    {
-        globalAmpMin = std::min(globalAmpMin, std::abs(zList[0][j]));
-        globalAmpMax = std::max(globalAmpMax, std::abs(zList[0][j]));
-    }
-
-
-    for (int i = 0; i < zList.size(); i++)
-    {
-        for(int j = 0; j < zList[i].size(); j++)
-        {
-            globalAmpMin = std::min(globalAmpMin, std::abs(zList[i][j]));
-            globalAmpMax = std::max(globalAmpMax, std::abs(zList[i][j]));
-        }
-    }
-    std::cout << "global amp range: " << globalAmpMin << ", " << globalAmpMax << std::endl;
-
-    return true;
-}
-
-
-bool saveProblem()
-{
-    std::string saveFileName = igl::file_dialog_save();
-
-    using json = nlohmann::json;
-    json jval;
-    jval["mesh_name"] = "mesh.obj";
-    jval["num_frame"] = zList.size();
-    jval["quad_order"] = quadOrder;
-    jval["ref_amp"] = "/amp/";
-    jval["ref_omega"] = "/omega/";
-    jval["opt_sol"] = "/optSol/";
-    jval["basemesh"] = "/basemesh/";
-
-    std::string filePath = saveFileName;
-    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-    int id = filePath.rfind("/");
-    std::string workingFolder = filePath.substr(0, id + 1);
-
-    igl::writeOBJ(workingFolder + "mesh.obj", basePosList[0], triF);
-
-    std::string outputFolder = workingFolder + "optSol/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directories(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-
-    for (int i = 0; i < zList.size(); i++)
-    {
-        std::ofstream zfs(outputFolder + "zvals_" + std::to_string(i) + ".txt");
-        std::ofstream wfs(outputFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
-        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << omegaList[i] << std::endl;
-        for (int j = 0; j < zList[i].size(); j++)
-        {
-            zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zList[i][j].real() << " " << zList[i][j].imag() << std::endl;
-        }
-    }
-
-    // save reference
-    outputFolder = workingFolder + "/amp/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-    for (int i = 0; i < refAmpList.size(); i++)
-    {
-        std::ofstream afs(outputFolder + "amp_" + std::to_string(i) + ".txt");
-        afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refAmpList[i] << std::endl;
-    }
-
-    outputFolder = workingFolder + "/omega/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-    for (int i = 0; i < refOmegaList.size(); i++)
-    {
-        std::ofstream wfs(outputFolder + "omega_" + std::to_string(i) + ".txt");
-        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refOmegaList[i] << std::endl;
-    }
-
-    outputFolder = workingFolder + "/basemesh/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-
-    for (int i = 0; i < basePosList.size(); i++)
-    {
-        igl::writeOBJ(outputFolder + "mesh_" + std::to_string(i) + ".obj", basePosList[i], triF);
-    }
-
-    std::ofstream o(workingFolder + "data.json");
-    o << std::setw(4) << jval << std::endl;
-    std::cout << "save file in: " << workingFolder + "data.json" << std::endl;
-
-    return true;
-}
-
-
 
 void getSelecteFids()
 {
@@ -469,12 +218,24 @@ void getSelecteFids()
 	initSelectedFids = selectedFids;
 }
 
-double sampling(double t, double offset, double mu, double sigma)
+
+void initialization()
 {
-    return offset + std::exp(-0.5 * (t - mu) * (t - mu) / sigma / sigma);
+	Eigen::SparseMatrix<double> S;
+	std::vector<int> facemap;
+
+	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
+	std::cout << "upsampling finished" << std::endl;
+
+	triMesh = MeshConnectivity(triF);
+	upsampledTriMesh = MeshConnectivity(upsampledTriF);
+	selectedFids.setZero(triMesh.nFaces());
+    initSelectedFids = selectedFids;
+	
 }
 
-void buildWrinkleMotions()
+
+void buildWrinkleMotions(const Eigen::VectorXd& amp, const Eigen::MatrixXd& omega)
 {
 	int nverts = triV.rows();
 	Eigen::VectorXi initSelectedVids;
@@ -482,26 +243,30 @@ void buildWrinkleMotions()
 	faceFlags2VertFlags(triMesh, nverts, initSelectedFids, initSelectedVids);
 
 	double dt = 1.0 / (numFrames - 1);
-    double t0 = selectedFrame * dt;
-	double offset = selectedMotion != Enlarge ? 0 : 1;
+	double initval0 = selectedMotion != Enlarge ? 0 : 1;
+	double initval1 = unselectedMotion != Enlarge ? 0 : 1;
+
+	refAmpList.resize(numFrames);
+	refOmegaList.resize(numFrames);
 
 	for (int f = 0; f < numFrames; f++)
 	{
 		std::vector<VertexOpInfo> vertexOpInfoList;
 		vertexOpInfoList.resize(nverts, { None, 0 });
 
-        double t = dt * f;
-
-		double value = sampling(t, offset, t0, sigma);
+		double value0 = (selectedMotionValue - initval0) * dt * f + initval0;
+		double value1 = (unselectedMotionValue - initval1) * dt * f + initval1;
 
 		for (int i = 0; i < nverts; i++)
 		{
 			if (initSelectedVids(i))
-				vertexOpInfoList[i] = { selectedMotion, value };
+				vertexOpInfoList[i] = { selectedMotion, value0 };
+			else
+				vertexOpInfoList[i] = { unselectedMotion, value1 };
 		}
 
-		Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(refOmegaList[f], triV, triMesh);
-		WrinkleFieldsEditor::editWrinkles(triV, triMesh, refAmpList[f], vertOmega, vertexOpInfoList, refAmpList[f], vertOmega);
+		Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(omega, triV, triMesh);
+		WrinkleFieldsEditor::editWrinkles(triV, triMesh, amp, vertOmega, vertexOpInfoList, refAmpList[f], vertOmega);
 		refOmegaList[f] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);
 	}
 
@@ -726,7 +491,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	{
 		normoalizedAmpVec(i) = (ampVec(i) - ampMin) / (ampMax - ampMin);
 	}
-    std::cout << "amp (min, max): " << ampVec.minCoeff() << " " << ampVec.maxCoeff() << std::endl;
 	Eigen::MatrixXd ampColor = mPaint.paintAmplitude(normoalizedAmpVec);
 	renderColor.block(curVerts, 0, nupverts, 3) = ampColor;
 
@@ -736,7 +500,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	// interpolated amp
 	if(isShowWrinkels)
 	{
-        std::cout << "show wrinkles, nupverts: " << upPos.rows() << std::endl;
 		shiftF.setConstant(curVerts);
 		shiftV.col(0).setConstant(3 * shiftx);
 		Eigen::MatrixXd tmpV = upPos - shiftV;
@@ -783,11 +546,10 @@ void registerMesh(int frameId)
 			selectedVids(i) = -1;
 	}
 
-
-	registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
+	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
 		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModel.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
-    std::cout << "register mesh finished" << std::endl;
+
 	dataV = interpP;
 	curColor = interpColor;
 	dataVec = interpVec;
@@ -802,11 +564,8 @@ void updateFieldsInView(int frameId)
 	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
 	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
 
-    if (isShowVectorFields)
-    {
-        polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
-        polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
-    }
+	polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
+	polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
 
 }
 
@@ -835,20 +594,26 @@ int getSelectedFaceId()
 void callback() {
 	int newId = getSelectedFaceId();
 	clickedFid = newId > 0 && newId < triMesh.nFaces() ? newId : clickedFid;
-    ImGui::PushItemWidth(100);
+	ImGui::PushItemWidth(100);
     float w = ImGui::GetContentRegionAvailWidth();
     float p = ImGui::GetStyle().FramePadding.x;
-    if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
-    {
-        loadProblem();
-        updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
-        updateFieldsInView(curFrame);
-    }
-    ImGui::SameLine(0, p);
-    if (ImGui::Button("Save", ImVec2((w - p) / 2.f, 0)))
-    {
-        saveProblem();
-    }
+//    if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
+//    {
+//        std::string meshPath = igl::file_dialog_open();
+//        igl::readOBJ(meshPath, triV, triF);
+//        initialization();
+//        // Initialize polyscope
+//        polyscope::init();
+//
+//        // Register the mesh with Polyscope
+//        polyscope::registerSurfaceMesh("input mesh", triV, triF);
+//    }
+//    ImGui::SameLine(0, p);
+//    if (ImGui::Button("Save", ImVec2((w - p) / 2.f, 0)))
+//    {
+//        std::string saveFolder = igl::file_dialog_save();
+//        //interpModel.save(saveFolder, triV, triF);
+//    }
 	if (ImGui::Button("Reset", ImVec2(-1, 0)))
 	{
 		curFrame = 0;
@@ -859,13 +624,12 @@ void callback() {
 	{
 		if (loopLevel >= 0)
 		{
-            for(int i = 0; i < basePosList.size(); i++)
-                initialization(basePosList[i], triF, upBasePosList[i], upsampledTriF);
-            if (isForceOptimize)	//already solve for the interp states
-            {
-                updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
-                updateFieldsInView(curFrame);
-            }
+			initialization();
+			if (isForceOptimize)	//already solve for the interp states
+			{
+				updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+				updateFieldsInView(curFrame);
+			}
 		}
 
 	}
@@ -883,6 +647,24 @@ void callback() {
 			updateFieldsInView(curFrame);
 	}
 
+	if (ImGui::CollapsingHeader("Reference Wrinkle Fields", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Combo("ref func", (int*) &refFunc, "WhirlPool\0PlaneWave\0");
+        ImGui::InputDouble("whirlpool center x", &centerx);
+        ImGui::InputDouble("whirlpool center y", &centery);
+        ImGui::InputDouble("plane wave dir x", &dirx);
+        ImGui::InputDouble("plane wave dir y", &diry);
+	}
+
+	if (ImGui::CollapsingHeader("Underline Wrinkle Options", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Combo("underline motion", (int*)&unselectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
+		if (ImGui::InputDouble("underline motion value", &unselectedMotionValue))
+		{
+			if (unselectedMotionValue < 0 && unselectedMotion == Enlarge)
+				unselectedMotionValue = 0;
+		}
+	}
     if (ImGui::CollapsingHeader("Selected Region", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::InputInt("clicked face id", &clickedFid);
@@ -892,13 +674,31 @@ void callback() {
             if (dilationTimes < 0)
                 dilationTimes = 3;
         }
-
-        if(ImGui::InputInt("selected frame", &selectedFrame))
-        {
-            if(selectedFrame < 0 || selectedFrame > numFrames)
-                selectedFrame = numFrames - 1;
-        }
     }
+//	if (ImGui::CollapsingHeader("Selected BBox", ImGuiTreeNodeFlags_DefaultOpen))
+//	{
+//		if (ImGui::InputDouble("min x", &bxmin)) {}
+//		ImGui::SameLine(0, p);
+//		if (ImGui::InputDouble("max x", &bxmax))
+//		{
+//			if (bxmax < bxmin)
+//				bxmax = bxmin + 0.1;
+//		}
+//
+//		if (ImGui::InputDouble("min y", &bymin)) {}
+//		ImGui::SameLine(0, p);
+//		if (ImGui::InputDouble("max y", &bymax))
+//		{
+//			if (bymax < bymin)
+//				bymax = bymin + 0.1;
+//		}
+//
+//		if (ImGui::Button("update bbox", ImVec2(-1, 0)))
+//		{
+//			getSelecteFids(bxmin, bymin, bxmax, bymax);
+//		}
+//
+//	}
 	if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
@@ -916,7 +716,7 @@ void callback() {
 			if(curFrame >= 0 && curFrame <= numFrames - 1)
 				updateFieldsInView(curFrame);
 		}
-		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.00005, 0, 1))
+		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.0005, 0, 1))
 		{
 			updateFieldsInView(curFrame);
 		}
@@ -967,8 +767,34 @@ void callback() {
 
 	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
 	{
+		refAmpList.clear();
+		refOmegaList.clear();
         getSelecteFids();
-        
+		
+		Eigen::MatrixXd w;
+		Eigen::VectorXd amp;
+		std::vector<std::complex<double>> z;
+		if(refFunc == Whirlpool)
+		{
+			generateWhirlPool(centerx, centery, w, z, 1);
+		}
+		else
+		{
+			Eigen::Vector2d dir;
+			dir << dirx, diry;
+            dir *= 2 * M_PI;
+			generatePlaneWave(dir, w, z);
+		}
+		amp.setZero(triV.rows());
+		for(int i = 0; i < amp.size(); i++)
+			amp(i) = std::abs(z[i]);
+
+		Eigen::MatrixXd vertFields3D(triV.rows(), 3);
+		vertFields3D.block(0, 0, triV.rows(), 2) = w;
+		vertFields3D.col(2).setZero();
+		w = vertexVec2IntrinsicHalfEdgeVec(vertFields3D, triV, triMesh);
+
+		
         RegionEdition regOpt(triMesh);
 		selectedFids = initSelectedFids;
         for(int i = 0; i < optTimes; i++)
@@ -987,7 +813,7 @@ void callback() {
 		faceFlags = initSelectedFids - selectedFids;
 		
 		std::cout << "build wrinkle motions. " << std::endl;
-		buildWrinkleMotions();
+		buildWrinkleMotions(amp, w);
 		// solve for the path from source to target
 		solveKeyFrames(omegaList, zList);
 		// get interploated amp and phase frames
@@ -1026,14 +852,67 @@ void callback() {
 	ImGui::PopItemWidth();
 }
 
+void generateSquare(double length, double width, double triarea, Eigen::MatrixXd& irregularV, Eigen::MatrixXi& irregularF)
+{
+	double area = length * width;
+	int N = (0.25 * std::sqrt(area / triarea));
+	N = N > 1 ? N : 1;
+	double deltaX = length / (4.0 * N);
+	double deltaY = width / (4.0 * N);
+
+	Eigen::MatrixXd planeV;
+	Eigen::MatrixXi planeE;
+
+	int M = 2 * N + 1;
+	planeV.resize(4 * M - 4, 2);
+	planeE.resize(4 * M - 4, 2);
+
+	for (int i = 0; i < M; i++)
+	{
+		planeV.row(i) << -length / 2, i * width / (M - 1) - width / 2;
+	}
+	for (int i = 1; i < M; i++)
+	{
+		planeV.row(M - 1 + i) << i * length / (M - 1)-length / 2, width / 2;
+	}
+	for (int i = 1; i < M; i++)
+	{
+		planeV.row(2 * (M - 1) + i) << length / 2, width/2 - i * width / (M - 1);
+	}
+	for (int i = 1; i < M - 1; i++)
+	{
+		planeV.row(3 * (M - 1) + i) << length / 2- i * length / (M - 1), - width / 2;
+	}
+
+	for (int i = 0; i < 4 * (M - 1); i++)
+	{
+		planeE.row(i) << i, (i + 1) % (4 * (M - 1));
+	}
+
+	Eigen::MatrixXd V2d;
+	Eigen::MatrixXi F;
+	Eigen::MatrixXi H(0, 2);
+	std::cout << triarea << std::endl;
+	// Create an output string stream
+	std::ostringstream streamObj;
+	//Add double to stream
+	streamObj << triarea;
+	const std::string flags = "q20a" + std::to_string(triarea);
+
+	igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+	irregularV.resize(V2d.rows(), 3);
+	irregularV.setZero();
+	irregularV.block(0, 0, irregularV.rows(), 2) = V2d.block(0, 0, irregularV.rows(), 2);
+	irregularF = F;
+	igl::writeOBJ("irregularPlane.obj", irregularV, irregularF);
+}
+
 
 int main(int argc, char** argv)
 {
-    if(!loadProblem())
-    {
-        std::cout << "failed to load file." << std::endl;
-        return 1;
-    }
+	generateSquare(2, 1, triarea, triV, triF);
+
+	initialization();
 
 	// Options
 	polyscope::options::autocenterStructures = true;
