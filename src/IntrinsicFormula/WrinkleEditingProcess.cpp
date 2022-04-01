@@ -148,34 +148,34 @@ void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& r
 	std::cout << "initialize the intermediate frames." << std::endl;
 	for (int i = 1; i <= nFrames; i++)
 	{
-		/* double t = i * dt;
+		 double t = i * dt;
 
 		 _zvalsList[i] = tarZvals;
 
 		 for(int j = 0; j < tarZvals.size(); j++)
 		 {
 			 _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
-		 }*/
+		 }
 
-		if (_nInterfaces)
-		{
-			roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
-			roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
-		}
-		else
-		{
-			roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
-		}
+//		if (_nInterfaces)
+//		{
+//			roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+//			roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[i], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+//		}
+//		else
+//		{
+//			roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[i], _combinedRefAmpList[i], _faceArea, _cotMatrixEntries, _pos.rows(), _zvalsList[i]);
+//		}
 
 	}
 
-	for (int i = 0; i <= nFrames + 1; i++)
-	{
-		for (int j = 0; j < _zvalsList[i].size(); j++)
-		{
-			_combinedRefAmpList[i][j] = std::abs(_zvalsList[i][j]);
-		}
-	}
+//	for (int i = 0; i <= nFrames + 1; i++)
+//	{
+//		for (int j = 0; j < _zvalsList[i].size(); j++)
+//		{
+//			_combinedRefAmpList[i][j] = std::abs(_zvalsList[i][j]);
+//		}
+//	}
 
 	_zdotModel = ComputeZdotFromHalfEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
 
