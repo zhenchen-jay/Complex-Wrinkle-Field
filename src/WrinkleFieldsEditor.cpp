@@ -111,8 +111,8 @@ void WrinkleFieldsEditor::edgeBasedWrinkleEdition(const Eigen::MatrixXd& pos, co
 			int eid0 = mesh.faceEdge(i, (j + 1) % 3);
 			int eid1 = mesh.faceEdge(i, (j + 2) % 3);
 
-			Eigen::Vector3d e0 = pos.row(mesh.faceVertex(i, (j + 1) % 3)) - pos.row(vid);
-			Eigen::Vector3d e1 = pos.row(mesh.faceVertex(i, (j + 2) % 3)) - pos.row(vid);
+			Eigen::Vector3d e0 = pos.row(mesh.faceVertex(i, (j + 2) % 3)) - pos.row(vid);
+			Eigen::Vector3d e1 = pos.row(mesh.faceVertex(i, (j + 1) % 3)) - pos.row(vid);
 
 			int flag0 = 0, flag1 = 0;
 			Eigen::Vector2d rhs;
