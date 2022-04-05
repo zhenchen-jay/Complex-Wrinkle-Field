@@ -70,11 +70,11 @@ std::vector<Eigen::MatrixXd> basePosList;
 std::vector<Eigen::MatrixXd> upBasePosList;
 
 std::vector<Eigen::MatrixXd> omegaList;
-std::vector<Eigen::MatrixXd> vertexOmegaList;
+std::vector<Eigen::MatrixXd> faceOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
 std::vector<Eigen::MatrixXd> initOmegaList;
-std::vector<Eigen::MatrixXd> initVertexOmegaList;
+std::vector<Eigen::MatrixXd> initFaceOmegaList;
 std::vector<std::vector<std::complex<double>>> initZList;
 
 
@@ -658,7 +658,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	double shiftx = 1.5 * (basePos.col(0).maxCoeff() - basePos.col(0).minCoeff());
 
 	renderV.resize(ndataVerts, 3);
-	renderVec.setZero(ndataVerts, 3);
+	renderVec.setZero(ndataFaces, 3);
 	renderF.resize(ndataFaces, 3);
 	renderColor.setZero(ndataVerts, 3);
 
@@ -685,8 +685,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	renderF.block(curFaces, 0, nfaces, 3) = baseF;
 	if (isShowVectorFields)
 	{
-		for (int i = 0; i < nverts; i++)
-			renderVec.row(i + curVerts) = refOmega.row(i);
+		for (int i = 0; i < nfaces; i++)
+			renderVec.row(i + curFaces) = refOmega.row(i);
 	}
 
 	curVerts += nverts;
@@ -712,8 +712,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 	if(isShowVectorFields)
 	{
-		for (int i = 0; i < nverts; i++)
-			renderVec.row(i + curVerts) = omegaVec.row(i);
+		for (int i = 0; i < nfaces; i++)
+			renderVec.row(i + curFaces) = omegaVec.row(i);
 	}
 	curVerts += nverts;
 	curFaces += nfaces;
@@ -808,7 +808,7 @@ void registerMesh(int frameId)
 
 	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
-	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(editModelBackup.getRefWList()[frameId], triV, triMesh);
+	Eigen::MatrixXd refFaceOmega = intrinsicHalfEdgeVec2FaceVec(editModelBackup.getRefWList()[frameId], triV, triMesh);
 
 	Eigen::VectorXi selectedVids, initSelectedVids;
 	faceFlags2VertFlags(triMesh, triV.rows(), selectedFids, selectedVids);
@@ -821,13 +821,13 @@ void registerMesh(int frameId)
 	}
 
 	registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 0, globalAmpMin, globalAmpMax,
-		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModelBackup.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
+		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], editModelBackup.getRefAmpList()[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
 	if (isShowInitialDynamic)
 	{
-		Eigen::MatrixXd refVertOmega1 = intrinsicHalfEdgeVec2VertexVec(initRefOmegaList[frameId], triV, triMesh);
+		Eigen::MatrixXd refFaceOmega1 = intrinsicHalfEdgeVec2FaceVec(initRefOmegaList[frameId], triV, triMesh);
 		registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
-			initAmpFieldsList[frameId], initPhaseFieldsList[frameId], initVertexOmegaList[frameId], initRefAmpList[frameId], refVertOmega1, Eigen::VectorXi::Zero(selectedVids.size()), initP, initF, initVec, initColor);
+			initAmpFieldsList[frameId], initPhaseFieldsList[frameId], initFaceOmegaList[frameId], initRefAmpList[frameId], refFaceOmega1, Eigen::VectorXi::Zero(selectedVids.size()), initP, initF, initVec, initColor);
 	}
 
 	std::cout << "register mesh finished" << std::endl;
@@ -858,9 +858,9 @@ void registerMesh(int frameId)
 		curColor.block(0, 0, nPartVerts, 3) = interpColor;
 		curColor.block(nPartVerts, 0, nPartVerts, 3) = initColor;
 
-		dataVec.resize(2 * nPartVerts, 3);
-		dataVec.block(0, 0, nPartVerts, 3) = interpVec;
-		dataVec.block(nPartVerts, 0, nPartVerts, 3) = initVec;
+		dataVec.resize(2 * nPartFaces, 3);
+		dataVec.block(0, 0, nPartFaces, 3) = interpVec;
+		dataVec.block(nPartFaces, 0, nPartFaces, 3) = initVec;
 
 	}
 
@@ -876,8 +876,8 @@ void updateFieldsInView(int frameId)
 
     if (isShowVectorFields)
     {
-        polyscope::getSurfaceMesh("input mesh")->addVertexVectorQuantity("vertex vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
-        polyscope::getSurfaceMesh("input mesh")->getQuantity("vertex vector field")->setEnabled(true);
+        polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("face vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
+        polyscope::getSurfaceMesh("input mesh")->getQuantity("face vector field")->setEnabled(true);
     }
 
 }
@@ -992,7 +992,7 @@ void callback() {
 				selectedMotionValue = 0;
 		}
 		ImGui::Checkbox("vec mag coupled", &isCoupled);
-		if (ImGui::InputDouble(",ag motion value", &selectedMagValue))
+		if (ImGui::InputDouble("mag motion value", &selectedMagValue))
 		{
 			if (selectedMagValue < 0)
 				selectedMagValue = 1;
@@ -1085,11 +1085,12 @@ void callback() {
 		std::cout << "compute upsampled phase: " << std::endl;
 		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
 		std::cout << "compute upsampled phase finished!" << std::endl;
-		vertexOmegaList.resize(omegaList.size());
+		faceOmegaList.resize(omegaList.size());
 		for(int i = 0; i < omegaList.size(); i++)
 		{
-			vertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(omegaList[i], triV, triMesh);
+			faceOmegaList[i] = intrinsicHalfEdgeVec2FaceVec(omegaList[i], triV, triMesh);
 		}
+        std::cout << "compute face vector fields finished!" << std::endl;
 		
 		// update global maximum amplitude
 		globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), editModel.getRefAmpList()[0].maxCoeff());
@@ -1111,10 +1112,10 @@ void callback() {
 			std::cout << "compute upsampled phase: " << std::endl;
 			updateMagnitudePhase(initOmegaList, initZList, initAmpFieldsList, initPhaseFieldsList);
 			std::cout << "compute upsampled phase finished!" << std::endl;
-			initVertexOmegaList.resize(initOmegaList.size());
+			initFaceOmegaList.resize(initOmegaList.size());
 			for (int i = 0; i < initOmegaList.size(); i++)
 			{
-				initVertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(initOmegaList[i], triV, triMesh);
+                initFaceOmegaList[i] = intrinsicHalfEdgeVec2FaceVec(initOmegaList[i], triV, triMesh);
 			}
 
 			// update global maximum amplitude

@@ -544,6 +544,60 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
 	return vertOmega;
 }
 
+Eigen::MatrixXd intrinsicHalfEdgeVec2FaceVec(const Eigen::MatrixXd& w, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh)
+{
+    int nfaces = mesh.nFaces();
+
+    Eigen::MatrixXd faceVec = Eigen::MatrixXd::Zero(nfaces, 3);
+    for(int i = 0; i < nfaces; i++)
+    {
+//        std::cout << "face: " << i  << " of total faces " << nfaces << std::endl;
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = mesh.faceVertex(i, j);
+
+            int eid0 = mesh.faceEdge(i, (j + 1) % 3);
+            int eid1 = mesh.faceEdge(i, (j + 2) % 3);
+
+            Eigen::Vector3d e0 = pos.row(mesh.faceVertex(i, (j + 2) % 3)) - pos.row(vid);
+            Eigen::Vector3d e1 = pos.row(mesh.faceVertex(i, (j + 1) % 3)) - pos.row(vid);
+
+            int flag0 = 0, flag1 = 0;
+            Eigen::Vector2d rhs;
+
+            if (mesh.edgeVertex(eid0, 0) == vid)
+            {
+                flag0 = 0;
+                rhs(0) = w(eid0, 0);
+            }
+            else
+            {
+                flag0 = 1;
+                rhs(0) = w(eid0, 1);
+            }
+
+
+            if (mesh.edgeVertex(eid1, 0) == vid)
+            {
+                flag1 = 0;
+                rhs(1) = w(eid1, 0);
+            }
+            else
+            {
+                flag1 = 1;
+                rhs(1) = w(eid1, 1);
+            }
+
+            Eigen::Matrix2d I;
+            I << e0.dot(e0), e0.dot(e1), e1.dot(e0), e1.dot(e1);
+            Eigen::Vector2d sol = I.inverse() * rhs;
+
+            faceVec.row(i) += (sol(0) * e0 + sol(1) * e1) / 3;
+        }
+    }
+    return faceVec;
+}
+
 double unitMagEnergy(const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess, bool isProj)
 {
 	int nverts = zvals.size();
