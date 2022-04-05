@@ -73,14 +73,24 @@ std::vector<Eigen::MatrixXd> omegaList;
 std::vector<Eigen::MatrixXd> vertexOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
+std::vector<Eigen::MatrixXd> initOmegaList;
+std::vector<Eigen::MatrixXd> initVertexOmegaList;
+std::vector<std::vector<std::complex<double>>> initZList;
+
 
 std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
+
+std::vector<Eigen::VectorXd> initPhaseFieldsList;
+std::vector<Eigen::VectorXd> initAmpFieldsList;
 
 
 // reference amp and omega
 std::vector<Eigen::MatrixXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
+
+std::vector<Eigen::MatrixXd> initRefOmegaList;
+std::vector<Eigen::VectorXd> initRefAmpList;
 
 
 Eigen::MatrixXd dataV;
@@ -98,7 +108,7 @@ PaintGeometry mPaint;
 
 int numFrames = 20;
 int curFrame = 0;
-int selectedFrame = 10;
+int selectedFrame = 19;
 
 double globalAmpMax = 1;
 double globalAmpMin = 0;
@@ -118,10 +128,12 @@ double triarea = 0.004;
 
 std::string workingFolder;
 
-IntrinsicFormula::WrinkleEditingProcess editModel;
-VecMotionType selectedMotion = Rotate;
+IntrinsicFormula::WrinkleEditingProcess editModel, editModelBackup;
+VecMotionType selectedMotion = Enlarge;
 
-double selectedMotionValue = M_PI / 2;
+double selectedMotionValue = 2;
+double selectedMagValue = 1;
+bool isCoupled = false;
 
 Eigen::VectorXi initSelectedFids;
 Eigen::VectorXi selectedFids;
@@ -136,6 +148,9 @@ bool isLoadOpt;
 //double bxmin = -0.25, bxmax = 0.25, bymin = -0.5, bymax = 0.5;
 int clickedFid = -1;
 int dilationTimes = 0;
+
+bool isShowInitialDynamic = true;
+bool isShowWrinkleColorField = true;
 
 bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
 {
@@ -342,6 +357,9 @@ bool loadProblem()
     }
     std::cout << "global amp range: " << globalAmpMin << ", " << globalAmpMax << std::endl;
 
+	initRefAmpList = refAmpList;
+	initRefOmegaList = refOmegaList;
+
     return true;
 }
 
@@ -469,9 +487,9 @@ void getSelecteFids()
 	initSelectedFids = selectedFids;
 }
 
-double sampling(double t, double offset, double mu, double sigma)
+double sampling(double t, double offset, double A, double mu, double sigma)
 {
-    return offset + std::exp(-0.5 * (t - mu) * (t - mu) / sigma / sigma);
+    return offset + A * std::exp(-0.5 * (t - mu) * (t - mu) / sigma / sigma);
 }
 
 void buildWrinkleMotions()
@@ -484,31 +502,40 @@ void buildWrinkleMotions()
 	double dt = 1.0 / (numFrames - 1);
     double t0 = selectedFrame * dt;
 	double offset = selectedMotion != Enlarge ? 0 : 1;
+	double A = selectedMotion != Enlarge ? selectedMotionValue : selectedMotionValue - 1;
 
+	
 	for (int f = 0; f < numFrames; f++)
 	{
 		std::vector<VertexOpInfo> vertexOpInfoList;
-		vertexOpInfoList.resize(nverts, { None, 0 });
+		vertexOpInfoList.resize(nverts, { None, isCoupled, 0, 1 });
 
         double t = dt * f;
 
-		double value = sampling(t, offset, t0, sigma);
+		double value = sampling(t, offset, A, t0, sigma);
+
+		double value1 = sampling(t, 1, selectedMagValue - 1, t0, sigma);
+			
+
+		std::cout << "frame: " << f << ", change value: " << std::setprecision(16) << value << std::endl;
 
 		for (int i = 0; i < nverts; i++)
 		{
 			if (initSelectedVids(i))
-				vertexOpInfoList[i] = { selectedMotion, value };
+				vertexOpInfoList[i] = { selectedMotion, isCoupled, value, value1 };
 		}
 
-		Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(refOmegaList[f], triV, triMesh);
+		/*Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(refOmegaList[f], triV, triMesh);
 		WrinkleFieldsEditor::editWrinkles(triV, triMesh, refAmpList[f], vertOmega, vertexOpInfoList, refAmpList[f], vertOmega);
-		refOmegaList[f] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);
+		refOmegaList[f] = vertexVec2IntrinsicHalfEdgeVec(vertOmega, triV, triMesh);*/
+
+		WrinkleFieldsEditor::edgeBasedWrinkleEdition(triV, triMesh, initRefAmpList[f], initRefOmegaList[f], vertexOpInfoList, refAmpList[f], refOmegaList[f]);
 	}
 
 	
 }
 
-void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const std::vector<Eigen::VectorXd>& refAmpFrames, const std::vector<Eigen::MatrixXd>& refOmegaFrames, const Eigen::VectorXi& faceFlags, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	Eigen::VectorXd faceArea;
 	igl::doublearea(triV, triF, faceArea);
@@ -518,7 +545,7 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 
 	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, faceFlags, quadOrder, 1.0);
 	
-	editModel.initialization(refAmpList, refOmegaList);
+	editModel.initialization(refAmpFrames, refOmegaFrames);
 
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
@@ -754,7 +781,17 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 		mPaint.setNormalization(false);
 		Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec);
-		renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
+
+		if(isShowWrinkleColorField)
+			renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
+		else
+		{
+			for (int i = 0; i < nupverts; i++)
+			{
+				renderColor.row(i + curVerts) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
+			}
+		}
+
 
 		curVerts += nupverts;
 		curFaces += nupfaces;
@@ -764,14 +801,14 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 void registerMesh(int frameId)
 {
-	Eigen::MatrixXd sourceP, tarP, interpP;
-	Eigen::MatrixXi sourceF, tarF, interpF;
-	Eigen::MatrixXd sourceVec, tarVec, interpVec;
-	Eigen::MatrixXd sourceColor, tarColor, interpColor;
+	Eigen::MatrixXd initP, interpP;
+	Eigen::MatrixXi initF, interpF;
+	Eigen::MatrixXd initVec, interpVec;
+	Eigen::MatrixXd initColor, interpColor;
 
 	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
-	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(editModel.getRefWList()[frameId], triV, triMesh);
+	Eigen::MatrixXd refVertOmega = intrinsicHalfEdgeVec2VertexVec(editModelBackup.getRefWList()[frameId], triV, triMesh);
 
 	Eigen::VectorXi selectedVids, initSelectedVids;
 	faceFlags2VertFlags(triMesh, triV.rows(), selectedFids, selectedVids);
@@ -783,15 +820,50 @@ void registerMesh(int frameId)
 			selectedVids(i) = -1;
 	}
 
+	registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 0, globalAmpMin, globalAmpMax,
+		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModelBackup.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
-	registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 2 * shiftz, globalAmpMin, globalAmpMax,
-		ampFieldsList[frameId], phaseFieldsList[frameId], vertexOmegaList[frameId], editModel.getRefAmpList()[frameId], refVertOmega, selectedVids, interpP, interpF, interpVec, interpColor);
+	if (isShowInitialDynamic)
+	{
+		Eigen::MatrixXd refVertOmega1 = intrinsicHalfEdgeVec2VertexVec(initRefOmegaList[frameId], triV, triMesh);
+		registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
+			initAmpFieldsList[frameId], initPhaseFieldsList[frameId], initVertexOmegaList[frameId], initRefAmpList[frameId], refVertOmega1, Eigen::VectorXi::Zero(selectedVids.size()), initP, initF, initVec, initColor);
+	}
 
-    std::cout << "register mesh finished" << std::endl;
+	std::cout << "register mesh finished" << std::endl;
+
 	dataV = interpP;
 	curColor = interpColor;
 	dataVec = interpVec;
 	dataF = interpF;
+
+	if (isShowInitialDynamic)
+	{
+		int nPartVerts = interpP.rows();
+		int nPartFaces = interpF.rows();
+
+		dataV.resize(2 * nPartVerts, 3);
+		dataV.block(0, 0, nPartVerts, 3) = interpP;
+		dataV.block(nPartVerts, 0, nPartVerts, 3) = initP;
+
+		Eigen::MatrixXi shiftF(nPartFaces, 3);
+		shiftF.setConstant(nPartVerts);
+
+		dataF.resize(2 * nPartFaces, 3);
+		dataF.block(0, 0, nPartFaces, 3) = interpF;
+		dataF.block(nPartFaces, 0, nPartFaces, 3) = initF + shiftF;
+
+
+		curColor.resize(2 * nPartVerts, 3);
+		curColor.block(0, 0, nPartVerts, 3) = interpColor;
+		curColor.block(nPartVerts, 0, nPartVerts, 3) = initColor;
+
+		dataVec.resize(2 * nPartVerts, 3);
+		dataVec.block(0, 0, nPartVerts, 3) = interpVec;
+		dataVec.block(nPartVerts, 0, nPartVerts, 3) = initVec;
+
+	}
+
 
 	polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
 }
@@ -867,21 +939,33 @@ void callback() {
                 updateFieldsInView(curFrame);
             }
 		}
-
 	}
-	if (ImGui::Checkbox("is show vector fields", &isShowVectorFields))
+	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		updateFieldsInView(curFrame);
-	}
-	if (ImGui::Checkbox("is show wrinkled mesh", &isShowWrinkels))
-	{
-		updateFieldsInView(curFrame);
-	}
-	if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
-	{
-		if(wrinkleAmpScalingRatio >= 0)
+		if (ImGui::Checkbox("is show vector fields", &isShowVectorFields))
+		{
 			updateFieldsInView(curFrame);
+		}
+		if (ImGui::Checkbox("is show wrinkled mesh", &isShowWrinkels))
+		{
+			updateFieldsInView(curFrame);
+		}
+		if (ImGui::Checkbox("is show wrinkle color fields", &isShowWrinkleColorField))
+		{
+			updateFieldsInView(curFrame);
+		}
+		if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
+		{
+			if (wrinkleAmpScalingRatio >= 0)
+				updateFieldsInView(curFrame);
+		}
+		if (ImGui::Checkbox("is show initial Dynamics", &isShowInitialDynamic))
+		{
+			updateFieldsInView(curFrame);
+		}
+		
 	}
+	
 
     if (ImGui::CollapsingHeader("Selected Region", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -906,6 +990,12 @@ void callback() {
 		{
 			if (selectedMotionValue < 0 && selectedMotion == Enlarge)
 				selectedMotionValue = 0;
+		}
+		ImGui::Checkbox("vec mag coupled", &isCoupled);
+		if (ImGui::InputDouble(",ag motion value", &selectedMagValue))
+		{
+			if (selectedMagValue < 0)
+				selectedMagValue = 1;
 		}
 	}
 
@@ -989,7 +1079,8 @@ void callback() {
 		std::cout << "build wrinkle motions. " << std::endl;
 		buildWrinkleMotions();
 		// solve for the path from source to target
-		solveKeyFrames(omegaList, zList);
+		solveKeyFrames(refAmpList, refOmegaList, faceFlags, omegaList, zList);
+
 		// get interploated amp and phase frames
 		std::cout << "compute upsampled phase: " << std::endl;
 		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
@@ -1008,16 +1099,44 @@ void callback() {
 			globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), editModel.getRefAmpList()[i].maxCoeff()));
 			globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), editModel.getRefAmpList()[i].minCoeff()));
 		}
+
+		editModelBackup = editModel;
+
+		if (isShowInitialDynamic)
+		{
+			editModelBackup = editModel;
+			// solve for the path from source to target
+			solveKeyFrames(initRefAmpList, initRefOmegaList, Eigen::VectorXi::Zero(triMesh.nFaces()), initOmegaList, initZList);
+			// get interploated amp and phase frames
+			std::cout << "compute upsampled phase: " << std::endl;
+			updateMagnitudePhase(initOmegaList, initZList, initAmpFieldsList, initPhaseFieldsList);
+			std::cout << "compute upsampled phase finished!" << std::endl;
+			initVertexOmegaList.resize(initOmegaList.size());
+			for (int i = 0; i < initOmegaList.size(); i++)
+			{
+				initVertexOmegaList[i] = intrinsicHalfEdgeVec2VertexVec(initOmegaList[i], triV, triMesh);
+			}
+
+			// update global maximum amplitude
+			for (int i = 1; i < ampFieldsList.size(); i++)
+			{
+				globalAmpMax = std::max(globalAmpMax, initAmpFieldsList[i].maxCoeff());
+				globalAmpMin = std::min(globalAmpMin, initAmpFieldsList[i].minCoeff());
+			}
+		}
+
 		updateFieldsInView(curFrame);
 	}
 
 	if (ImGui::Button("output images", ImVec2(-1, 0)))
 	{
+		std::string curFolder = std::filesystem::current_path().string();
+		std::cout << "save folder: " << curFolder << std::endl;
 		for(int i = 0; i < ampFieldsList.size(); i++)
 		{
 			updateFieldsInView(i);
 			//polyscope::options::screenshotExtension = ".jpg";
-			std::string name = "output_" + std::to_string(i) + ".jpg";
+			std::string name = curFolder + "/output_" + std::to_string(i) + ".jpg";
 			polyscope::screenshot(name);
 		}
 	}
