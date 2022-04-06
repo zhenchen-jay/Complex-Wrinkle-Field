@@ -15,6 +15,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/doublearea.h>
 #include <igl/decimate.h>
+#include <igl/loop.h>
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/boundary_loop.h>
@@ -384,6 +385,7 @@ bool loadProblem()
 
 	initRefAmpList = refAmpList;
 	initRefOmegaList = refOmegaList;
+    curFrame = zList.size() - 1;
 
     return true;
 }
@@ -675,6 +677,10 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	int ndataVerts = 2 * nverts + 2 * nupverts;
 	int ndataFaces = 2 * nfaces + 2 * nupfaces;
 
+    Eigen::MatrixXd smoothPos;
+    Eigen::MatrixXi smoothF;
+    Eigen::SparseMatrix<double> S;
+
 	if(!isShowVectorFields)
 	{
 		ndataVerts = 2 * nupverts + nverts;
@@ -684,6 +690,11 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	{
 		ndataVerts += nupverts;
 		ndataFaces += nupfaces;
+//        loopUpsampling(upPos, upF, smoothPos, smoothF, 2, &S);
+//        igl::loop(upPos, upF, smoothPos, smoothF, 2);
+//
+//        ndataVerts += smoothPos.rows();
+//        ndataFaces += smoothF.rows();
 	}
 
 	double shiftx = 1.5 * (basePos.col(0).maxCoeff() - basePos.col(0).minCoeff());
@@ -801,11 +812,14 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 		Eigen::MatrixXd tmpN;
 		igl::per_vertex_normals(tmpV, upF, tmpN);
 
+        Eigen::MatrixXd wrinkledV = upPos;
+
 		Eigen::VectorXd ampCosVec(nupverts);
 
 		for(int i = 0; i < nupverts; i++)
 		{
 			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
+            wrinkledV.row(i) =  upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
 			ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
 		}
 		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
@@ -826,6 +840,31 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 		curVerts += nupverts;
 		curFaces += nupfaces;
+
+        igl::writeOBJ("wrinkledMesh_" + std::to_string(curFrame) + ".obj", wrinkledV, upF);
+//        loopUpsampling(wrinkledV, upF, smoothPos, smoothF, 2);
+//        igl::loop(wrinkledV, upF, smoothPos, smoothF, 2);
+//        igl::writeOBJ("wrinkledMeshLoop_" + std::to_string(curFrame) + ".obj", smoothPos, smoothF);
+//
+//        shiftV = smoothPos;
+//        shiftV.col(0).setConstant(4 * shiftx);
+//        shiftV.col(1).setConstant(0);
+//        shiftV.col(2).setConstant(shiftz);
+//
+//        shiftF = smoothF;
+//        shiftF.setConstant(curVerts);
+//
+//        smoothPos -= shiftV;
+//
+//        for(int i = 0; i < smoothPos.rows(); i++)
+//        {
+//            renderV.row(curVerts + i) = smoothPos.row(i);
+//            renderColor.row(i + curVerts) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
+//        }
+//
+//        renderF.block(curFaces, 0, smoothF.rows(), 3) = smoothF + shiftF;
+        
+
 	}
 
 }
@@ -851,15 +890,15 @@ void registerMesh(int frameId)
 			selectedVids(i) = -1;
 	}
 
+    if (isShowInitialDynamic)
+    {
+        Eigen::MatrixXd refFaceOmega1 = intrinsicHalfEdgeVec2FaceVec(initRefOmegaList[frameId], triV, triMesh);
+        registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
+                           initAmpFieldsList[frameId], initPhaseFieldsList[frameId], initFaceOmegaList[frameId], initRefAmpList[frameId], refFaceOmega1, Eigen::VectorXi::Zero(selectedVids.size()), initP, initF, initVec, initColor);
+    }
+
 	registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, 0, globalAmpMin, globalAmpMax,
 		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], editModelBackup.getRefAmpList()[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
-
-	if (isShowInitialDynamic)
-	{
-		Eigen::MatrixXd refFaceOmega1 = intrinsicHalfEdgeVec2FaceVec(initRefOmegaList[frameId], triV, triMesh);
-		registerMeshByPart(basePosList[frameId], triF, upBasePosList[frameId], upsampledTriF, shiftz, globalAmpMin, globalAmpMax,
-			initAmpFieldsList[frameId], initPhaseFieldsList[frameId], initFaceOmegaList[frameId], initRefAmpList[frameId], refFaceOmega1, Eigen::VectorXi::Zero(selectedVids.size()), initP, initF, initVec, initColor);
-	}
 
 	std::cout << "register mesh finished" << std::endl;
 
