@@ -9,7 +9,7 @@
 
 using namespace IntrinsicFormula;
 
-WrinkleEditingProcess::WrinkleEditingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio)
+WrinkleEditingProcess::WrinkleEditingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<int>& selectedVids, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio)
 {
 	_pos = pos;
 	_mesh = mesh;
@@ -19,6 +19,7 @@ WrinkleEditingProcess::WrinkleEditingProcess(const Eigen::MatrixXd& pos, const M
 	_faceArea /= 2.0;
 	_quadOrd = quadOrd;
 	_spatialRatio = spatialRatio;
+	_selectedVids = selectedVids;
 
 	int nverts = pos.rows();
 	int nfaces = mesh.nFaces();
@@ -96,19 +97,16 @@ WrinkleEditingProcess::WrinkleEditingProcess(const Eigen::MatrixXd& pos, const M
 	}
 	std::cout << "number of interfaces: " << _nInterfaces << std::endl;
 
+
 }
 
-void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::MatrixXd>& refOmegaList)
+void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& initRefAmpList, const std::vector<Eigen::MatrixXd>& initRefOmegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::MatrixXd>& refOmegaList)
 {
-	std::cout << "compute reference omega." << std::endl;
-	computeCombinedRefOmegaList(refOmegaList);
-	std::cout << "compute reference amplitude." << std::endl;
-	computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
+	
+	std::vector<std::complex<double>> initZvals, initZvalsBeforeEdition;
+	std::vector<std::complex<double>> tarZvals, tarZvalsBeforeEdition;
 
-	std::vector<std::complex<double>> initZvals;
-	std::vector<std::complex<double>> tarZvals;
-
-	int nFrames = _combinedRefAmpList.size() - 2;
+	int nFrames = refAmpList.size() - 2;
 
 	Eigen::VectorXi bndVertsFlag = _vertFlag;
 	for (int i = 0; i < bndVertsFlag.rows(); i++)
@@ -119,21 +117,86 @@ void WrinkleEditingProcess::initialization(const std::vector<Eigen::VectorXd>& r
 			bndVertsFlag(i) = 0;
 	}
 
+	Eigen::VectorXi firstStepFlags = Eigen::VectorXi::Ones(_vertFlag.rows());
+	for (int i = 0; i < firstStepFlags.rows(); i++)
+	{
+		if (bndVertsFlag(i) != -1)
+			firstStepFlags(i) = 1;
+		else
+			firstStepFlags(i) = 0;
+	}
+
+	for (int i = 0; i < _selectedVids.size(); i++)
+	{
+		firstStepFlags(_selectedVids[i]) = 0;
+	}
+
 	std::cout << "initialize bnd zvals. " << std::endl;
-	if (_nInterfaces)
+
+	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, initRefOmegaList[0], initRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvalsBeforeEdition);
+	roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, initRefOmegaList[nFrames + 1], initRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvalsBeforeEdition);
+
+	if (!_nInterfaces)
+	{
+		_combinedRefOmegaList = initRefOmegaList;
+		_combinedRefAmpList = initRefAmpList;
+		initZvals = initZvalsBeforeEdition;
+		tarZvals = tarZvalsBeforeEdition;
+	}
+	else
+	{
+		std::cout << "compute reference omega." << std::endl;
+		computeCombinedRefOmegaList(refOmegaList);
+		std::cout << "compute reference amplitude." << std::endl;
+		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
+
+		initZvals = initZvalsBeforeEdition;
+		tarZvals = tarZvalsBeforeEdition;
+
+		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+
+		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+		
+		/*roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[0], firstStepFlags, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+
+		for (int i = 0; i < initZvals.size(); i++)
+		{
+			if (firstStepFlags[i] == 0)
+			{
+				double arg = std::arg(initZvals[i]);
+				initZvals[i] = refAmpList[0][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+			}
+				
+		}
+
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[nFrames + 1], firstStepFlags, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			if (firstStepFlags[i] == 0)
+			{
+				double arg = std::arg(tarZvals[i]);
+				tarZvals[i] = refAmpList[nFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+			}
+
+		}
+
+		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);*/
+	}
+
+	/*if (_nInterfaces)
 	{
 		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
 		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[0], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
 
 		roundZvalsForSpecificDomainWithGivenMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 		roundZvalsForSpecificDomainWithBndValues(_pos, _mesh, _combinedRefOmegaList[nFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-	}
-
-	else
-	{
-		roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[0], _combinedRefAmpList[0], _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
-		roundVertexZvalsFromHalfEdgeOmegaVertexMag(_mesh, _combinedRefOmegaList[nFrames + 1], _combinedRefAmpList[nFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-	}
+	}*/
 
 
 

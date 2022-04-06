@@ -465,3 +465,38 @@ void upsampleMeshZvals(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const
 	}
 
 }
+ void loopUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& NV, Eigen::MatrixXi& NF, int upsampledTimes, Eigen::SparseMatrix<double>* loopMat)
+{
+	NV = V;
+	NF = F;
+
+	std::set<int> fixedVids;
+	std::vector<int> bnds;
+	igl::boundary_loop(F, bnds);
+	for (auto& it : bnds)
+	{
+		fixedVids.insert(it);
+	}
+	if (loopMat)
+	{
+		loopMat->resize(V.rows(), V.rows());
+		loopMat->setIdentity();
+	}
+
+
+	for (int i = 0; i < upsampledTimes; i++)
+	{
+		Eigen::SparseMatrix<double> S;
+		Eigen::MatrixXd tmpV = NV;
+		Eigen::MatrixXi tmpF = NF;
+		loopWithCorners(NV.rows(), tmpF, fixedVids, S, NF);
+		
+		NV = (S * NV).eval();
+		if (loopMat)
+		{
+			*loopMat = S * (*loopMat);
+		}
+	}
+
+}
+

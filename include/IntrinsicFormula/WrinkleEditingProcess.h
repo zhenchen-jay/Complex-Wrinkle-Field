@@ -14,9 +14,9 @@ namespace IntrinsicFormula
         WrinkleEditingProcess()
         {}
 
-        WrinkleEditingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio = 1);
+        WrinkleEditingProcess(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<int>& selectedVids,  const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio = 1);
 
-        void initialization(const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::MatrixXd>& refOmegaList);
+        void initialization(const std::vector<Eigen::VectorXd>& intRefAmpList, const std::vector<Eigen::MatrixXd>& initTefOmegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::MatrixXd>& refOmegaList);
 
         void convertVariable2List(const Eigen::VectorXd& x);
         void convertList2Variable(Eigen::VectorXd& x);
@@ -98,9 +98,13 @@ namespace IntrinsicFormula
     private:
         Eigen::MatrixXd _pos;
         MeshConnectivity _mesh;
-        Eigen::VectorXi _faceFlag;
+
+        // interface indicator
+        Eigen::VectorXi _faceFlag;  
         Eigen::VectorXi _vertFlag;
         Eigen::VectorXi _edgeFlag;
+
+        std::vector<int> _selectedVids;
 
         std::vector<int> _effectiveFids;
         std::vector<int> _effectiveEids;
