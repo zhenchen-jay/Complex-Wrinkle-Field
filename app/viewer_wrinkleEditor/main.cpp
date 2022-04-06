@@ -65,6 +65,7 @@ Eigen::MatrixXd triV;
 Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
+Eigen::SparseMatrix<double> loopMat;
 
 std::vector<Eigen::MatrixXd> basePosList;
 std::vector<Eigen::MatrixXd> upBasePosList;
@@ -157,7 +158,7 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Matrix
     std::ifstream infile(filename);
     if(!infile)
     {
-        std::cerr << "invalid file name" << std::endl;
+        std::cerr << "invalid edge omega file name" << std::endl;
         return false;
     }
     else
@@ -183,12 +184,60 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Matrix
     return true;
 }
 
+bool loadVertexZvals(const std::string& filePath, const int& nlines, std::vector<std::complex<double>>& zvals)
+{
+	std::ifstream zfs(filePath);
+	if (!zfs)
+	{
+		std::cerr << "invalid zvals file name" << std::endl;
+		return false;
+	}
+
+	zvals.resize(nlines);
+
+	for (int j = 0; j < nlines; j++) {
+		std::string line;
+		std::getline(zfs, line);
+		std::stringstream ss(line);
+		std::string x, y;
+		ss >> x;
+		ss >> y;
+		zvals[j] = std::complex<double>(std::stod(x), std::stod(y));
+	}
+	return true;
+}
+
+bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::VectorXd& amp)
+{
+	std::ifstream afs(filePath);
+
+	if (!afs) 
+	{
+		std::cerr << "invalid ref amp file name" << std::endl;
+		return false;
+	}
+
+	amp.setZero(nlines);
+
+	for (int j = 0; j < nlines; j++) 
+	{
+		std::string line;
+		std::getline(afs, line);
+		std::stringstream ss(line);
+		std::string x;
+		ss >> x;
+		amp(j) = std::stod(x);
+	}
+}
+
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
     Eigen::SparseMatrix<double> S;
     std::vector<int> facemap;
 
     meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
+	loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
+
     std::cout << "upsampling finished" << std::endl;
 
     triMesh = MeshConnectivity(triF);
@@ -245,22 +294,12 @@ bool loadProblem()
 
     for (uint32_t i = 0; i < numFrames; ++i) {
         //std::cout << i << std::endl;
-        std::ifstream afs(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt");
+		Eigen::VectorXd amp(nverts);
 
-        if (!afs) {
+        if (!loadVertexAmp(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt", triV.rows(), amp)) 
+		{
             std::cout << "missing amp file: " << std::endl;
             return false;
-        }
-
-        Eigen::VectorXd amp(nverts);
-
-        for (int j = 0; j < nverts; j++) {
-            std::string line;
-            std::getline(afs, line);
-            std::stringstream ss(line);
-            std::string x;
-            ss >> x;
-            amp(j) = std::stod(x);
         }
         refAmpList[i] = amp;
 
@@ -288,27 +327,12 @@ bool loadProblem()
     {
         std::string zvalFile = workingFolder + optSol + "/zvals_" + std::to_string(i) + ".txt";
         std::string halfEdgeOmegaFile = workingFolder + optSol + "/halfEdgeOmega_" + std::to_string(i) + ".txt";
-
-        std::ifstream zfs(zvalFile);
-        if(!zfs)
-        {
-            isLoadOpt = false;
-            break;
-        }
-
-        std::vector<std::complex<double>> zvals(nverts);
-
-        for (int j = 0; j < nverts; j++) {
-            std::string line;
-            std::getline(zfs, line);
-            std::stringstream ss(line);
-            std::string x, y;
-            ss >> x;
-            ss >> y;
-            zvals[j] = std::complex<double>(std::stod(x), std::stod(y));
-        }
-
-
+        std::vector<std::complex<double>> zvals;
+		if (!loadVertexZvals(zvalFile, nverts, zvals))
+		{
+			isLoadOpt = false;
+			break;
+		}
         Eigen::MatrixXd edgeOmega;
         if (!loadEdgeOmega(halfEdgeOmegaFile, nedges, edgeOmega)) {
             isLoadOpt = false;
@@ -535,7 +559,7 @@ void buildWrinkleMotions()
 	
 }
 
-void solveKeyFrames(const std::vector<Eigen::VectorXd>& refAmpFrames, const std::vector<Eigen::MatrixXd>& refOmegaFrames, const Eigen::VectorXi& faceFlags, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const std::vector<Eigen::VectorXd>& initRefAmpFrames, const std::vector<Eigen::MatrixXd>& initRefOmegaFrames, const std::vector<int> &selectedVids, const std::vector<Eigen::VectorXd>& refAmpFrames, const std::vector<Eigen::MatrixXd>& refOmegaFrames, const Eigen::VectorXi& faceFlags, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	Eigen::VectorXd faceArea;
 	igl::doublearea(triV, triF, faceArea);
@@ -543,9 +567,9 @@ void solveKeyFrames(const std::vector<Eigen::VectorXd>& refAmpFrames, const std:
 	Eigen::MatrixXd cotEntries;
 	igl::cotmatrix_entries(triV, triF, cotEntries);
 
-	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, faceFlags, quadOrder, 1.0);
+	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, selectedVids, faceFlags, quadOrder, 1.0);
 	
-	editModel.initialization(refAmpFrames, refOmegaFrames);
+	editModel.initialization(initRefAmpFrames, initRefOmegaFrames, refAmpFrames, refOmegaFrames);
 
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
@@ -621,6 +645,12 @@ void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std
 				magList[i](j) = std::abs(interpZList[i][j]);
 				phaseList[i](j) = std::arg(interpZList[i][j]);
 			}
+
+			/*Eigen::VectorXd amp(zFrames[i].size());
+			for (int j = 0; j < amp.rows(); j++)
+				amp(j) = std::abs(zFrames[i][j]);
+
+			magList[i] = loopMat * amp;*/
 		}
 	};
 
@@ -686,7 +716,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	if (isShowVectorFields)
 	{
 		for (int i = 0; i < nfaces; i++)
-			renderVec.row(i + curFaces) = refOmega.row(i);
+			renderVec.row(i + curFaces) = omegaVec.row(i);
 	}
 
 	curVerts += nverts;
@@ -713,7 +743,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	if(isShowVectorFields)
 	{
 		for (int i = 0; i < nfaces; i++)
-			renderVec.row(i + curFaces) = omegaVec.row(i);
+			renderVec.row(i + curFaces) = refOmega.row(i);
 	}
 	curVerts += nverts;
 	curFaces += nfaces;
@@ -1075,11 +1105,21 @@ void callback() {
             selectedFids = selectedFidNew;
         }
 		faceFlags = initSelectedFids - selectedFids;
+
+		Eigen::VectorXi initSelectedVids;
+		std::vector<int> selectedVids;
+
+		faceFlags2VertFlags(triMesh, triV.rows(), initSelectedFids, initSelectedVids);
+		for (int i = 0; i < initSelectedVids.rows(); i++)
+		{
+			if (initSelectedVids(i))
+				selectedVids.push_back(i);
+		}
 		
 		std::cout << "build wrinkle motions. " << std::endl;
 		buildWrinkleMotions();
 		// solve for the path from source to target
-		solveKeyFrames(refAmpList, refOmegaList, faceFlags, omegaList, zList);
+		solveKeyFrames(initRefAmpList, initRefOmegaList, selectedVids, refAmpList, refOmegaList, faceFlags, omegaList, zList);
 
 		// get interploated amp and phase frames
 		std::cout << "compute upsampled phase: " << std::endl;
@@ -1105,9 +1145,9 @@ void callback() {
 
 		if (isShowInitialDynamic)
 		{
-			editModelBackup = editModel;
+			selectedVids.clear();
 			// solve for the path from source to target
-			solveKeyFrames(initRefAmpList, initRefOmegaList, Eigen::VectorXi::Zero(triMesh.nFaces()), initOmegaList, initZList);
+			solveKeyFrames(initRefAmpList, initRefOmegaList, selectedVids, initRefAmpList, initRefOmegaList, Eigen::VectorXi::Zero(triMesh.nFaces()), initOmegaList, initZList);
 			// get interploated amp and phase frames
 			std::cout << "compute upsampled phase: " << std::endl;
 			updateMagnitudePhase(initOmegaList, initZList, initAmpFieldsList, initPhaseFieldsList);
