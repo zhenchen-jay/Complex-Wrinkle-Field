@@ -260,9 +260,9 @@ void buildWrinkleMotions(const Eigen::VectorXd& amp, const Eigen::MatrixXd& omeg
 		for (int i = 0; i < nverts; i++)
 		{
 			if (initSelectedVids(i))
-				vertexOpInfoList[i] = { selectedMotion, value0 };
+				vertexOpInfoList[i] = { selectedMotion, true,value0, 1.0 };
 			else
-				vertexOpInfoList[i] = { unselectedMotion, value1 };
+				vertexOpInfoList[i] = { unselectedMotion, true, value1, 1.0 };
 		}
 
 		Eigen::MatrixXd vertOmega = intrinsicHalfEdgeVec2VertexVec(omega, triV, triMesh);
@@ -281,9 +281,10 @@ void solveKeyFrames(std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vect
 	Eigen::MatrixXd cotEntries;
 	igl::cotmatrix_entries(triV, triF, cotEntries);
 
-	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, faceFlags, quadOrder, 1.0);
+    std::vector<int> selectedVids;
+	editModel = IntrinsicFormula::WrinkleEditingProcess(triV, triMesh, selectedVids, faceFlags, quadOrder, 1.0);
 	
-	editModel.initialization(refAmpList, refOmegaList);
+	editModel.initialization(refAmpList, refOmegaList, refAmpList, refOmegaList);
 
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;

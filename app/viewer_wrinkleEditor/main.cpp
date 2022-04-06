@@ -228,6 +228,7 @@ bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::Vector
 		ss >> x;
 		amp(j) = std::stod(x);
 	}
+    return true;
 }
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
