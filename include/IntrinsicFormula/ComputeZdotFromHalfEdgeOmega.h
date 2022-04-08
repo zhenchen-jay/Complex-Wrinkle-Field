@@ -1,5 +1,5 @@
 #pragma once
-#include "InterpolateZvalsFromEdgeOmega.h"
+#include "InterpolateZvals.h"
 
 namespace IntrinsicFormula
 {
