@@ -1,6 +1,5 @@
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/MeshLib/MeshConnectivity.h"
-#include "../../include/DynamicInterpolation/GetInterpolatedValues.h"
 #include <igl/adjacency_list.h>
 #include <igl/triangle_triangle_adjacency.h>
 #include <igl/unique.h>
@@ -427,44 +426,6 @@ static void loopWithCorners(
 	}
 }
 
-
-static void getUpsampleZvals(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& zvals, std::vector<std::complex<double>>& newZvals)
-{
-	Eigen::MatrixXd NV;
-	Eigen::MatrixXi NF;
-	Eigen::SparseMatrix<double> S;
-	std::vector<int> facemap;
-	std::vector<std::pair<int, Eigen::Vector3d>> bary;
-	meshUpSampling(V, F, NV, NF, 1, &S, &facemap, &bary);	// one time midpoint
-	GetInterpolatedValues interpModel = GetInterpolatedValues(V, F, NV, NF, bary);
-	newZvals = interpModel.getZValues(w, zvals, NULL, NULL);
-}
-
-
-void upsampleMeshZvals(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& w, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& NV, Eigen::MatrixXi& NF, Eigen::MatrixXd& upsampledW, std::vector<std::complex<double>>& upsampledZvals, int upsampledTimes)
-{
-	upsampledW = w;
-	upsampledZvals = zvals;
-
-	NV = V; 
-	NF = F;
-	
-	std::set<int> corners;
-	findCorners(V, F, V, F, corners);
-
-	for (int i = 0; i < upsampledTimes; i++)
-	{
-		Eigen::SparseMatrix<double> S;
-		Eigen::MatrixXd tmpV = NV;
-		Eigen::MatrixXi tmpF = NF;
-		loopWithCorners(NV.rows(), tmpF, corners, S, NF);
-		getUpsampleZvals(tmpV, tmpF, upsampledW, upsampledZvals, upsampledZvals);
-
-		NV = (S * NV).eval();
-		upsampledW = (S * upsampledW).eval();
-	}
-
-}
  void loopUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& NV, Eigen::MatrixXi& NF, int upsampledTimes, Eigen::SparseMatrix<double>* loopMat)
 {
 	NV = V;
