@@ -105,7 +105,7 @@ void WrinkleFieldsEditor::edgeBasedWrinkleEdition(const Eigen::MatrixXd& pos, co
 			if (!vertInfo[vid].isMagOptCoupled && !vertexFlags(vid))
 				ampNew(vid) = vertInfo[vid].vecMagValue * amp(vid);
 
-			if (vertInfo[vid].vecOptValue == None)
+			if (vertInfo[vid].vecOptType == None)
 				continue;
 
 			int eid0 = mesh.faceEdge(i, (j + 1) % 3);
