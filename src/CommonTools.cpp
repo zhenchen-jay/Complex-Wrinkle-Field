@@ -4,6 +4,7 @@
 #include <queue>
 #include <Eigen/SPQRSupport>
 #include <igl/per_vertex_normals.h>
+#include <filesystem>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
 {
@@ -745,4 +746,17 @@ void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::v
         }
     }
 
+}
+
+void mkdir(const std::string& foldername)
+{
+    if (!std::filesystem::exists(foldername))
+    {
+        std::cout << "create directory: " << foldername << std::endl;
+        if (!std::filesystem::create_directory(foldername))
+        {
+            std::cerr << "create folder failed." << foldername << std::endl;
+            exit(1);
+        }
+    }
 }

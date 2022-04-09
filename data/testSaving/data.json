@@ -1,0 +1,31 @@
+{
+    "init_amp": "amp.txt",
+    "init_omega": "omega.txt",
+    "mesh_name": "mesh.obj",
+    "num_frame": 22,
+    "operation_details": {
+        "amp_omega_coupling": false,
+        "amp_operation_value": 1.0,
+        "omega_operation_type": "Enlarge",
+        "omega_operation_value": 2.0
+    },
+    "quad_order": 4,
+    "reference": {
+        "ref_amp": "/refAmp/",
+        "ref_omega": "/refOmega/"
+    },
+    "region_details": {
+        "interface_dilation": 5,
+        "selected_domain_dilation": 10,
+        "selected_fid": 2182
+    },
+    "solution": {
+        "opt_omega": "/optOmega/",
+        "opt_zvals": "/optZvals/",
+        "upsampled_amp": "/upsampledAmp/",
+        "upsampled_phase": "/upsampledPhase/",
+        "wrinkle_mesh": "/wrinkledMesh/"
+    },
+    "spatial_ratio": 1.0,
+    "upsampled_times": 2
+}
