@@ -66,3 +66,5 @@ Eigen::Vector3d rotateSingleVector(const Eigen::Vector3d& vec, const Eigen::Vect
 void rotateIntrinsicVector(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const Eigen::MatrixXd& halfEdgeW, const std::vector<RotateVertexInfo>& rotVerts, Eigen::MatrixXd& rotHalfEdgeW);
 
 void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::vector<std::vector<int>>& vertNeiEdges, std::vector<std::vector<int>>& vertNeiFaces);
+
+void mkdir(const std::string& foldername);

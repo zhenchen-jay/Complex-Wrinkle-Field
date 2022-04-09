@@ -135,6 +135,8 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Vector
 
             std::string x, y;
             ss >> x;
+            if(!ss)
+                return false;
             ss >> y;
             if (!ss)
             {
@@ -190,253 +192,12 @@ bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::Vector
         std::stringstream ss(line);
         std::string x;
         ss >> x;
+        if(!ss)
+            return false;
         amp(j) = std::stod(x);
     }
     return true;
 }
-
-void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
-{
-    Eigen::SparseMatrix<double> S;
-    std::vector<int> facemap;
-
-    meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
-    loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
-
-    std::cout << "upsampling finished" << std::endl;
-
-    triMesh = MeshConnectivity(triF);
-    selectedFids.setZero(triMesh.nFaces());
-    initSelectedFids = selectedFids;
-}
-
-bool loadProblem()
-{
-    std::string loadFileName = igl::file_dialog_open();
-
-    std::cout << "load file in: " << loadFileName << std::endl;
-    using json = nlohmann::json;
-    std::ifstream inputJson(loadFileName);
-    if (!inputJson) {
-        std::cerr << "missing json file in " << loadFileName << std::endl;
-        return false;
-    }
-
-    std::string filePath = loadFileName;
-    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-    int id = filePath.rfind("/");
-    std::string workingFolder = filePath.substr(0, id + 1);
-    std::cout << "working folder: " << workingFolder << std::endl;
-
-    json jval;
-    inputJson >> jval;
-
-    std::string meshFile = jval["mesh_name"];
-    meshFile = workingFolder + meshFile;
-
-
-    igl::readOBJ(meshFile, triV, triF);
-    triMesh = MeshConnectivity(triF);
-    initialization(triV, triF, upsampledTriV, upsampledTriF);
-
-    quadOrder = jval["quad_order"];
-    numFrames = jval["num_frame"];
-
-    std::string refAmp = jval["ref_amp"];
-    std::string refOmega = jval["ref_omega"];
-    std::string optSol = jval["opt_sol"];
-    std::string baseMesh = jval["basemesh"];
-
-    // edge omega List
-    int iter = 0;
-    int nedges = triMesh.nEdges();
-    int nverts = triV.rows();
-
-    refAmpList.resize(numFrames);
-    refOmegaList.resize(numFrames);
-
-    for (uint32_t i = 0; i < numFrames; ++i) {
-        //std::cout << i << std::endl;
-        Eigen::VectorXd amp(nverts);
-
-        if (!loadVertexAmp(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt", triV.rows(), amp))
-        {
-            std::cout << "missing amp file: " << std::endl;
-            return false;
-        }
-        initAmp = amp;
-
-        std::string edgePath = workingFolder + refOmega + "/omega_" + std::to_string(i) + ".txt";
-        Eigen::VectorXd edgeW;
-        if (!loadEdgeOmega(edgePath, nedges, edgeW)) {
-            std::cout << "missing edge file." << std::endl;
-            return false;
-        }
-        initOmega = edgeW;
-    }
-
-    isLoadOpt = true;
-    zList.clear();
-    omegaList.clear();
-    for(int i = 0; i < numFrames; i++)
-    {
-        std::string zvalFile = workingFolder + optSol + "/zvals_" + std::to_string(i) + ".txt";
-        std::string halfEdgeOmegaFile = workingFolder + optSol + "/halfEdgeOmega_" + std::to_string(i) + ".txt";
-        std::vector<std::complex<double>> zvals;
-        if (!loadVertexZvals(zvalFile, nverts, zvals))
-        {
-            isLoadOpt = false;
-            break;
-        }
-        Eigen::VectorXd edgeOmega;
-        if (!loadEdgeOmega(halfEdgeOmegaFile, nedges, edgeOmega)) {
-            isLoadOpt = false;
-            break;
-        }
-
-        zList.push_back(zvals);
-        omegaList.push_back(edgeOmega);
-    }
-
-    if(isLoadOpt)
-    {
-        std::cout << "load zvals and omegas from file!" << std::endl;
-    }
-    else
-    {
-        std::cout << "failed to load zvals and omegas from file, set them to be random values!" << std::endl;
-        zList.resize(numFrames);
-        omegaList.resize(numFrames);
-
-        for(int i = 0; i < numFrames; i++)
-        {
-            omegaList[i].setRandom(nedges, 2);
-            Eigen::Vector2d rnd = Eigen::Vector2d::Random();
-            zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
-        }
-    }
-
-    globalAmpMin = std::numeric_limits<double>::infinity();
-    globalAmpMax = -std::numeric_limits<double>::infinity();
-
-    for(int j = 0; j < zList[0].size(); j++)
-    {
-        globalAmpMin = std::min(globalAmpMin, std::abs(zList[0][j]));
-        globalAmpMax = std::max(globalAmpMax, std::abs(zList[0][j]));
-    }
-
-
-    for (int i = 0; i < zList.size(); i++)
-    {
-        for(int j = 0; j < zList[i].size(); j++)
-        {
-            globalAmpMin = std::min(globalAmpMin, std::abs(zList[i][j]));
-            globalAmpMax = std::max(globalAmpMax, std::abs(zList[i][j]));
-        }
-    }
-    std::cout << "global amp range: " << globalAmpMin << ", " << globalAmpMax << std::endl;
-
-    curFrame = zList.size() - 1;
-
-    return true;
-}
-
-
-bool saveProblem()
-{
-    std::string saveFileName = igl::file_dialog_save();
-
-    using json = nlohmann::json;
-    json jval;
-    jval["mesh_name"] = "mesh.obj";
-    jval["num_frame"] = zList.size();
-    jval["quad_order"] = quadOrder;
-    jval["ref_amp"] = "/amp/";
-    jval["ref_omega"] = "/omega/";
-    jval["opt_sol"] = "/optSol/";
-    jval["basemesh"] = "/basemesh/";
-
-    std::string filePath = saveFileName;
-    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-    int id = filePath.rfind("/");
-    std::string workingFolder = filePath.substr(0, id + 1);
-
-    igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
-
-    std::string outputFolder = workingFolder + "optSol/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directories(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-
-    for (int i = 0; i < zList.size(); i++)
-    {
-        std::ofstream zfs(outputFolder + "zvals_" + std::to_string(i) + ".txt");
-        std::ofstream wfs(outputFolder + "halfEdgeOmega_" + std::to_string(i) + ".txt");
-        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << omegaList[i] << std::endl;
-        for (int j = 0; j < zList[i].size(); j++)
-        {
-            zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zList[i][j].real() << " " << zList[i][j].imag() << std::endl;
-        }
-    }
-
-    // save reference
-    outputFolder = workingFolder + "/amp/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-    for (int i = 0; i < refAmpList.size(); i++)
-    {
-        std::ofstream afs(outputFolder + "amp_" + std::to_string(i) + ".txt");
-        afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refAmpList[i] << std::endl;
-    }
-
-    outputFolder = workingFolder + "/omega/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-    for (int i = 0; i < refOmegaList.size(); i++)
-    {
-        std::ofstream wfs(outputFolder + "omega_" + std::to_string(i) + ".txt");
-        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refOmegaList[i] << std::endl;
-    }
-
-    outputFolder = workingFolder + "/basemesh/";
-    if (!std::filesystem::exists(outputFolder))
-    {
-        std::cout << "create directory: " << outputFolder << std::endl;
-        if (!std::filesystem::create_directory(outputFolder))
-        {
-            std::cout << "create folder failed." << outputFolder << std::endl;
-            exit(1);
-        }
-    }
-
-    std::ofstream o(workingFolder + "data.json");
-    o << std::setw(4) << jval << std::endl;
-    std::cout << "save file in: " << workingFolder + "data.json" << std::endl;
-
-    return true;
-}
-
-
 
 void getSelecteFids()
 {
@@ -483,6 +244,395 @@ void buildWrinkleMotions()
 
 }
 
+void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
+{
+    std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
+    magList.resize(wFrames.size());
+    phaseList.resize(wFrames.size());
+
+    MeshConnectivity mesh(triF);
+
+    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
+            magList[i].setZero(interpZList[i].size());
+            phaseList[i].setZero(interpZList[i].size());
+
+            for (int j = 0; j < magList[i].size(); j++)
+            {
+                magList[i](j) = std::abs(interpZList[i][j]);
+                phaseList[i](j) = std::arg(interpZList[i][j]);
+            }
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
+    tbb::parallel_for(rangex, computeMagPhase);
+}
+
+void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
+{
+    Eigen::SparseMatrix<double> S;
+    std::vector<int> facemap;
+
+    meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
+    loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
+
+    std::cout << "upsampling finished" << std::endl;
+
+    triMesh = MeshConnectivity(triF);
+    selectedFids.setZero(triMesh.nFaces());
+    initSelectedFids = selectedFids;
+}
+
+bool loadProblem()
+{
+    std::string loadFileName = igl::file_dialog_open();
+
+    std::cout << "load file in: " << loadFileName << std::endl;
+    using json = nlohmann::json;
+    std::ifstream inputJson(loadFileName);
+    if (!inputJson) {
+        std::cerr << "missing json file in " << loadFileName << std::endl;
+        return false;
+    }
+
+    std::string filePath = loadFileName;
+    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+    int id = filePath.rfind("/");
+    std::string workingFolder = filePath.substr(0, id + 1);
+    std::cout << "working folder: " << workingFolder << std::endl;
+
+    json jval;
+    inputJson >> jval;
+
+    std::string meshFile = jval["mesh_name"];
+    loopLevel = jval["upsampled_times"];
+    quadOrder = jval["quad_order"];
+    numFrames = jval["num_frame"];
+
+    isCoupled = jval["operation_details"]["amp_omega_coupling"];
+    selectedMagValue = jval["operation_details"]["amp_operation_value"];
+    selectedMotionValue = jval["operation_details"]["omega_operation_value"];
+
+    std::string optype = jval["operation_details"]["omega_operation_type"];
+    if(optype == "None")
+        selectedMotion = None;
+    else if(optype == "Enlarge")
+        selectedMotion = Enlarge;
+    else if(optype == "Rotate")
+        selectedMotion = Rotate;
+    else
+        selectedMotion = None;
+
+    clickedFid = jval["region_details"]["selected_fid"];
+    dilationTimes = jval["region_details"]["selected_domain_dilation"];
+    optTimes = jval["region_details"]["interface_dilation"];
+
+    meshFile = workingFolder + meshFile;
+
+
+    igl::readOBJ(meshFile, triV, triF);
+    triMesh = MeshConnectivity(triF);
+    initialization(triV, triF, upsampledTriV, upsampledTriF);
+
+    int nedges = triMesh.nEdges();
+    int nverts = triV.rows();
+
+    std::string initAmpPath = jval["init_amp"];
+    std::string initOmegaPath = jval["init_omega"];
+
+    if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
+    {
+        std::cout << "missing init amp file: " << std::endl;
+        return false;
+    }
+
+    if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega)) {
+        std::cout << "missing init edge omega file." << std::endl;
+        return false;
+    }
+
+
+    std::string refAmp = jval["reference"]["ref_amp"];
+    std::string refOmega = jval["reference"]["ref_omega"];
+
+    std::string optZvals = jval["solution"]["opt_zvals"];
+    std::string optOmega = jval["solution"]["opt_omega"];
+
+    // edge omega List
+    int iter = 0;
+    bool isLoadRef = true;
+    refAmpList.resize(numFrames + 2);
+    refOmegaList.resize(numFrames + 2);
+
+    for (uint32_t i = 0; i < numFrames + 2; ++i) {
+
+        if (!loadVertexAmp(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt", triV.rows(), refAmpList[i]))
+        {
+            std::cout << "missing amp file: " << std::endl;
+            isLoadRef = false;
+            break;
+        }
+
+        std::string edgePath = workingFolder + refOmega + "/omega_" + std::to_string(i) + ".txt";
+        if (!loadEdgeOmega(edgePath, nedges, refOmegaList[i])) {
+            std::cout << "missing edge file." << std::endl;
+            isLoadRef = false;
+            break;
+        }
+    }
+
+
+    isLoadOpt = true;
+    zList.clear();
+    omegaList.clear();
+    for(int i = 0; i < numFrames; i++)
+    {
+        std::string zvalFile = workingFolder + optZvals + "/zvals_" + std::to_string(i) + ".txt";
+        std::string edgeOmegaFile = workingFolder + optOmega + "/omega_" + std::to_string(i) + ".txt";
+        std::vector<std::complex<double>> zvals;
+        if (!loadVertexZvals(zvalFile, nverts, zvals))
+        {
+            isLoadOpt = false;
+            break;
+        }
+        Eigen::VectorXd edgeOmega;
+        if (!loadEdgeOmega(edgeOmegaFile, nedges, edgeOmega)) {
+            isLoadOpt = false;
+            break;
+        }
+
+        zList.push_back(zvals);
+        omegaList.push_back(edgeOmega);
+    }
+
+    if(isLoadOpt)
+    {
+        std::cout << "load zvals and omegas from file!" << std::endl;
+    }
+    else
+    {
+        std::cout << "failed to load zvals and omegas from file, set them to be random values!" << std::endl;
+        zList.resize(numFrames);
+        omegaList.resize(numFrames);
+
+        for(int i = 0; i < numFrames; i++)
+        {
+            omegaList[i].setRandom(nedges, 2);
+            Eigen::Vector2d rnd = Eigen::Vector2d::Random();
+            zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
+        }
+    }
+
+
+    getSelecteFids();
+    RegionEdition regOpt(triMesh);
+    selectedFids = initSelectedFids;
+    for(int i = 0; i < optTimes; i++)
+    {
+        std::cout << "dilation option to get interface, step: " << i << std::endl;
+        Eigen::VectorXi selectedFidNew;
+        if(regOpType == Dilation)
+            regOpt.faceDilation(selectedFids, selectedFidNew);
+
+        else
+            regOpt.faceErosion(selectedFids, selectedFidNew);
+
+
+        selectedFids = selectedFidNew;
+    }
+    faceFlags = initSelectedFids - selectedFids;
+
+    std::cout << "build wrinkle motions. " << std::endl;
+    buildWrinkleMotions();
+
+
+    if(!isLoadRef)
+    {
+        editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, 1.0);
+
+        editModel.initialization(initAmp, initOmega, numFrames);
+        refAmpList = editModel.getRefAmpList();
+        refOmegaList = editModel.getRefWList();
+    }
+
+    // get interploated amp and phase frames
+    std::cout << "compute upsampled phase: " << std::endl;
+    updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+    std::cout << "compute upsampled phase finished!" << std::endl;
+    faceOmegaList.resize(omegaList.size());
+    for(int i = 0; i < omegaList.size(); i++)
+    {
+        faceOmegaList[i] = intrinsicEdgeVec2FaceVec(omegaList[i], triV, triMesh);
+    }
+    std::cout << "compute face vector fields finished!" << std::endl;
+
+    // update global maximum amplitude
+    std::cout << "update max and min amp. " << std::endl;
+
+    globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), editModel.getRefAmpList()[0].maxCoeff());
+    globalAmpMin = std::min(ampFieldsList[0].minCoeff(), editModel.getRefAmpList()[0].minCoeff());
+    for(int i = 1; i < ampFieldsList.size(); i++)
+    {
+        globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), editModel.getRefAmpList()[i].maxCoeff()));
+        globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), editModel.getRefAmpList()[i].minCoeff()));
+    }
+
+    std::cout << "start to update viewer." << std::endl;
+
+
+    curFrame = zList.size() - 1;
+
+    return true;
+}
+
+
+bool saveProblem()
+{
+    std::string saveFileName = igl::file_dialog_save();
+
+    std::string curOpt = "None";
+    if(selectedMotion == Enlarge)
+        curOpt = "Enlarge";
+    else if(selectedMotion == Rotate)
+        curOpt = "Rotate";
+
+    using json = nlohmann::json;
+    json jval =
+            {
+                    {"mesh_name",         "mesh.obj"},
+                    {"num_frame",         zList.size() - 2},
+                    {"quad_order",        quadOrder},
+                    {"spatial_ratio", 1.0},
+                    {"upsampled_times", loopLevel},
+                    {"init_omega",        "omega.txt"},
+                    {"init_amp",          "amp.txt"},
+                    {
+                     "region_details",    {
+                                                  {"selected_fid",         clickedFid},
+                                                  {"selected_domain_dilation", dilationTimes},
+                                                  {"interface_dilation", optTimes}
+
+                                          }
+                    },
+                    {
+                     "operation_details", {
+                                                  {"omega_operation_type", curOpt},
+                                                  {"omega_operation_value",    selectedMotionValue},
+                                                  {"amp_omega_coupling", isCoupled},
+                                                  {"amp_operation_value", selectedMagValue}
+                                          }
+                    },
+                    {
+                     "reference",         {
+                                                  {"ref_amp",              "/refAmp/"},
+                                                  {"ref_omega",                "/refOmega/"}
+                                          }
+                    },
+                    {
+                     "solution",          {
+                                                  {"opt_zvals",            "/optZvals/"},
+                                                  {"opt_omega",                "/optOmega/"},
+                                                  {"wrinkle_mesh", "/wrinkledMesh/"},
+                                                  {"upsampled_amp", "/upsampledAmp/"},
+                                                  {"upsampled_phase", "/upsampledPhase/"}
+                                          }
+                    }
+            };
+
+    std::string filePath = saveFileName;
+    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+    int id = filePath.rfind("/");
+    std::string workingFolder = filePath.substr(0, id + 1);
+
+    std::ofstream iwfs(workingFolder + "omega.txt");
+    iwfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initOmega << std::endl;
+
+    std::ofstream iafs(workingFolder + "amp.txt");
+    iafs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initAmp << std::endl;
+
+
+    igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
+
+    std::string outputFolder = workingFolder + "/optZvals/";
+    mkdir(outputFolder);
+
+    std::string omegaOutputFolder = workingFolder + "/optOmega/";
+    mkdir(omegaOutputFolder);
+
+
+
+    for (int i = 0; i < zList.size(); i++)
+    {
+        std::ofstream zfs(outputFolder + "zvals_" + std::to_string(i) + ".txt");
+        std::ofstream wfs(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt");
+        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << omegaList[i] << std::endl;
+        for (int j = 0; j < zList[i].size(); j++)
+        {
+            zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zList[i][j].real() << " " << zList[i][j].imag() << std::endl;
+        }
+
+
+    }
+
+    Eigen::MatrixXd N;
+    igl::per_vertex_normals(upsampledTriV, upsampledTriF, N);
+
+    outputFolder = workingFolder + "/upsampledAmp/";
+    mkdir(outputFolder);
+
+    std::string outputFolderPhase = workingFolder + "/upsampledPhase/";
+    mkdir(outputFolderPhase);
+
+    std::string outputFolderWrinkles = workingFolder + "/wrinkledMesh/";
+    mkdir(outputFolderWrinkles);
+
+    for(int i = 0; i < ampFieldsList.size(); i++)
+    {
+        Eigen::MatrixXd wrinkledV = upsampledTriV;
+        for(int j = 0; j < upsampledTriV.rows(); j++)
+        {
+            wrinkledV.row(j) =  upsampledTriV.row(j) + ampFieldsList[i](j) * std::cos(phaseFieldsList[i][j]) * N.row(j);
+        }
+        igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
+
+        std::ofstream afs(outputFolder + "upAmp_" + std::to_string(i) + ".txt");
+        std::ofstream pfs(outputFolderPhase + "upPhase" + std::to_string(i) + ".txt");
+        afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << ampFieldsList[i] << std::endl;
+        pfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << phaseFieldsList[i] << std::endl;
+    }
+
+    // save reference
+    outputFolder = workingFolder + "/refAmp/";
+    mkdir(outputFolder);
+    for (int i = 0; i < refAmpList.size(); i++)
+    {
+        std::ofstream afs(outputFolder + "amp_" + std::to_string(i) + ".txt");
+        afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refAmpList[i] << std::endl;
+    }
+
+    outputFolder = workingFolder + "/refOmega/";
+    mkdir(outputFolder);
+    for (int i = 0; i < refOmegaList.size(); i++)
+    {
+        std::ofstream wfs(outputFolder + "omega_" + std::to_string(i) + ".txt");
+        wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refOmegaList[i] << std::endl;
+    }
+
+    std::ofstream o(saveFileName);
+    o << std::setw(4) << jval << std::endl;
+    std::cout << "save file in: " << saveFileName << std::endl;
+
+    return true;
+}
+
+
+
+
+
 void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
     Eigen::VectorXd faceArea;
@@ -499,6 +649,9 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
     Eigen::VectorXd x;
     std::cout << "convert list to variable." << std::endl;
     editModel.convertList2Variable(x);
+
+    refOmegaList = editModel.getRefWList();
+    refAmpList = editModel.getRefAmpList();
 
 
     if(isForceOptimize)
@@ -548,34 +701,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
     zFrames = editModel.getVertValsList();
 }
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
-{
-    std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
-    magList.resize(wFrames.size());
-    phaseList.resize(wFrames.size());
 
-    MeshConnectivity mesh(triF);
-
-    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
-    {
-        for (uint32_t i = range.begin(); i < range.end(); ++i)
-        {
-            interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
-            magList[i].setZero(interpZList[i].size());
-            phaseList[i].setZero(interpZList[i].size());
-
-            for (int j = 0; j < magList[i].size(); j++)
-            {
-                magList[i](j) = std::abs(interpZList[i][j]);
-                phaseList[i](j) = std::arg(interpZList[i][j]);
-            }
-        }
-    };
-
-    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
-    tbb::parallel_for(rangex, computeMagPhase);
-    std::cout << "mag list 0 size: " << magList[0].size() << std::endl;
-}
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
                         const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin,
@@ -612,6 +738,7 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 //        ndataVerts += smoothPos.rows();
 //        ndataFaces += smoothF.rows();
     }
+    std::cout << "num of vertices: " << ndataVerts << ", num of faces: " << ndataFaces << std::endl;
 
     double shiftx = 1.5 * (basePos.col(0).maxCoeff() - basePos.col(0).minCoeff());
 
@@ -757,8 +884,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
         curVerts += nupverts;
         curFaces += nupfaces;
 
-        igl::writeOBJ("wrinkledMesh_" + std::to_string(curFrame) + ".obj", wrinkledV, upF);
-
 
     }
 
@@ -800,6 +925,7 @@ void registerMesh(int frameId)
 
 void updateFieldsInView(int frameId)
 {
+    std::cout << "update viewer. " << std::endl;
     registerMesh(frameId);
     polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
     polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
@@ -901,6 +1027,12 @@ void callback() {
             if (dilationTimes < 0)
                 dilationTimes = 3;
         }
+        ImGui::Combo("reg opt func", (int*) &regOpType, "Dilation\0Erosion\0");
+        if (ImGui::InputInt("opt times", &optTimes))
+        {
+            if (optTimes < 0 || optTimes > 20)
+                optTimes = 0;
+        }
     }
     if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -965,12 +1097,7 @@ void callback() {
                 quadOrder = 4;
         }
     }
-    ImGui::Combo("reg opt func", (int*) &regOpType, "Dilation\0Erosion\0");
-    if (ImGui::InputInt("opt times", &optTimes))
-    {
-        if (optTimes < 0 || optTimes > 20)
-            optTimes = 0;
-    }
+
 
     ImGui::Checkbox("Try Optimization", &isForceOptimize);
 
@@ -1062,6 +1189,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
+
     // Options
     polyscope::options::autocenterStructures = true;
     polyscope::view::windowWidth = 1024;
@@ -1071,7 +1199,7 @@ int main(int argc, char** argv)
     polyscope::init();
 
     // Register the mesh with Polyscope
-    polyscope::registerSurfaceMesh("input mesh", triV, triF);
+//    polyscope::registerSurfaceMesh("input mesh", triV, triF);
 
 
     polyscope::view::upDir = polyscope::view::UpDir::ZUp;
@@ -1080,8 +1208,11 @@ int main(int argc, char** argv)
     polyscope::state::userCallback = callback;
 
     polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
+
+    updateFieldsInView(curFrame);
     // Show the gui
     polyscope::show();
+
 
     return 0;
 }
