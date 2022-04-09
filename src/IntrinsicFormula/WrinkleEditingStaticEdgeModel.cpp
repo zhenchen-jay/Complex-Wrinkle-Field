@@ -145,6 +145,21 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 			bndVertsFlag(i) = 0;
 	}
 
+	Eigen::VectorXi firstStepFlags = Eigen::VectorXi::Ones(_vertFlag.rows());
+	for (int i = 0; i < firstStepFlags.rows(); i++)
+	{
+		if (bndVertsFlag(i) != -1)
+			firstStepFlags(i) = 1;
+		else
+			firstStepFlags(i) = 0;
+	}
+
+	for (int i = 0; i < _vertexOpts.size(); i++)
+	{
+		if(_vertexOpts[i].vecOptType != None)
+			firstStepFlags(i) = 0;
+	}
+
 	std::cout << "initialize bnd zvals. " << std::endl;
 
 	if (!_nInterfaces)
@@ -161,8 +176,55 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 		std::cout << "compute reference amplitude." << std::endl;
 		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
+		/*tarZvals = initZvals;
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			if (firstStepFlags[i] == 0)
+			{
+				double arg = std::arg(tarZvals[i]);
+				tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+			}
+
+		}
+
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			if (firstStepFlags[i] == 0)
+			{
+				double arg = std::arg(tarZvals[i]);
+				tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+			}
+
+		}*/
+
 		roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(_mesh, _combinedRefOmegaList[numFrames + 1], _combinedRefAmpList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+		double angle = 0;
+		double weightSum = 0;
+		for (int i = 0; i < _vertexOpts.size(); i++)
+		{
+			if (_vertexOpts[i].vecOptType == None)
+			{
+				if (std::abs(tarZvals[i]) > 1e-6)
+				{
+					weightSum += std::abs(tarZvals[i]);
+					angle += std::abs(tarZvals[i]) * std::arg(initZvals[i] / tarZvals[i]);
+				}
+				
+			}
+		}
+
+		angle = angle / weightSum;
+		std::complex<double> rotz = std::complex<double>(std::cos(angle), std::sin(angle));
+		for (int i = 0; i < _vertexOpts.size(); i++)
+		{
+			tarZvals[i] *= rotz;
+		}
 	}
 
 
