@@ -29,7 +29,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	std::ofstream optInfo;
 	if (savingFolder)
 	{
-		optInfo = std::ofstream((*savingFolder) + "_optInfo.txt");
+		optInfo = std::ofstream((*savingFolder) + "optInfo.txt");
 		optInfo << "Newton solver with termination criterion: " << std::endl;
 		std::cout << "gradient tol: " << gradTol << ", function update tol: " << fTol << ", variable update tol: " << xTol << ", maximum iteration: " << numIter << std::endl << std::endl;
 	}
@@ -150,15 +150,6 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 			optInfo << "timing info (in total seconds): " << std::endl;
 			optInfo << "assembling took: " << totalAssemblingTime << ", LLT solver took: " << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
 
-			if (i % 100 == 0)
-			{
-				std::string fileName = (*savingFolder) + "intermediate.txt";
-				std::ofstream ofs(fileName);
-				if (ofs)
-				{
-					ofs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << x0 << std::endl;
-				}
-			}
 		}
 		
 		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4 || std::abs(f) < 1e-4)
@@ -238,20 +229,6 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
     {
         std::cout << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
     }
-
-	if (savingFolder)
-	{
-		optInfo << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: " << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
-
-		std::string fileName = (*savingFolder) + "final_res.txt";
-		std::ofstream ofs(fileName);
-		if (ofs)
-		{
-			ofs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << x0 << std::endl;
-		}
-
-
-	}
 		
 }
 

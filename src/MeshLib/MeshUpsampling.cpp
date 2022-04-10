@@ -371,7 +371,9 @@ static void loopWithCorners(
 			}
 			else
 			{
-				beta = 3. / 8. / dn;
+				//beta = 3. / 8. / dn;
+				double c0 = (3. / 8. + 1. / 4. * std::cos(2 * M_PI / dn));
+				beta = 1. / dn * (5. / 8. - c0 * c0);
 			}
 			for (int j = 0; j < n; ++j)
 			{
