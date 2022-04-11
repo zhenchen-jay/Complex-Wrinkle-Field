@@ -17,6 +17,7 @@ namespace IntrinsicFormula
         WrinkleEditingStaticEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts,  const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio = 1);
 
         void initialization(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, double numFrames);
+        void warmstart();
 
         void convertVariable2List(const Eigen::VectorXd& x);
         void convertList2Variable(Eigen::VectorXd& x);
@@ -120,6 +121,7 @@ namespace IntrinsicFormula
         std::vector<std::vector<int>> _vertNeiFaces;
         std::vector<std::vector<int>> _vertNeiEdges;
         Eigen::VectorXd _vertArea;
+        Eigen::VectorXd _edgeArea;
         Eigen::VectorXd _edgeCotCoeffs;
 
         std::vector<std::vector<Eigen::Matrix2d>> _faceVertMetrics;

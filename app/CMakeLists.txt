@@ -1,3 +1,2 @@
-add_subdirectory(viewer_wrinkleEditor)
-add_subdirectory(viewer_wrinkleEditor_edgebased)
-add_subdirectory(viewer_staticWrinkleEditor_edgebased)
+add_subdirectory(StaticWrinkleEditor_edgebased)
+add_subdirectory(StaticWrinkleEditor_halfEdgebased)

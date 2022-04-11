@@ -1,30 +1,30 @@
 #pragma once
 
 #include "../CommonTools.h"
-#include "ComputeZdotFromEdgeOmega.h"
+#include "ComputeZdotFromHalfEdgeOmega.h"
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <set>
 
 namespace IntrinsicFormula
 {
-    class WrinkleEditingEdgeModel
+    class WrinkleEditingStaticHalfEdgeModel
     {
     public:
-        WrinkleEditingEdgeModel()
+        WrinkleEditingStaticHalfEdgeModel()
         {}
 
-        WrinkleEditingEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<int>& selectedVids,  const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio = 1);
+        WrinkleEditingStaticHalfEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts,  const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio = 1);
 
-        void initialization(const std::vector<Eigen::VectorXd>& intRefAmpList, const std::vector<Eigen::VectorXd>& initTefOmegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList);
+        void initialization(const Eigen::VectorXd& initAmp, const Eigen::MatrixXd& initOmega, double numFrames);
 
         void convertVariable2List(const Eigen::VectorXd& x);
         void convertList2Variable(Eigen::VectorXd& x);
 
-        std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
+        std::vector<Eigen::MatrixXd> getWList() { return _edgeOmegaList; }
         std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
 
-        void setwzLists(std::vector<std::vector<std::complex<double>>>& zList, std::vector<Eigen::VectorXd>& wList)
+        void setwzLists(std::vector<std::vector<std::complex<double>>>& zList, std::vector<Eigen::MatrixXd>& wList)
         {
             _zvalsList = zList;
             _edgeOmegaList = wList;
@@ -49,7 +49,8 @@ namespace IntrinsicFormula
                 }
                 for (int j = 0; j < nedges; j++)
                 {
-                    wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + nedges) + 2 * nverts + j)));
+                    wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j)));
+                    wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + 2 * nedges) + 2 * nverts + 2 * j + 1)));
                 }
             }
         }
@@ -57,7 +58,7 @@ namespace IntrinsicFormula
         double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
         void testEnergy(Eigen::VectorXd x);
 
-        std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
+        std::vector<Eigen::MatrixXd> getRefWList() { return _combinedRefOmegaList; }
         std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
         Eigen::VectorXi getVertFlag() { return _vertFlag; }
         Eigen::VectorXi getEdgeFlag() { return _edgeFlag; }
@@ -65,19 +66,19 @@ namespace IntrinsicFormula
 
 
     private:
-        void computeCombinedRefAmpList(const std::vector<Eigen::VectorXd>& refAmpList, std::vector<Eigen::VectorXd>* combinedOmegaList = NULL);
+        void computeCombinedRefAmpList(const std::vector<Eigen::VectorXd>& refAmpList, std::vector<Eigen::MatrixXd>* combinedOmegaList = NULL);
 
-        void computeCombinedRefOmegaList(const std::vector<Eigen::VectorXd>& refOmegaList);
+        void computeCombinedRefOmegaList(const std::vector<Eigen::MatrixXd>& refOmegaList);
 
 
-        double amplitudeEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
-        double amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, int fid, Eigen::Vector3d* deriv = NULL, Eigen::Matrix3d* hess = NULL);
+        double amplitudeEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
+        double amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, int fid, Eigen::Vector3d* deriv = NULL, Eigen::Matrix3d* hess = NULL);
 
         double curlFreeEnergy(const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL,
             std::vector<Eigen::Triplet<double>>* hessT = NULL);
 
-        double curlFreeEnergyPerface(const Eigen::MatrixXd& w, int faceId, Eigen::Matrix<double, 3, 1>* deriv = NULL,
-            Eigen::Matrix<double, 3, 3>* hess = NULL);
+        double curlFreeEnergyPerface(const Eigen::MatrixXd& w, int faceId, Eigen::Matrix<double, 6, 1>* deriv = NULL,
+            Eigen::Matrix<double, 6, 6>* hess = NULL);
 
         double divFreeEnergy(const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
         double divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd* deriv = NULL, Eigen::MatrixXd* hess = NULL);
@@ -85,25 +86,24 @@ namespace IntrinsicFormula
 
     public:
         // testing functions
-        void testCurlFreeEnergy(const Eigen::VectorXd& w);
-        void testCurlFreeEnergyPerface(const Eigen::VectorXd& w, int faceId);
+        void testCurlFreeEnergy(const Eigen::MatrixXd& w);
+        void testCurlFreeEnergyPerface(const Eigen::MatrixXd& w, int faceId);
 
-        void testDivFreeEnergy(const Eigen::VectorXd& w);
-        void testDivFreeEnergyPervertex(const Eigen::VectorXd& w, int vertId);
+        void testDivFreeEnergy(const Eigen::MatrixXd& w);
+        void testDivFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId);
 
-        void testAmpEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::VectorXd& w);
-        void testAmpEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, int faceId);
+        void testAmpEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w);
+        void testAmpEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::MatrixXd& w, int faceId);
 
     private:
         Eigen::MatrixXd _pos;
         MeshConnectivity _mesh;
 
         // interface indicator
+        std::vector<VertexOpInfo> _vertexOpts;
         Eigen::VectorXi _faceFlag;  
         Eigen::VectorXi _vertFlag;
         Eigen::VectorXi _edgeFlag;
-
-        std::vector<int> _selectedVids;
 
         std::vector<int> _effectiveFids;
         std::vector<int> _effectiveEids;
@@ -112,9 +112,9 @@ namespace IntrinsicFormula
         Eigen::MatrixXd _cotMatrixEntries;
         Eigen::VectorXd _faceArea;
         std::vector<Eigen::VectorXd> _combinedRefAmpList;
-        std::vector<Eigen::VectorXd> _combinedRefOmegaList;
+        std::vector<Eigen::MatrixXd> _combinedRefOmegaList;
 
-        std::vector<Eigen::VectorXd> _edgeOmegaList;
+        std::vector<Eigen::MatrixXd> _edgeOmegaList;
         std::vector<std::vector<std::complex<double>>> _zvalsList;
 
         int _quadOrd;
@@ -129,7 +129,7 @@ namespace IntrinsicFormula
         int _nInterfaces;
 
     public:	// should be private, when publishing
-        ComputeZdotFromEdgeOmega _zdotModel;
+        ComputeZdotFromHalfEdgeOmega _zdotModel;
 
 
     };

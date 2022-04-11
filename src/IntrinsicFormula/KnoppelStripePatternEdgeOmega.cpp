@@ -182,24 +182,13 @@ double IntrinsicFormula::KnoppelEdgeEnergy(const MeshConnectivity& mesh, const E
 	return energy;
 }
 
-double IntrinsicFormula::KnoppelEdgeEnergyGivenMag(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess)
+double IntrinsicFormula::KnoppelEdgeEnergyGivenMag(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& edgeWeight, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess)
 {
 	std::vector<Eigen::Triplet<double>> AT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 	int nverts = vertAmp.size();
 
-	Eigen::VectorXd edgeWeight(nedges);
-	edgeWeight.setConstant(1.0);
-
-//    for (int i = 0; i < nfaces; i++)  // form mass matrix
-//    {
-//        for (int j = 0; j < 3; j++)
-//        {
-//            int eid = mesh.faceEdge(i, j);
-//            edgeWeight(eid) += cotEntries(i, j);
-//        }
-//    }
 	double energy = 0;
 
 	for (int i = 0; i < nedges; i++)
@@ -525,9 +514,12 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const E
 
 	B = P * B * PT;
 
+	std::cout << "eval compute begins." << std::endl;
+	std::cout << "matrix A size: " << A.rows() << " " << A.cols() << std::endl;
+	std::cout << "matrix B size: " << B.rows() << " " << B.cols() << std::endl;
 	Spectra::SymShiftInvert<double> op(A, B);
 	Spectra::SparseSymMatProd<double> Bop(B);
-	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -2 * eps);
+	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -1e-6);
 	geigs.init();
 	int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
 
