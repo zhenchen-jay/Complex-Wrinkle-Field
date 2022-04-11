@@ -9,9 +9,9 @@
 void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
 {
 	const int DIM = x0.rows();
-    Eigen::VectorXd randomVec = x0;
-    randomVec.setRandom();
-    x0 += 1e-6 * randomVec;
+    //Eigen::VectorXd randomVec = x0;
+    //randomVec.setRandom();
+    //x0 += 1e-6 * randomVec;
 	Eigen::VectorXd grad = Eigen::VectorXd::Zero(DIM);
 	Eigen::SparseMatrix<double> hessian;
 
