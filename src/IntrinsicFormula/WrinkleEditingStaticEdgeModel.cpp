@@ -200,6 +200,16 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 		}
 
 		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+
+        for (int i = 0; i < tarZvals.size(); i++)
+        {
+            if (bndVertsFlag[i] == 0)
+            {
+                double arg = std::arg(tarZvals[i]);
+                tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+            }
+
+        }
 	}
 
 
