@@ -33,6 +33,8 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	_edgeFlag.setConstant(-1);
 
 	_vertArea.setZero(nverts);
+	_edgeArea.setZero(nedges);
+	
 	buildVertexNeighboringInfo(_mesh, _pos.rows(), _vertNeiEdges, _vertNeiFaces);
 
 	_edgeCotCoeffs.setZero(nedges);
@@ -56,6 +58,15 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			int eid = _mesh.faceEdge(i, j);
 
 			_vertArea(vid) += _faceArea(i) / _vertNeiFaces.size() / 3.0;
+			
+
+			if (_mesh.edgeFace(eid, 0) == -1 || _mesh.edgeFace(eid, 1) == -1)
+			{
+				_edgeArea(eid) += _faceArea(i);
+			}
+			else
+				_edgeArea(eid) += _faceArea(i) / 2;
+
 			_edgeCotCoeffs(eid) += _cotMatrixEntries(i, j);
 
 			if (faceFlag(i) != -1)
@@ -190,31 +201,6 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 		}
 
 		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-
-		//roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(_mesh, _combinedRefOmegaList[numFrames + 1], _combinedRefAmpList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-		//roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
-
-		//double angle = 0;
-		//double weightSum = 0;
-		//for (int i = 0; i < _vertexOpts.size(); i++)
-		//{
-		//	if (_vertexOpts[i].vecOptType == None)
-		//	{
-		//		if (std::abs(tarZvals[i]) > 1e-6)
-		//		{
-		//			weightSum += std::abs(tarZvals[i]);
-		//			angle += std::abs(tarZvals[i]) * std::arg(initZvals[i] / tarZvals[i]);
-		//		}
-		//		
-		//	}
-		//}
-
-		//angle = angle / weightSum;
-		//std::complex<double> rotz = std::complex<double>(std::cos(angle), std::sin(angle));
-		//for (int i = 0; i < _vertexOpts.size(); i++)
-		//{
-		//	tarZvals[i] *= rotz;
-		//}
 	}
 
 
@@ -239,6 +225,208 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 	}
 
 	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
+}
+
+void WrinkleEditingStaticEdgeModel::warmstart()
+{
+	int nverts = _zvalsList[0].size();
+	int nedges = _edgeOmegaList[0].rows();
+
+	int numFrames = _zvalsList.size() - 2;
+
+	int DOFsPerframe = (2 * nverts);
+	int DOFs = numFrames * DOFsPerframe;
+
+	auto convertVec2ZList = [&](const Eigen::VectorXd & x)
+	{
+		for (int i = 0; i < numFrames; i++)
+		{
+			for (int j = 0; j < nverts; j++)
+			{
+				_zvalsList[i + 1][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
+			}
+		}
+	};
+
+	auto convertZList2Vec = [&](Eigen::VectorXd& x)
+	{
+		x.setZero(DOFs);
+
+		for (int i = 0; i < numFrames; i++)
+		{
+			for (int j = 0; j < nverts; j++)
+			{
+				x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][j].real();
+				x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][j].imag();
+			}
+		}
+	};
+
+	double dt = 1.0 / (numFrames + 1);
+
+	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj)
+	{
+		convertVec2ZList(x);
+		double energy = 0;
+		if (grad)
+		{
+			grad->setZero(DOFs);
+		}
+
+		std::vector<Eigen::Triplet<double>> T;
+		
+		for (int i = 0; i < _zvalsList.size() - 1; i++)
+		{
+			for (int j = 0; j < nverts; j++)
+			{
+				Eigen::Vector2d diff;
+				double coeff = 1. / (dt * dt) * _vertArea[j];
+				diff << (_zvalsList[i + 1][j] - _zvalsList[i][j]).real(), (_zvalsList[i + 1][j] - _zvalsList[i][j]).imag();
+				energy += 0.5 * coeff * diff.squaredNorm();
+
+				if (grad)
+				{
+					if (i == 0)
+					{
+						grad->segment<2>(i * DOFsPerframe + 2 * j) += coeff * diff;
+					}
+					else if (i == _zvalsList.size() - 2)
+						grad->segment<2>((i - 1) * DOFsPerframe + 2 * j) += -coeff * diff;
+					else
+					{
+						grad->segment<2>((i - 1) * DOFsPerframe + 2 * j) += -coeff * diff;
+						grad->segment<2>(i * DOFsPerframe + 2 * j) += coeff * diff;
+					}
+				}
+
+				if (hess)
+				{
+					if (i == 0)
+					{
+						T.push_back({ 2 * j, 2 * j, coeff });
+						T.push_back({ 2 * j + 1, 2 * j + 1, coeff });
+					}
+					else if (i == _zvalsList.size() - 2)
+					{
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j, (i - 1) * DOFsPerframe + 2 * j, coeff });
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j + 1, (i - 1) * DOFsPerframe + 2 * j + 1, coeff });
+					}
+					else
+					{
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j, (i - 1) * DOFsPerframe + 2 * j, coeff });
+						T.push_back({ i * DOFsPerframe + 2 * j, i * DOFsPerframe + 2 * j, coeff });
+
+						T.push_back({ i * DOFsPerframe + 2 * j, (i - 1) * DOFsPerframe + 2 * j, -coeff });
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j, i * DOFsPerframe + 2 * j, -coeff });
+
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j + 1, (i - 1) * DOFsPerframe + 2 * j + 1, coeff });
+						T.push_back({ i * DOFsPerframe + 2 * j + 1, i * DOFsPerframe + 2 * j + 1, coeff });
+
+						T.push_back({ (i - 1) * DOFsPerframe + 2 * j + 1, i * DOFsPerframe + 2 * j + 1, -coeff });
+						T.push_back({ i * DOFsPerframe + 2 * j + 1, (i - 1) * DOFsPerframe + 2 * j + 1, -coeff });
+					}
+
+				}
+			}
+		}
+		
+		for (int i = 0; i < numFrames; i++)
+		{
+			int id = i + 1;
+			
+			double aveAmp = 0;
+			for (int j = 0; j < nverts; j++)
+			{
+				aveAmp += _combinedRefAmpList[id][j] / nverts;
+			}
+
+			
+			for (int j = 0; j < nverts; j++) {
+				double ampSq = _zvalsList[id][j].real() * _zvalsList[id][j].real() +
+					_zvalsList[id][j].imag() * _zvalsList[id][j].imag();
+				double refAmpSq = _combinedRefAmpList[id][j] * _combinedRefAmpList[id][j];
+
+				energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
+
+				if (grad) 
+				{
+					(*grad)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+						(2.0 * _zvalsList[id][j].real());
+					(*grad)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio  / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+						(2.0 * _zvalsList[id][j].imag());
+				}
+
+				if (hess) 
+				{
+					Eigen::Matrix2d tmpHess;
+					tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
+						2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
+
+					tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
+					tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+
+					if (isProj)
+						tmpHess = SPDProjection(tmpHess);
+
+					for (int k = 0; k < 2; k++)
+						for (int l = 0; l < 2; l++)
+							T.push_back({ i * DOFsPerframe + 2 * j + k, i * DOFsPerframe + 2 * j + l, tmpHess(k, l) });
+
+				}
+			}
+			
+
+			//std::cout << energy << std::endl;
+
+			// knoppel part
+			
+			Eigen::VectorXd kDeriv;
+			std::vector<Eigen::Triplet<double>> kT;
+
+			Eigen::VectorXd edgeWeight(nedges);
+			edgeWeight.setOnes();
+
+			double knoppel = IntrinsicFormula::KnoppelEdgeEnergyGivenMag(_mesh, _combinedRefOmegaList[id], _combinedRefAmpList[id] / aveAmp, edgeWeight, _zvalsList[id], grad ? &kDeriv : NULL, hess ? &kT : NULL);
+			energy += _spatialRatio * knoppel;
+
+			if (grad) {
+				grad->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialRatio * kDeriv;
+			}
+
+			if (hess) {
+				for (auto& it : kT) {
+					T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialRatio * it.value() });
+				}
+			}
+			
+		}
+		
+		if (hess)
+		{
+			//std::cout << "num of triplets: " << T.size() << std::endl;
+			hess->resize(DOFs, DOFs);
+			hess->setFromTriplets(T.begin(), T.end());
+		}
+
+		return energy;
+
+	};
+	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+		return 1.0;
+	};
+
+	auto postProcess = [&](Eigen::VectorXd& x)
+	{
+		//            interpModel.postProcess(x);
+	};
+
+	Eigen::VectorXd x;
+	convertZList2Vec(x);
+	OptSolver::testFuncGradHessian(funVal, x);
+	system("pause");
+	OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+	convertVec2ZList(x);
+	
 }
 
 void WrinkleEditingStaticEdgeModel::convertList2Variable(Eigen::VectorXd& x)
@@ -927,6 +1115,7 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 
 				tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
 				tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+				
 
 				if (isProj)
 					tmpHess = SPDProjection(tmpHess);
@@ -958,8 +1147,11 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 		Eigen::VectorXd kDeriv;
 		std::vector<Eigen::Triplet<double>> kT;
 
+		Eigen::VectorXd edgeWeight(nedges);
+		edgeWeight.setOnes();
+
 		double knoppel = IntrinsicFormula::KnoppelEdgeEnergyGivenMag(_mesh, _combinedRefOmegaList[id],
-			_combinedRefAmpList[id] / aveAmp, _faceArea, _cotMatrixEntries,
+			_combinedRefAmpList[id] / aveAmp, edgeWeight,
 			_zvalsList[id], deriv ? &kDeriv : NULL,
 			hess ? &kT : NULL);
 		energy += _spatialRatio * knoppel;

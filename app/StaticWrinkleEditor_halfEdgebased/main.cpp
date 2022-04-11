@@ -24,7 +24,7 @@
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingStaticEdgeModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingStaticHalfEdgeModel.h"
 #include "../../include/WrinkleFieldsEditor.h"
 
 #include "../../include/json.hpp"
@@ -45,9 +45,9 @@ std::vector<std::pair<int, Eigen::Vector3d>> bary;
 Eigen::SparseMatrix<double> loopMat;
 
 Eigen::VectorXd initAmp;
-Eigen::VectorXd initOmega;
+Eigen::MatrixXd initOmega;
 
-std::vector<Eigen::VectorXd> omegaList;
+std::vector<Eigen::MatrixXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
@@ -57,7 +57,7 @@ std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
 
 // reference amp and omega
-std::vector<Eigen::VectorXd> refOmegaList;
+std::vector<Eigen::MatrixXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
 
 Eigen::MatrixXd dataV;
@@ -94,7 +94,7 @@ double triarea = 0.004;
 
 std::string workingFolder;
 
-IntrinsicFormula::WrinkleEditingStaticEdgeModel editModel;
+IntrinsicFormula::WrinkleEditingStaticHalfEdgeModel editModel;
 VecMotionType selectedMotion = Enlarge;
 bool isSelectAll = false;
 double selectedMotionValue = 2;
@@ -115,7 +115,7 @@ int dilationTimes = 10;
 
 bool isShowWrinkleColorField = true;
 
-bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::VectorXd& edgeOmega)
+bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::MatrixXd& edgeOmega)
 {
 	std::ifstream infile(filename);
 	if(!infile)
@@ -126,7 +126,7 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Vector
 	else
 	{
 		Eigen::MatrixXd halfEdgeOmega(nlines, 2);
-		edgeOmega.setZero(nlines);
+		
 		for (int i = 0; i < nlines; i++)
 		{
 			std::string line;
@@ -145,7 +145,7 @@ bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::Vector
 			else
 				halfEdgeOmega.row(i) << std::stod(x), std::stod(y);
 		}
-		edgeOmega = (halfEdgeOmega.col(0) - halfEdgeOmega.col(1)) / 2;
+		edgeOmega = halfEdgeOmega;
 	}
 	return true;
 }
@@ -250,7 +250,7 @@ void buildWrinkleMotions()
 
 }
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
+void updateMagnitudePhase(const std::vector<Eigen::MatrixXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
 {
 	std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
 	magList.resize(wFrames.size());
@@ -284,7 +284,7 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	std::vector<int> facemap;
 
 	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
-	loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
+	//loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
 
 	std::cout << "upsampling finished" << std::endl;
 
@@ -328,7 +328,7 @@ void updatePaintingItems()
 	faceOmegaList.resize(omegaList.size());
 	for (int i = 0; i < omegaList.size(); i++)
 	{
-		faceOmegaList[i] = intrinsicEdgeVec2FaceVec(omegaList[i], triV, triMesh);
+		faceOmegaList[i] = intrinsicHalfEdgeVec2FaceVec(omegaList[i], triV, triMesh);
 	}
 	std::cout << "compute face vector fields finished!" << std::endl;
 
@@ -350,7 +350,7 @@ void updatePaintingItems()
 
 
 
-void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::MatrixXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::MatrixXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	Eigen::VectorXd faceArea;
 	igl::doublearea(triV, triF, faceArea);
@@ -358,7 +358,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 	Eigen::MatrixXd cotEntries;
 	igl::cotmatrix_entries(triV, triF, cotEntries);
 
-	editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, 1.0);
+	editModel = IntrinsicFormula::WrinkleEditingStaticHalfEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, 1);
 
 	editModel.initialization(initAmp, initOmega, numFrames - 2);
 
@@ -779,7 +779,7 @@ bool loadProblem()
 
 	if (!isLoadRef)
 	{
-		editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, 1.0);
+		editModel = IntrinsicFormula::WrinkleEditingStaticHalfEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, 1.0);
 
 		editModel.initialization(initAmp, initOmega, numFrames - 2);
 		refAmpList = editModel.getRefAmpList();
@@ -800,7 +800,7 @@ bool loadProblem()
 			isLoadOpt = false;
 			break;
 		}
-		Eigen::VectorXd edgeOmega;
+		Eigen::MatrixXd edgeOmega;
 		if (!loadEdgeOmega(edgeOmegaFile, nedges, edgeOmega)) {
 			isLoadOpt = false;
 			break;

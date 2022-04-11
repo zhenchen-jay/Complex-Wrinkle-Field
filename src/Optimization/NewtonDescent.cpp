@@ -152,7 +152,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 
 		}
 		
-		if ((f - fnew) / f < 1e-5 || rate * delta_x.norm() < 1e-5 || grad.norm() < 1e-4 || std::abs(f) < 1e-4)
+		if ((f - fnew) / f < 1e-5 || delta_x.norm() < 1e-5 || grad.norm() < 1e-4)
 		{
 			isProj = false;
 			// double f = objFunc(x0, &grad, &hessian, isProj);

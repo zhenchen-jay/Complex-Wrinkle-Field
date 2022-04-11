@@ -3,7 +3,7 @@
 ################################################################################
 
 cmake_minimum_required(VERSION 3.1)
-project(phaseInterp_viewer_staticWrinkleEditor_edgebased)
+project(staticWrinkleEditor_halfEdgebased)
 
 # Add your project files
 # Create an executable

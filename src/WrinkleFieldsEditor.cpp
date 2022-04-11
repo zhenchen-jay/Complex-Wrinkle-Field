@@ -226,15 +226,14 @@ void WrinkleFieldsEditor::halfEdgeBasedWrinkleEdition(const Eigen::MatrixXd& pos
 	ampNew = amp;
 	omegaNew = omega;
 
-
-	Eigen::VectorXi edgeFlags;
-	edgeFlags.setZero(nedges);
-
 	Eigen::VectorXi vertexFlags;
 	vertexFlags.setZero(nverts);
 
 	Eigen::MatrixXd faceNormals;
 	igl::per_face_normals(pos, mesh.faces(), faceNormals);
+
+	Eigen::MatrixXi visitedTimes(nedges, 2);
+	visitedTimes.setZero();
 
 	for (int i = 0; i < nfaces; i++)
 	{
@@ -328,29 +327,36 @@ void WrinkleFieldsEditor::halfEdgeBasedWrinkleEdition(const Eigen::MatrixXd& pos
 			}
 
 			
-			if (edgeFlags(eid0))
+			if (visitedTimes(eid0, flag0))
 			{
 				omegaNew(eid0, flag0) += w.dot(e0);
-				omegaNew(eid0, flag0) /= 2;
 			}
 				
 			else
 				omegaNew(eid0, flag0) = w.dot(e0);
 			
-			if (edgeFlags(eid1))
+			if (visitedTimes(eid1, flag1))
 			{
 				omegaNew(eid1, flag1) += w.dot(e1);
-				omegaNew(eid1, flag1) /= 2;
 			}
 				
 			else
 				omegaNew(eid1, flag1) = w.dot(e1);
 				
 			
-			edgeFlags(eid0)++;
-			edgeFlags(eid1)++;
+			visitedTimes(eid0, flag0)++;
+			visitedTimes(eid1, flag1)++;
 
 			vertexFlags(vid) = 1;
 		}
+	}
+
+	for (int i = 0; i < nedges; i++)
+	{
+		if(visitedTimes(i, 0))
+			omegaNew(i, 0) /= visitedTimes(i, 0);
+		if(visitedTimes(i, 1))
+			omegaNew(i, 1) /= visitedTimes(i, 1);
+			
 	}
 }
