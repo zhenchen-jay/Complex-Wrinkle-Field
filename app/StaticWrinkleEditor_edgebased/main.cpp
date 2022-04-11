@@ -202,14 +202,15 @@ bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::Vector
 
 void getSelecteFids()
 {
-	selectedFids.setZero(triMesh.nFaces());
 	if (isSelectAll)
 	{
-		selectedFids.setOnes();
+		selectedFids.setOnes(triMesh.nFaces());
 		initSelectedFids = selectedFids;
 		return;
 	}
-	initSelectedFids = selectedFids;
+
+	selectedFids.setZero();
+
 	if(clickedFid == -1)
 		return;
 	else
@@ -240,6 +241,13 @@ void buildWrinkleMotions()
 
 	faceFlags2VertFlags(triMesh, nverts, initSelectedFids, initSelectedVids);
 
+	int nselectedV = 0;
+	for (int i = 0; i < nverts; i++)
+		if (initSelectedVids(i))
+			nselectedV++;
+	std::cout << "num of selected vertices: " << nselectedV << std::endl;
+
+	vertOpts.clear();
 	vertOpts.resize(nverts, { None, isCoupled, 0, 1 });
 
 	for (int i = 0; i < nverts; i++)
@@ -247,7 +255,6 @@ void buildWrinkleMotions()
 		if (initSelectedVids(i))
 			vertOpts[i] = { selectedMotion, isCoupled, selectedMotionValue, selectedMagValue };
 	}
-
 
 }
 
@@ -300,6 +307,16 @@ void updateEditionDomain()
 	getSelecteFids();
 	RegionEdition regOpt(triMesh);
 	selectedFids = initSelectedFids;
+
+	int nselected0 = 0;
+	for (int i = 0; i < initSelectedFids.rows(); i++)
+	{
+		if (initSelectedFids(i) == 1)
+		{
+			nselected0++;
+		}
+	}
+
 	for (int i = 0; i < optTimes; i++)
 	{
 		std::cout << "dilation option to get interface, step: " << i << std::endl;
@@ -314,6 +331,23 @@ void updateEditionDomain()
 		selectedFids = selectedFidNew;
 	}
 	faceFlags = initSelectedFids - selectedFids;
+
+	int nselected = 0;
+	for (int i = 0; i < selectedFids.rows(); i++)
+	{
+		if (selectedFids(i) == 1)
+		{
+			nselected++;
+		}
+	}
+
+	int ninterfaces = 0;
+	for (int i = 0; i < faceFlags.rows(); i++)
+	{
+		if (faceFlags(i) == -1)
+			ninterfaces++;
+	}
+	std::cout << "initial selected faces: " << nselected0 << ", selected faces: " << nselected << ", num of interfaces: " << nselected - nselected0 << " " << ninterfaces << std::endl;
 
 	std::cout << "build wrinkle motions. " << std::endl;
 	buildWrinkleMotions();

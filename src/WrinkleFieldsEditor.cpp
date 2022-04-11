@@ -288,12 +288,13 @@ void WrinkleFieldsEditor::halfEdgeBasedWrinkleEdition(const Eigen::MatrixXd& pos
 			Eigen::Vector3d axis = faceNormals.row(i);
 			if (vertInfo[vid].vecOptType == Rotate)
 			{
+				double angle = vertInfo[vid].vecOptValue / 180.0 * M_PI;
 				// first normalize axis
 				double ux = axis(0) / axis.norm(), uy = axis(1) / axis.norm(), uz = axis(2) / axis.norm();
 				Eigen::Matrix3d rotMat;
 
-				double c = std::cos(vertInfo[vid].vecOptValue);
-				double s = std::sin(vertInfo[vid].vecOptValue);
+				double c = std::cos(angle);
+				double s = std::sin(angle);
 				rotMat << c + ux * ux * (1 - c), ux* uy* (1 - c) - uz * s, ux* uz* (1 - c) + uy * s,
 					uy* ux* (1 - c) + uz * s, c + uy * uy * (1 - c), uy* uz* (1 - c) - ux * s,
 					uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);
@@ -308,11 +309,13 @@ void WrinkleFieldsEditor::halfEdgeBasedWrinkleEdition(const Eigen::MatrixXd& pos
 			}
 			else if (vertInfo[vid].vecOptType == Tilt)
 			{
+				double angle = vertInfo[vid].vecOptValue / 180.0 * M_PI;
+				// first normalize axis
 				double ux = axis(0) / axis.norm(), uy = axis(1) / axis.norm(), uz = axis(2) / axis.norm();
 				Eigen::Matrix3d rotMat;
 
-				double c = std::cos(vertInfo[vid].vecOptValue);
-				double s = std::sin(vertInfo[vid].vecOptValue);
+				double c = std::cos(angle);
+				double s = std::sin(angle);
 				rotMat << c + ux * ux * (1 - c), ux* uy* (1 - c) - uz * s, ux* uz* (1 - c) + uy * s,
 					uy* ux* (1 - c) + uz * s, c + uy * uy * (1 - c), uy* uz* (1 - c) - ux * s,
 					uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);

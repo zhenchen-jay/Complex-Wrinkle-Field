@@ -48,6 +48,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 
 	std::set<int> edgeset;
 	std::set<int> vertset;
+	std::set<int> faceset;
 	_nInterfaces = 0;
 
 	for (int i = 0; i < nfaces; i++)
@@ -57,7 +58,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			int vid = _mesh.faceVertex(i, j);
 			int eid = _mesh.faceEdge(i, j);
 
-			_vertArea(vid) += _faceArea(i) / _vertNeiFaces.size() / 3.0;
+			_vertArea(vid) += _faceArea(i) / 3.0;
 			
 
 			if (_mesh.edgeFace(eid, 0) == -1 || _mesh.edgeFace(eid, 1) == -1)
@@ -76,18 +77,22 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			}
 			else
 			{
-				_effectiveFids.push_back(i);
-				//                if(std::find(bnds.begin(), bnds.end(), vid) == bnds.end() && vertset.count(vid) == 0)     // not on boundary
+				if (faceset.count(i) == 0)
+				{
+					faceset.insert(i);
+					_nInterfaces++;
+				}
+				
 				if (vertset.count(vid) == 0)
 					vertset.insert(vid);
 				if (edgeset.count(eid) == 0)
 					edgeset.insert(eid);
-				_nInterfaces++;
 			}
 		}
 	}
 	std::copy(vertset.begin(), vertset.end(), std::back_inserter(_effectiveVids));
 	std::copy(edgeset.begin(), edgeset.end(), std::back_inserter(_effectiveEids));
+	std::copy(faceset.begin(), faceset.end(), std::back_inserter(_effectiveFids));
 
 	_faceVertMetrics.resize(nfaces);
 	for (int i = 0; i < nfaces; i++)
@@ -108,7 +113,8 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 		}
 	}
 	std::cout << "number of interfaces: " << _nInterfaces << std::endl;
-
+	std::cout << "min edge area: " << _edgeArea.minCoeff() << ", min vertex area: " << _vertArea.minCoeff() << std::endl;
+	std::cout << "max edge area: " << _edgeArea.maxCoeff() << ", max vertex area: " << _vertArea.maxCoeff() << std::endl;
 
 }
 
@@ -150,20 +156,13 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 	Eigen::VectorXi bndVertsFlag = _vertFlag;
 	for (int i = 0; i < bndVertsFlag.rows(); i++)
 	{
-		if (bndVertsFlag(i) != -1)
+		if (_vertFlag(i) != -1)
 			bndVertsFlag(i) = 1;
 		else
 			bndVertsFlag(i) = 0;
 	}
 
-	Eigen::VectorXi firstStepFlags = Eigen::VectorXi::Ones(_vertFlag.rows());
-	for (int i = 0; i < firstStepFlags.rows(); i++)
-	{
-		if (bndVertsFlag(i) != -1)
-			firstStepFlags(i) = 1;
-		else
-			firstStepFlags(i) = 0;
-	}
+	Eigen::VectorXi firstStepFlags = bndVertsFlag;
 
 	for (int i = 0; i < _vertexOpts.size(); i++)
 	{
@@ -171,7 +170,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 			firstStepFlags(i) = 0;
 	}
 
-	std::cout << "initialize bnd zvals. " << std::endl;
+	std::cout << "initialize bnd zvals." << std::endl;
 
 	if (!_nInterfaces)
 	{
@@ -422,8 +421,7 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 
 	Eigen::VectorXd x;
 	convertZList2Vec(x);
-	OptSolver::testFuncGradHessian(funVal, x);
-	system("pause");
+	//OptSolver::testFuncGradHessian(funVal, x);
 	OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
 	convertVec2ZList(x);
 	
