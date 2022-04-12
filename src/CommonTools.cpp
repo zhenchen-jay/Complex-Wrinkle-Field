@@ -637,7 +637,7 @@ Eigen::MatrixXd intrinsicEdgeVec2FaceVec(const Eigen::VectorXd& w, const Eigen::
 			else
 			{
 				flag1 = -1;
-			}
+			} 
 			rhs(0) = flag0 * w(eid0);
 			rhs(1) = flag1 * w(eid1);
 

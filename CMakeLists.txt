@@ -145,3 +145,4 @@ find_package(SPECTRA REQUIRED)
 
 # Binary executables
 add_subdirectory(app)
+add_subdirectory(dep/geometry-central)
