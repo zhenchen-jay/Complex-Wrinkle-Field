@@ -367,7 +367,7 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 	for(int i = 0; i < nverts; i++)
 	{
 		std::complex<double> z = std::complex<double>(evecs(2 * i, 0), evecs(2 * i + 1, 0));
-		z *= vertAmp(i) / std::abs(z);
+		z = vertAmp(i) * std::complex<double>(std::cos(std::arg(z)), std::sin(std::arg(z)));
 		zvals.push_back(z);
 	}
 }

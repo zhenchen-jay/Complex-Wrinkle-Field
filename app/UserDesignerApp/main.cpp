@@ -1,4 +1,5 @@
 #include "geometrycentral/surface/halfedge_mesh.h"
+#include "geometrycentral/surface/surface_mesh.h"
 #include "geometrycentral/surface/heat_method_distance.h"
 #include "geometrycentral/surface/meshio.h"
 #include "geometrycentral/surface/surface_centers.h"
@@ -13,6 +14,14 @@
 #include "../../include/MeshLib/RegionEdition.h"
 #include "../../include/CommonTools.h"
 #include "../../include/AmpExtraction.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
+#include "../../include/IntrinsicFormula/InterpolateZvals.h"
+#include "../../include/MeshLib/MeshUpsampling.h"
+#include "../../include/Visualization/PaintGeometry.h"
+
+#include <igl/doublearea.h>
+#include <igl/cotmatrix_entries.h>
+#include <igl/per_vertex_normals.h>
 
 #include <sstream>
 
@@ -30,32 +39,32 @@ struct SourceVert {
 
 std::unique_ptr<VectorHeatMethodSolver> solver;
 
-void convertPolyScopeMesh(const polyscope::SurfaceMesh& psMesh, Eigen::MatrixXd& triV, MeshConnectivity& mesh)
+void convertGeoCentralMesh(HalfedgeMesh& geoMesh, VertexPositionGeometry& geoPos, Eigen::MatrixXd& triV, MeshConnectivity& mesh)
 {
-	int nverts = psMesh.vertices.size();
+	int nverts = geoPos.inputVertexPositions.size();
 	triV.resize(nverts, 3);
 	for (int i = 0; i < nverts; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			triV(i, j) = psMesh.vertices[i][j];
+			triV(i, j) = geoPos.inputVertexPositions[i][j];
 		}
 	}
 
 	Eigen::MatrixXi triF;
-	int nfaces = psMesh.faces.size();
+	int nfaces = geoMesh.nFaces();
 	triF.resize(nfaces, 3);
 	for (int i = 0; i < nfaces; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			triF(i, j) = psMesh.faces[i][j];
+			triF(i, j) = geoMesh.getFaceVertexList()[i][j];
 		}
 	}
 	mesh = MeshConnectivity(triF);
 }
 
-void getVecTransport(const polyscope::SurfaceMesh& psMesh, std::vector<SourceVert> sourcePoints, Eigen::MatrixXd& vertVecs)
+void getVecTransport(VertexPositionGeometry& geoPos, std::vector<SourceVert> sourcePoints, Eigen::MatrixXd& vertVecs)
 {
 	std::vector<std::tuple<SurfacePoint, Vector2>> points;
 	for (SourceVert& s : sourcePoints) {
@@ -63,19 +72,20 @@ void getVecTransport(const polyscope::SurfaceMesh& psMesh, std::vector<SourceVer
 	}
 	VertexData<Vector2> vectorExtension = solver->transportTangentVectors(points);
 
-	vertVecs.setZero(psMesh.nVertices(), 3);
+	int nverts = geoPos.inputVertexPositions.size();
+
+	vertVecs.setZero(nverts, 3);
 
 
+	for (size_t iV = 0; iV < nverts; iV++) {
 
-	for (size_t iV = 0; iV < psMesh.nVertices(); iV++) {
-
-		glm::vec3 normal = psMesh.vertexNormals[iV];
-		glm::vec3 basisX = psMesh.vertexTangentSpaces[iV][0];
-		glm::vec3 basisY = psMesh.vertexTangentSpaces[iV][1];
+		Vector3 normal = geoPos.vertexNormals[iV];
+		Vector3 basisX = geoPos.vertexTangentBasis[iV][0];
+		Vector3 basisY = geoPos.vertexTangentBasis[iV][1];
 
 		std::complex<double> angle = std::complex<double>(vectorExtension[iV][0], vectorExtension[iV][1]);
 
-		glm::vec3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
+		Vector3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
 		vertVecs.row(iV) << vec3.x, vec3.y, vec3.z;
 	}
 }
@@ -148,6 +158,7 @@ std::unique_ptr<VertexPositionGeometry> geometry;
 
 Eigen::MatrixXd triV;
 MeshConnectivity triMesh;
+int loopLevel = 2;
 
 // Polyscope visualization handle, to quickly add data to the surface
 polyscope::SurfaceMesh* psMesh;
@@ -159,9 +170,13 @@ int pCenter = 2;
 
 std::vector<SourceVert> sourcePoints;
 
+Eigen::MatrixXd cotEntries;
+Eigen::VectorXd faceArea;
+
 
 bool vizFirstRun = true;
-void updateSourceSetViz() {
+void updateSourceSetViz() 
+{
 
 	// Scalar balls around sources
 	std::vector<std::pair<size_t, double>> sourcePairs;
@@ -169,36 +184,42 @@ void updateSourceSetViz() {
 		size_t ind = geometry->vertexIndices[s.vertex];
 		sourcePairs.emplace_back(ind, s.scalarVal);
 	}
-	auto scalarQ = polyscope::getSurfaceMesh()->addVertexIsolatedScalarQuantity("source scalars", sourcePairs);
+	auto scalarQ = polyscope::getSurfaceMesh("base mesh")->addVertexIsolatedScalarQuantity("source scalars", sourcePairs);
 
 	scalarQ->setColorMap("reds");
 
-	if (vizFirstRun) {
+	if (vizFirstRun) 
+	{
 		scalarQ->setEnabled(true);
 	}
 
 	// Vectors at sources
 	VertexData<Vector2> sourceVectors(*mesh, Vector2::zero());
-	for (SourceVert& s : sourcePoints) {
+	for (SourceVert& s : sourcePoints) 
+	{
 		sourceVectors[s.vertex] = Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
 	}
-	auto vectorQ = polyscope::getSurfaceMesh()->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
+	auto vectorQ = polyscope::getSurfaceMesh("base mesh")->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
 	vectorQ->setVectorLengthScale(.05);
 	vectorQ->setVectorRadius(.005);
 	vectorQ->setVectorColor(glm::vec3{ 227 / 255., 52 / 255., 28 / 255. });
-	if (vizFirstRun) {
+	if (vizFirstRun) 
+	{
 		vectorQ->setEnabled(true);
 	}
 
 	vizFirstRun = false;
 }
 
-void addVertexSource(size_t ind) {
+void addVertexSource(size_t ind) 
+{
 	Vertex v = mesh->vertex(ind);
 
 	// Make sure not already used
-	for (SourceVert& s : sourcePoints) {
-		if (s.vertex == v) {
+	for (SourceVert& s : sourcePoints) 
+	{
+		if (s.vertex == v) 
+		{
 			std::stringstream ss;
 			ss << "Vertex " << v;
 			std::string vStr = ss.str();
@@ -228,7 +249,7 @@ void vectorTransport() {
 	buildMask(triMesh, triV.rows(), sourcePoints, vertFlags, edgeFlags, faceFlags);
 
 	Eigen::MatrixXd vertVec;
-	getVecTransport(*psMesh, sourcePoints, vertVec);
+	getVecTransport(*geometry, sourcePoints, vertVec);
 
 	for (int i = 0; i < triV.rows(); i++)
 		vertVec.row(i) *= vertFlags(i);
@@ -261,23 +282,20 @@ void wrinkleExtraction()
 	buildMask(triMesh, triV.rows(), sourcePoints, vertFlags, edgeFlags, faceFlags);
 
 	Eigen::MatrixXd vertVec;
-	getVecTransport(*psMesh, sourcePoints, vertVec);
-
-	for (int i = 0; i < triV.rows(); i++)
-		vertVec.row(i) *= vertFlags(i);
+	getVecTransport(*geometry, sourcePoints, vertVec);
 
 	Eigen::VectorXd edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
-	for (int i = 0; i < triMesh.nEdges(); i++)
-		edgeVec(i) *= edgeFlags(i);
+	/*for (int i = 0; i < triMesh.nEdges(); i++)
+		edgeVec(i) *= edgeFlags(i);*/
 
 	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
 	for (int i = 0; i < triMesh.nFaces(); i++)
 		faceVec.row(i) *= faceFlags(i);
 
 	std::vector<std::pair<int, double>> clampedAmps;
-	for (int i = 0; i < vertVec.rows(); i++)
+	for (int i = 0; i < vertFlags.rows(); i++)
 	{
-		if (vertVec(i) == 0)
+		if (vertFlags(i) == 0)
 			clampedAmps.push_back({ i, 0 });
 	}
 
@@ -290,16 +308,91 @@ void wrinkleExtraction()
 	Eigen::VectorXd amp;
 
 	ampExtraction(triV, triMesh, edgeVec, clampedAmps, amp);
+	//amp.setConstant(sourcePoints[0].scalarVal);
+
+	std::cout << "amp range: " << amp.minCoeff() << " " << amp.maxCoeff() << std::endl;
 
 	auto fVec = psMesh->addFaceVectorQuantity("face vector", faceVec);
 	fVec->setEnabled(true);
 
 	auto pScal = psMesh->addVertexScalarQuantity("amp", amp);
-	//std::cout << amp(0) << std::endl;
 	pScal->setEnabled(true);
+
+	/*for (int i = 0; i < triV.rows(); i++)
+		if(!vertFlags(i))
+			amp(i) = 0;*/
+
+	std::vector<std::complex<double>> zvals, upsampledZvals;
+	IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, edgeVec, amp, faceArea, cotEntries, amp.rows(), zvals);
+
+
+	Eigen::MatrixXd upsampledTriV, wrinkledV;
+	Eigen::MatrixXi upsampledTriF;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+	
+	meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, loopLevel, NULL, NULL, &bary);
+
+	upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, zvals, edgeVec, bary);
+
+	Eigen::VectorXd mag(upsampledTriV.rows()), phase(upsampledTriV.rows());
+	wrinkledV = upsampledTriV;
+	Eigen::MatrixXd vertNormals;
+	igl::per_vertex_normals(upsampledTriV, upsampledTriF, vertNormals);
+
+	for (int i = 0; i < upsampledTriV.rows(); i++)
+	{
+		mag(i) = std::abs(upsampledZvals[i]);
+		phase(i) = std::arg(upsampledZvals[i]);
+		wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
+	}
+
+	PaintGeometry mpaint;
+	mpaint.setNormalization(true);
+	Eigen::MatrixXd ampColor = mpaint.paintAmplitude(mag);
+
+	std::cout << "upsampled mag range: " << mag.minCoeff() << " " << mag.maxCoeff() << std::endl;
+
+	mpaint.setNormalization(false);
+	Eigen::MatrixXd phiColor = mpaint.paintPhi(phase);
+
+	int nupverts = upsampledTriV.rows();
+	int nupfaces = upsampledTriF.rows();
+
+	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+
+	Eigen::MatrixXd shiftV = Eigen::MatrixXd::Zero(nupverts, 3);
+	shiftV.col(0).setConstant(shiftx);
+	Eigen::MatrixXi shiftF = upsampledTriF;
+	shiftF.setConstant(nupverts);
+
+	Eigen::MatrixXd dataV;
+	Eigen::MatrixXi dataF;
+	Eigen::MatrixXd dataColor;
+
+	dataV.setZero(nupverts * 3, 3);
+	dataColor.setZero(nupverts * 3, 3);
+	dataF.setZero(nupfaces * 3, 3);
+	
+	dataV.block(0, 0, nupverts, 3) = wrinkledV - shiftV;
+	dataF.block(0, 0, nupfaces, 3) = upsampledTriF;
+	for (int i = 0; i < nupverts; i++)
+		dataColor.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
+
+	dataV.block(nupverts, 0, nupverts, 3) = upsampledTriV - 2 * shiftV;
+	dataV.block(2 * nupverts, 0, nupverts, 3) = upsampledTriV - 3 * shiftV;
+	dataF.block(nupfaces, 0, nupfaces, 3) = upsampledTriF + shiftF;
+	dataF.block(2 * nupfaces, 0, nupfaces, 3) = upsampledTriF + 2 * shiftF;
+
+	dataColor.block(nupverts, 0, nupverts, 3) = phiColor;
+	dataColor.block(2 * nupverts, 0, nupverts, 3) = ampColor;
+
+	polyscope::registerSurfaceMesh("wrinkled mesh", dataV, dataF); 
+	polyscope::getSurfaceMesh("wrinkled mesh")->addVertexColorQuantity("VertexColor", dataColor);
+	polyscope::getSurfaceMesh("wrinkled mesh")->getQuantity("VertexColor")->setEnabled(true);
 }
 
-void buildPointsMenu() {
+void buildPointsMenu() 
+{
 
 	bool anyChanged = false;
 
@@ -307,7 +400,8 @@ void buildPointsMenu() {
 
 	int id = 0;
 	int eraseInd = -1;
-	for (SourceVert& s : sourcePoints) {
+	for (SourceVert& s : sourcePoints) 
+	{
 		std::stringstream ss;
 		ss << "Vertex " << s.vertex;
 		std::string vStr = ss.str();
@@ -316,7 +410,8 @@ void buildPointsMenu() {
 		ImGui::TextUnformatted(vStr.c_str());
 
 		ImGui::SameLine();
-		if (ImGui::Button("delete")) {
+		if (ImGui::Button("delete")) 
+		{
 			eraseInd = id;
 			anyChanged = true;
 		}
@@ -333,19 +428,23 @@ void buildPointsMenu() {
 	ImGui::PopItemWidth();
 
 	// actually do erase, if requested
-	if (eraseInd != -1) {
+	if (eraseInd != -1) 
+	{
 		sourcePoints.erase(sourcePoints.begin() + eraseInd);
 	}
 
-	if (ImGui::Button("add point")) {
-		long long int pickVert = polyscope::getSurfaceMesh()->selectVertex();
-		if (pickVert >= 0) {
+	if (ImGui::Button("add point")) 
+	{
+		long long int pickVert = polyscope::getSurfaceMesh("base mesh")->selectVertex();
+		if (pickVert >= 0 && pickVert < triV.rows()) 
+		{
 			addVertexSource(pickVert);
 			anyChanged = true;
 		}
 	}
 
-	if (anyChanged) {
+	if (anyChanged)
+	{
 		updateSourceSetViz();
 	}
 }
@@ -362,7 +461,11 @@ void myCallback() {
 				solver.reset();
 			}
 			ImGui::PopItemWidth();
-
+			if (ImGui::InputInt("upsampled level", &loopLevel))
+			{
+				if (loopLevel < 0)
+					loopLevel = 2;
+			}
 			// Build the list of source points
 			if (ImGui::TreeNode("select source points")) {
 				buildPointsMenu();
@@ -398,36 +501,41 @@ int main(int argc, char** argv) {
 
 	// Load mesh
 	std::tie(mesh, geometry) = loadMesh(argv[1]);
+	geometry->requireVertexTangentBasis();
+	geometry->requireVertexNormals();
+	geometry->requireFaceTangentBasis();
+	geometry->requireVertexIndices();
 
 	// Register the mesh with polyscope
-	psMesh = polyscope::registerSurfaceMesh(polyscope::guessNiceNameFromPath(argv[1]),
-		geometry->inputVertexPositions, mesh->getFaceVertexList(),
-		polyscopePermutations(*mesh));
+	psMesh = polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
 
-	convertPolyScopeMesh(*psMesh, triV, triMesh);
+	convertGeoCentralMesh(*mesh, *geometry, triV, triMesh);
 
 
 	// Set vertex tangent spaces
-	geometry->requireVertexTangentBasis();
 	VertexData<Vector3> vBasisX(*mesh);
 	for (Vertex v : mesh->vertices()) {
 		vBasisX[v] = geometry->vertexTangentBasis[v][0];
 	}
-	polyscope::getSurfaceMesh()->setVertexTangentBasisX(vBasisX);
+	polyscope::getSurfaceMesh("base mesh")->setVertexTangentBasisX(vBasisX);
 
+
+	
 	// Set face tangent spaces
-	geometry->requireFaceTangentBasis();
 	FaceData<Vector3> fBasisX(*mesh);
 	for (Face f : mesh->faces()) {
 		fBasisX[f] = geometry->faceTangentBasis[f][0];
 	}
-	polyscope::getSurfaceMesh()->setFaceTangentBasisX(fBasisX);
+	polyscope::getSurfaceMesh("base mesh")->setFaceTangentBasisX(fBasisX);
 
 	// To start, pick two vertices as sources
 	geometry->requireVertexIndices();
-	addVertexSource(0);
 	addVertexSource(mesh->nVertices() / 2);
-	sourcePoints[1].scalarVal = 3.0;
+
+
+	igl::doublearea(triV, triMesh.faces(), faceArea);
+	faceArea /= 2;
+	igl::cotmatrix_entries(triV, triMesh.faces(), cotEntries);
 
 
 	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
