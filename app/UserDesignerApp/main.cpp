@@ -18,9 +18,11 @@
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/Visualization/PaintGeometry.h"
+#include "../../include/Optimization/NewtonDescent.h"
 
 #include <igl/doublearea.h>
 #include <igl/cotmatrix_entries.h>
+#include <igl/cotmatrix.h>
 #include <igl/per_vertex_normals.h>
 
 #include <sstream>
@@ -150,6 +152,194 @@ void buildMask(const MeshConnectivity& mesh, int nverts, std::vector<SourceVert>
 	}
 
 
+}
+
+void getSourceEffectedVids(const MeshConnectivity& mesh, int nverts, std::vector<SourceVert> sourcePoints, std::vector<std::vector<std::pair<int, double>>>& effectedVids, Eigen::VectorXi *selectedVids = NULL)
+{
+	if (selectedVids)
+		selectedVids->setZero(nverts);
+
+	RegionEdition regEd(mesh);
+
+	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
+
+	int nfaces = mesh.nFaces();
+	buildVertexNeighboringInfo(mesh, nverts, vertNeiEdges, vertNeiFaces);
+
+	for (SourceVert& s : sourcePoints)
+	{
+		if (s.effectiveRadius)
+		{
+			Eigen::VectorXi curfaceFlags, curfaceFlagsNew;
+
+			curfaceFlags.setZero(nfaces);
+			curfaceFlagsNew.setZero(nfaces);
+
+			int vid = s.vertex.getIndex();
+
+			for (int i = 0; i < vertNeiFaces[vid].size(); i++)
+			{
+				curfaceFlags(vertNeiFaces[vid][i]) = 1;
+			}
+			curfaceFlagsNew = curfaceFlags;
+
+			for (int i = 0; i < s.effectiveRadius - 1; i++)
+			{
+				regEd.faceDilation(curfaceFlags, curfaceFlagsNew);
+				curfaceFlags = curfaceFlagsNew;
+			}
+
+			Eigen::VectorXi vertFlags;
+			vertFlags.setZero(nverts);
+			std::vector<std::pair<int, double>> tmp;
+			for (int i = 0; i < curfaceFlags.rows(); i++)
+			{
+				if (curfaceFlags(i))
+				{
+					for (int j = 0; j < 3; j++)
+					{
+						int vid = mesh.faceVertex(i, j);
+						if (vertFlags(vid) == 0)
+						{
+							tmp.push_back({ vid, s.scalarVal });
+							vertFlags(vid) = 1;
+
+							if (selectedVids)
+								(*selectedVids)(vid) = 1;
+						}
+					}
+				}
+			}
+			effectedVids.push_back(tmp);
+		}
+	}
+}
+
+double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, const Eigen::VectorXd& amp, const Eigen::VectorXd& vertArea, std::vector<std::vector<std::pair<int, double>>> effectedVids, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess)
+{
+	Eigen::SparseMatrix<double> L;
+	igl::cotmatrix(pos, mesh.faces(), L);
+	double E = -0.5 * amp.dot(L * amp);
+
+	Eigen::VectorXd deriv1;
+	std::vector<Eigen::Triplet<double>> T;
+	E += amplitudeEnergyWithGivenOmega(mesh, amp, w, deriv ? &deriv1 : NULL, hess ? &T : NULL);
+
+	for (auto& it : effectedVids)
+	{
+		for (int i = 0; i < it.size(); i++)
+		{
+			int vid = it[i].first;
+			E += 0.5 * (amp(vid)-it[i].second) * (amp(vid)-it[i].second) * vertArea(vid);
+			
+			if (deriv)
+			{
+				deriv1(vid) += (amp(vid)-it[i].second) * vertArea(vid);
+			}
+
+			if (hess)
+			{
+				T.push_back({ vid, vid, vertArea(vid) });
+			}
+		}
+	}
+
+	if (deriv)
+	{
+		(*deriv) = deriv1 - L * amp;
+	}
+	if (hess)
+	{
+		hess->resize(amp.rows(), amp.rows());
+		hess->setFromTriplets(T.begin(), T.end());
+		(*hess) += -L;
+	}
+	return E;
+}
+
+
+void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, std::vector<SourceVert> sourcePoints, Eigen::VectorXd& amp)
+{
+	int nverts = pos.rows();
+	int nfaces = mesh.nFaces();
+
+	Eigen::VectorXd vertArea, faceArea;
+	igl::doublearea(pos, mesh.faces(), faceArea);
+	faceArea /= 2;
+	vertArea.setZero(nverts);
+
+	for (int i = 0; i < nfaces; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = mesh.faceVertex(i, j);
+			vertArea(vid) += faceArea(i) / 3;
+		}
+	}
+	std::vector<std::vector<std::pair<int, double>>> effectedVids;
+	Eigen::VectorXi selectedVids;
+	getSourceEffectedVids(mesh, nverts, sourcePoints, effectedVids, &selectedVids);
+
+	/*for (int i = 0; i < effectedVids.size(); i++)
+	{
+		for (int j = 0; j < effectedVids[i].size(); j++)
+		{
+			std::cout << selectedVids(effectedVids[i][j].first) << " " << effectedVids[i][j].first << " " << effectedVids[i][j].second << " " << vertArea(effectedVids[i][j].first) << std::endl;
+		}
+	}*/
+
+	std::vector<int> freeDOFs;
+	for (int i = 0; i < nverts; i++)
+	{
+		if (selectedVids(i))
+			freeDOFs.push_back(i);
+	}
+
+	std::vector<Eigen::Triplet<double>> T;
+	for (int i = 0; i < freeDOFs.size(); i++)
+	{
+		T.push_back(Eigen::Triplet<double>(i, freeDOFs[i], 1.0));
+	}
+
+	Eigen::SparseMatrix<double> projM(freeDOFs.size(), nverts);
+	projM.setFromTriplets(T.begin(), T.end());
+
+	Eigen::SparseMatrix<double> unProjM = projM.transpose();
+
+	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+		Eigen::VectorXd deriv;
+		Eigen::SparseMatrix<double> H;
+
+		Eigen::VectorXd fullx = unProjM * x;
+
+		double E = computeAmpEnergy(pos, mesh, w, fullx, vertArea, effectedVids, grad ? &deriv : NULL, hess ? &H : NULL);
+
+
+		if (grad)
+		{
+			(*grad) = projM * deriv;
+		}
+
+		if (hess)
+		{
+			(*hess) = projM * H * unProjM;
+		}
+
+		return E;
+	};
+	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+		return 1.0;
+	};
+	amp.setZero(nverts);
+	Eigen::VectorXd x0 = projM * amp;
+	Eigen::VectorXd deriv;
+	double E = funVal(x0, &deriv, NULL, false);
+	std::cout << "initial energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
+
+	 E = funVal(x0, &deriv, NULL, false);
+	std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+	amp = unProjM * x0;
 }
 
 // == Geometry-central data
@@ -285,8 +475,8 @@ void wrinkleExtraction()
 	getVecTransport(*geometry, sourcePoints, vertVec);
 
 	Eigen::VectorXd edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
-	/*for (int i = 0; i < triMesh.nEdges(); i++)
-		edgeVec(i) *= edgeFlags(i);*/
+	for (int i = 0; i < triMesh.nEdges(); i++)
+		edgeVec(i) *= edgeFlags(i);
 
 	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
 	for (int i = 0; i < triMesh.nFaces(); i++)
@@ -307,7 +497,9 @@ void wrinkleExtraction()
 
 	Eigen::VectorXd amp;
 
-	ampExtraction(triV, triMesh, edgeVec, clampedAmps, amp);
+	//ampExtraction(triV, triMesh, edgeVec, clampedAmps, amp);
+
+	extendAmp(triV, triMesh, edgeVec, sourcePoints, amp);
 	//amp.setConstant(sourcePoints[0].scalarVal);
 
 	std::cout << "amp range: " << amp.minCoeff() << " " << amp.maxCoeff() << std::endl;
