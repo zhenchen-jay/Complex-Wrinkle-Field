@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/geometry-central" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dep/geometry-central/deps/happly" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dep/libigl" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dep/polyscope" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dep/polyscope/deps/glfw" vcs="Git" />

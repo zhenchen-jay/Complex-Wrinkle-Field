@@ -1,3 +1,2 @@
-add_subdirectory(StaticWrinkleEditor_edgebased)
-add_subdirectory(StaticWrinkleEditor_halfEdgebased)
+add_subdirectory(StaticWrinkleEditor)
 add_subdirectory(UserDesignerApp)
