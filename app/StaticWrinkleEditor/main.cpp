@@ -26,6 +26,7 @@
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingStaticEdgeModel.h"
 #include "../../include/WrinkleFieldsEditor.h"
+#include "../../include/SpherigonSmoothing.h"
 
 #include "../../include/json.hpp"
 #include "../../include/MeshLib/RegionEdition.h"
@@ -38,7 +39,7 @@ enum RegionOpType
 
 std::vector<VertexOpInfo> vertOpts;
 
-Eigen::MatrixXd triV, upsampledTriV;
+Eigen::MatrixXd triV, upsampledTriV, upsampledN;
 Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -292,11 +293,13 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	std::vector<int> facemap;
 
 	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
-	//loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
-
-	std::cout << "upsampling finished" << std::endl;
-
+	igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledN);
 	triMesh = MeshConnectivity(triF);
+	//loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
+	/*Eigen::MatrixXd vertN;
+	igl::per_vertex_normals(triV, triF, vertN);
+	spherigonSmoothing(triV, triMesh, vertN, bary, upsampledTriV, upsampledN);*/
+	
 	selectedFids.setZero(triMesh.nFaces());
 	initSelectedFids = selectedFids;
 }
@@ -607,8 +610,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 		shiftF.setConstant(curVerts);
 		shiftV.col(0).setConstant(3 * shiftx);
 		Eigen::MatrixXd tmpV = upPos - shiftV;
-		Eigen::MatrixXd tmpN;
-		igl::per_vertex_normals(tmpV, upF, tmpN);
+		//Eigen::MatrixXd tmpN;
+		//igl::per_vertex_normals(tmpV, upF, tmpN);
 
 		Eigen::MatrixXd wrinkledV = upPos;
 
@@ -616,8 +619,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 		for(int i = 0; i < nupverts; i++)
 		{
-			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
-			wrinkledV.row(i) =  upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
+			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * upsampledN.row(i);
+			wrinkledV.row(i) =  upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * upsampledN.row(i);
 			ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
 		}
 		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
