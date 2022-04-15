@@ -67,4 +67,6 @@ void rotateIntrinsicVector(const Eigen::MatrixXd& V, const MeshConnectivity& mes
 
 void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::vector<std::vector<int>>& vertNeiEdges, std::vector<std::vector<int>>& vertNeiFaces);
 
+Eigen::SparseMatrix<double> buildD0(const MeshConnectivity& mesh, int nverts);
+
 void mkdir(const std::string& foldername);
