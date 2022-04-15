@@ -11,6 +11,7 @@ cmake/FindMKL.cmake
 imgui.ini
 .DS_Store
 .vscode
+.vs
 *.swp
 tags
 *.blend1
