@@ -8,6 +8,7 @@ project(userDesignerApp)
 # Add your project files
 # Create an executable
 file(GLOB SRCFILES  
+    ../../dep/SecStencils/*.h
     ../../include/*.h
     ../../include/*.hpp
     ../../include/MeshLib/*.h
@@ -15,7 +16,8 @@ file(GLOB SRCFILES
     ../../include/Optimization/*.h
     ../../include/IntrinsicFormula/*.h
     *.h
-  
+
+    ../../dep/SecStencils/*.cpp
     ../../src/*.cpp
     ../../src/MeshLib/*.cpp
     ../../src/Visualization/*.cpp

@@ -7,6 +7,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/boundary_loop.h>
 #include <igl/doublearea.h>
+#include <igl/loop.h>
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/cotmatrix_entries.h>
@@ -27,6 +28,9 @@
 #include "../../include/IntrinsicFormula/WrinkleEditingStaticEdgeModel.h"
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../include/SpherigonSmoothing.h"
+#include "../../dep/SecStencils/types.h"
+#include "../../dep/SecStencils/Subd.h"
+#include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
 #include "../../include/MeshLib/RegionEdition.h"
@@ -39,11 +43,11 @@ enum RegionOpType
 
 std::vector<VertexOpInfo> vertOpts;
 
-Eigen::MatrixXd triV, upsampledTriV, upsampledN;
-Eigen::MatrixXi triF, upsampledTriF;
+Eigen::MatrixXd triV, upsampledTriV, loopTriV, upsampledN;
+Eigen::MatrixXi triF, upsampledTriF, loopTriF;
 MeshConnectivity triMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
-Eigen::SparseMatrix<double> loopMat;
+Eigen::SparseMatrix<double> loopMat, loopMatOneForm, loopMatTwoForm;
 
 Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
@@ -116,6 +120,7 @@ int dilationTimes = 10;
 
 bool isShowWrinkleColorField = false;
 bool isWarmStart = false;
+
 
 bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::VectorXd& edgeOmega)
 {
@@ -295,10 +300,39 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
 	igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledN);
 	triMesh = MeshConnectivity(triF);
-	//loopUpsampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &loopMat);
-	/*Eigen::MatrixXd vertN;
-	igl::per_vertex_normals(triV, triF, vertN);
-	spherigonSmoothing(triV, triMesh, vertN, bary, upsampledTriV, upsampledN);*/
+
+	Mesh mesh;
+	std::vector<Eigen::Vector3d> pos;
+	std::vector<std::vector<int>> faces;
+
+	pos.resize(triV.rows());
+	for (int i = 0; i < triV.rows(); i++)
+	{
+		pos[i] = triV.row(i);
+	}
+
+	faces.resize(triF.rows());
+	for (int i = 0; i < triF.rows(); i++)
+	{
+		faces[i] = { triF(i, 0), triF(i, 1), triF(i, 2) };
+	}
+
+	mesh.Populate(pos, faces);
+
+	Subd* subd = ChooseSubdivisionScheme(mesh, false);
+	Subdivide(mesh, loopLevel, true, loopMat, true, loopMatOneForm, true, loopMatTwoForm, subd, 0);
+	mesh = *subd->GetMesh();
+
+	subd->GetMesh()->GetPos(loopTriV);
+
+
+	loopTriF.setZero(subd->GetMesh()->GetFaceCount(), 3);
+	for (int i = 0; i < loopTriF.rows(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+			loopTriF(i, j) = subd->GetMesh()->GetFaceVerts(i)[j];
+	}
+
 	
 	selectedFids.setZero(triMesh.nFaces());
 	initSelectedFids = selectedFids;
@@ -692,6 +726,18 @@ void updateFieldsInView(int frameId)
 	{
 		polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("face vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
 		polyscope::getSurfaceMesh("input mesh")->getQuantity("face vector field")->setEnabled(true);
+	}
+
+	polyscope::registerSurfaceMesh("vector field mesh", loopTriV, loopTriF);
+	Eigen::VectorXd edgeVec = omegaList[frameId];
+	edgeVec = loopMatOneForm * edgeVec;
+
+	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, loopTriV, MeshConnectivity(loopTriF));
+
+	if (isShowVectorFields)
+	{
+		polyscope::getSurfaceMesh("vector field mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * faceVec, polyscope::VectorType::AMBIENT);
+		polyscope::getSurfaceMesh("vector field mesh")->getQuantity("upsampled vector field")->setEnabled(true);
 	}
 
 }
@@ -1177,6 +1223,7 @@ void callback() {
 
 	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
 	{
+		
 		updateEditionDomain();
 		// solve for the path from source to target
 		solveKeyFrames(initAmp, initOmega, faceFlags, omegaList, zList);
