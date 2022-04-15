@@ -95,6 +95,7 @@ static void midPoint(const int n_verts, const Eigen::MatrixXi& F, Eigen::SparseM
 	if (faceTracing)
 		faceTracing->resize(F.rows() * 4);
 	NF.resize(F.rows() * 4, 3);
+
 	for (int i = 0; i < F.rows(); ++i)
 	{
 		Eigen::VectorXi VI(6);
@@ -103,8 +104,8 @@ static void midPoint(const int n_verts, const Eigen::MatrixXi& F, Eigen::SparseM
 		Eigen::VectorXi f0(3), f1(3), f2(3), f3(3);
 		f0 << VI(0), VI(3), VI(5);
 		f1 << VI(1), VI(4), VI(3);
-		f2 << VI(3), VI(4), VI(5);
-		f3 << VI(4), VI(2), VI(5);
+		f2 << VI(2), VI(5), VI(4);
+		f3 << VI(3), VI(4), VI(5);
 
 		NF.row((i * 4) + 0) = f0;
 		NF.row((i * 4) + 1) = f1;
@@ -371,9 +372,9 @@ static void loopWithCorners(
 			}
 			else
 			{
-				//beta = 3. / 8. / dn;
-				double c0 = (3. / 8. + 1. / 4. * std::cos(2 * M_PI / dn));
-				beta = 1. / dn * (5. / 8. - c0 * c0);
+				beta = 3. / 8. / dn;
+				//double c0 = (3. / 8. + 1. / 4. * std::cos(2 * M_PI / dn));
+				//beta = 1. / dn * (5. / 8. - c0 * c0);
 			}
 			for (int j = 0; j < n; ++j)
 			{
@@ -418,8 +419,8 @@ static void loopWithCorners(
 		Eigen::VectorXi f0(3), f1(3), f2(3), f3(3);
 		f0 << VI(0), VI(3), VI(5);
 		f1 << VI(1), VI(4), VI(3);
-		f2 << VI(3), VI(4), VI(5);
-		f3 << VI(4), VI(2), VI(5);
+		f2 << VI(2), VI(5), VI(4);
+		f3 << VI(3), VI(4), VI(5);
 
 		NF.row((i * 4) + 0) = f0;
 		NF.row((i * 4) + 1) = f1;
@@ -434,12 +435,12 @@ static void loopWithCorners(
 	NF = F;
 
 	std::set<int> fixedVids;
-	std::vector<int> bnds;
+	/*std::vector<int> bnds;
 	igl::boundary_loop(F, bnds);
 	for (auto& it : bnds)
 	{
 		fixedVids.insert(it);
-	}
+	}*/
 	if (loopMat)
 	{
 		loopMat->resize(V.rows(), V.rows());
