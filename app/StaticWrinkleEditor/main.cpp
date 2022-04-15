@@ -46,6 +46,7 @@ std::vector<VertexOpInfo> vertOpts;
 Eigen::MatrixXd triV, upsampledTriV, loopTriV, upsampledN;
 Eigen::MatrixXi triF, upsampledTriF, loopTriF;
 MeshConnectivity triMesh;
+Mesh secMesh, subSecMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
 Eigen::SparseMatrix<double> loopMat, loopMatOneForm, loopMatTwoForm;
 
@@ -56,7 +57,8 @@ std::vector<Eigen::VectorXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
-
+std::vector<Eigen::VectorXd> subOmegaList;
+std::vector<Eigen::MatrixXd> subFaceOmegaList;
 
 std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
@@ -121,6 +123,123 @@ int dilationTimes = 10;
 bool isShowWrinkleColorField = false;
 bool isWarmStart = false;
 
+
+std::map<std::pair<int, int>, int> he2Edge(const Eigen::MatrixXi& faces)
+{
+    std::map< std::pair<int,int>, int > heToEdge;
+    std::vector< std::vector<int> > edgeToVert;
+    for (int face = 0; face < faces.rows(); ++face)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            int vi = faces(face, i);
+            int vj = faces(face, (i+1) % 3);
+            assert(vi != vj);
+
+            std::pair<int, int> he = std::make_pair(vi, vj);
+            if (he.first > he.second) std::swap(he.first, he.second);
+            if (heToEdge.find(he) != heToEdge.end()) continue;
+
+            heToEdge[he] = edgeToVert.size();
+            edgeToVert.push_back(std::vector<int>(2));
+            edgeToVert.back()[0] = he.first;
+            edgeToVert.back()[1] = he.second;
+        }
+    }
+    return heToEdge;
+}
+
+Eigen::VectorXd swapEdgeVec(const Eigen::MatrixXi& faces, const Eigen::VectorXd& edgeVec, int flag)
+{
+    Eigen::VectorXd  edgeVecSwap = edgeVec;
+    std::map< std::pair<int,int>, int > heToEdge = he2Edge(faces);
+
+    int idx=0;
+    for(auto it : heToEdge)
+    {
+        if(flag == 0)   // ours to secstencils
+            edgeVecSwap(it.second) = edgeVec(idx);
+        else
+            edgeVecSwap(idx) = edgeVec(it.second);
+        idx++;
+    }
+    return edgeVecSwap;
+}
+
+std::vector<std::vector<int>> swapEdgeIndices(const Eigen::MatrixXi& faces, const std::vector<std::vector<int>> &edgeIndices , int flag)
+{
+    std::vector<std::vector<int>> edgeIndicesSwap = edgeIndices;
+    std::map< std::pair<int,int>, int > heToEdge = he2Edge(faces);
+
+    int idx=0;
+    for(auto it : heToEdge)
+    {
+        if(flag == 0)   // ours to secstencils
+        {
+            edgeIndicesSwap[it.second] = edgeIndices[idx];
+        }
+        else
+        {
+            edgeIndicesSwap[idx] = edgeIndices[it.second];
+        }
+        idx++;
+    }
+
+    return edgeIndicesSwap;
+}
+
+Eigen::MatrixXd edgeVec2FaceVec(const Mesh &mesh, Eigen::VectorXd &edgeVec)
+{
+    int nfaces = mesh.GetFaceCount();
+    Eigen::MatrixXd fVec(nfaces, 3);
+    fVec.setZero();
+
+    for(int f = 0; f < nfaces; f++)
+    {
+        std::vector<int> faceEdges = mesh.GetFaceEdges(f);
+        std::vector<int> faceVerts = mesh.GetFaceVerts(f);
+        for(int j = 0; j < 3; j++)
+        {
+            int vid = faceVerts[j];
+            int eid0 = faceEdges[j];
+            int eid1 = faceEdges[(j + 2) % 3];
+
+            Eigen::Vector3d e0 = mesh.GetVertPos(faceVerts[(j + 1) % 3]) - mesh.GetVertPos(vid);
+            Eigen::Vector3d e1 = mesh.GetVertPos(faceVerts[(j + 2) % 3]) - mesh.GetVertPos(vid);
+
+            int flag0 = 1, flag1 = 1;
+            Eigen::Vector2d rhs;
+
+            if (mesh.GetEdgeVerts(eid0)[0] == vid)
+            {
+                flag0 = 1;
+            }
+            else
+            {
+                flag0 = -1;
+            }
+
+
+            if (mesh.GetEdgeVerts(eid1)[0] == vid)
+            {
+                flag1 = 1;
+            }
+            else
+            {
+                flag1 = -1;
+            }
+            rhs(0) = flag0 * edgeVec(eid0);
+            rhs(1) = flag1 * edgeVec(eid1);
+
+            Eigen::Matrix2d I;
+            I << e0.dot(e0), e0.dot(e1), e1.dot(e0), e1.dot(e1);
+            Eigen::Vector2d sol = I.inverse() * rhs;
+
+            fVec.row(f) += (sol(0) * e0 + sol(1) * e1) / 3;
+        }
+    }
+    return fVec;
+}
 
 bool loadEdgeOmega(const std::string& filename, const int &nlines, Eigen::VectorXd& edgeOmega)
 {
@@ -292,6 +411,35 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 	tbb::parallel_for(rangex, computeMagPhase);
 }
 
+void updateSubOmega(const std::vector<Eigen::VectorXd>& wFrames, std::vector<Eigen::VectorXd>& subOmegaList, std::vector<Eigen::MatrixXd>& subFaceOmegaList)
+{
+    std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
+    subOmegaList.resize(wFrames.size());
+    subFaceOmegaList.resize(wFrames.size());
+
+    MeshConnectivity mesh(triF);
+
+    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            Eigen::VectorXd edgeVec = wFrames[i];
+
+            edgeVec = swapEdgeVec(triF, edgeVec, 0);
+            edgeVec = loopMatOneForm * edgeVec;
+
+            subOmegaList[i] = edgeVec;
+            Eigen::MatrixXd faceVec = edgeVec2FaceVec(subSecMesh, edgeVec);
+
+            subFaceOmegaList[i] = faceVec;
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
+    tbb::parallel_for(rangex, computeMagPhase);
+}
+
+
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
 	Eigen::SparseMatrix<double> S;
@@ -301,39 +449,36 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledN);
 	triMesh = MeshConnectivity(triF);
 
-	Mesh mesh;
-	std::vector<Eigen::Vector3d> pos;
-	std::vector<std::vector<int>> faces;
+    std::vector<Eigen::Vector3d> pos;
+    std::vector<std::vector<int>> faces;
 
-	pos.resize(triV.rows());
-	for (int i = 0; i < triV.rows(); i++)
-	{
-		pos[i] = triV.row(i);
-	}
+    pos.resize(triV.rows());
+    for (int i = 0; i < triV.rows(); i++)
+    {
+        pos[i] = triV.row(i);
+    }
 
-	faces.resize(triF.rows());
-	for (int i = 0; i < triF.rows(); i++)
-	{
-		faces[i] = { triF(i, 0), triF(i, 1), triF(i, 2) };
-	}
+    faces.resize(triF.rows());
+    for (int i = 0; i < triF.rows(); i++)
+    {
+        faces[i] = { triF(i, 0), triF(i, 1), triF(i, 2) };
+    }
 
-	mesh.Populate(pos, faces);
+    secMesh.Populate(pos, faces);
+    subSecMesh = secMesh;
 
-	Subd* subd = ChooseSubdivisionScheme(mesh, false);
-	Subdivide(mesh, loopLevel, true, loopMat, true, loopMatOneForm, true, loopMatTwoForm, subd, 0);
-	mesh = *subd->GetMesh();
-
-	subd->GetMesh()->GetPos(loopTriV);
+    Subd* subd = ChooseSubdivisionScheme(subSecMesh, false);
+    Subdivide(subSecMesh, loopLevel, true, loopMat, true, loopMatOneForm, true, loopMatTwoForm, subd, 0);
 
 
-	loopTriF.setZero(subd->GetMesh()->GetFaceCount(), 3);
-	for (int i = 0; i < loopTriF.rows(); i++)
-	{
-		for (int j = 0; j < 3; j++)
-			loopTriF(i, j) = subd->GetMesh()->GetFaceVerts(i)[j];
-	}
+    subSecMesh.GetPos(loopTriV);
+    loopTriF.resize(subSecMesh.GetFaceCount(), 3);
+    for(int i = 0; i < loopTriF.rows(); i++)
+    {
+        for(int j = 0; j < 3; j++)
+            loopTriF(i, j) = subSecMesh.GetFaceVerts(i)[j];
+    }
 
-	
 	selectedFids.setZero(triMesh.nFaces());
 	initSelectedFids = selectedFids;
 }
@@ -396,13 +541,17 @@ void updatePaintingItems()
 	// get interploated amp and phase frames
 	std::cout << "compute upsampled phase: " << std::endl;
 	updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
-	std::cout << "compute upsampled phase finished!" << std::endl;
+    std::cout << "compute upsampled omega: " << std::endl;
+    updateSubOmega(omegaList, subOmegaList, subFaceOmegaList);
+
+
+    std::cout << "compute face vector fields:" << std::endl;
 	faceOmegaList.resize(omegaList.size());
 	for (int i = 0; i < omegaList.size(); i++)
 	{
 		faceOmegaList[i] = intrinsicEdgeVec2FaceVec(omegaList[i], triV, triMesh);
 	}
-	std::cout << "compute face vector fields finished!" << std::endl;
+
 
 	// update global maximum amplitude
 	std::cout << "update max and min amp. " << std::endl;
@@ -728,15 +877,25 @@ void updateFieldsInView(int frameId)
 		polyscope::getSurfaceMesh("input mesh")->getQuantity("face vector field")->setEnabled(true);
 	}
 
-	polyscope::registerSurfaceMesh("vector field mesh", loopTriV, loopTriF);
-	Eigen::VectorXd edgeVec = omegaList[frameId];
-	edgeVec = loopMatOneForm * edgeVec;
+    double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+    std::cout << shiftx << std::endl;
+    
+    polyscope::registerSurfaceMesh("init vector field mesh", triV, triF);
 
-	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, loopTriV, MeshConnectivity(loopTriF));
+    polyscope::getSurfaceMesh("init vector field mesh")->translate(glm::vec3(shiftx, 0, 0));
+
+    if (isShowVectorFields)
+    {
+        polyscope::getSurfaceMesh("init vector field mesh")->addFaceVectorQuantity("vector field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
+        polyscope::getSurfaceMesh("init vector field mesh")->getQuantity("vector field")->setEnabled(true);
+    }
+    
+
+    polyscope::registerSurfaceMesh("vector field mesh", loopTriV, loopTriF);
 
 	if (isShowVectorFields)
 	{
-		polyscope::getSurfaceMesh("vector field mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * faceVec, polyscope::VectorType::AMBIENT);
+		polyscope::getSurfaceMesh("vector field mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 		polyscope::getSurfaceMesh("vector field mesh")->getQuantity("upsampled vector field")->setEnabled(true);
 	}
 
@@ -787,6 +946,8 @@ bool loadProblem()
 
 	std::string meshFile = jval["mesh_name"];
 	loopLevel = jval["upsampled_times"];
+    loopLevel = 1;
+    
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
 

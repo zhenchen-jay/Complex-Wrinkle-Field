@@ -748,6 +748,25 @@ void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::v
 
 }
 
+
+Eigen::SparseMatrix<double> buildD0(const MeshConnectivity& mesh, int nverts)
+{
+    int nedges = mesh.nEdges();
+
+    std::vector<Eigen::Triplet<double>> T;
+
+    for(int i = 0; i < nedges; i++)
+    {
+        T.push_back(Eigen::Triplet<double>(i, mesh.edgeVertex(i, 1), 1));
+        T.push_back(Eigen::Triplet<double>(i, mesh.edgeVertex(i, 0), -1));
+    }
+
+    Eigen::SparseMatrix<double> M;
+    M.resize(nedges, nverts);
+    M.setFromTriplets(T.begin(), T.end());
+    return M;
+}
+
 void mkdir(const std::string& foldername)
 {
     if (!std::filesystem::exists(foldername))
