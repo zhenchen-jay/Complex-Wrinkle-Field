@@ -535,13 +535,13 @@ Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const E
     rhs.segment(0, 3 * nverts) = ATb;
 
 	//Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver(A);
-	Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
+	/*Eigen::SPQR<Eigen::SparseMatrix<double>> solver(A);
 	Eigen::VectorXd sol = solver.solve(rhs);
 
 	for (int i = 0; i < nverts; i++)
 	{
 		vertOmega.row(i) = sol.segment<3>(3 * i);
-	}
+	}*/
 	return vertOmega;
 }
 
