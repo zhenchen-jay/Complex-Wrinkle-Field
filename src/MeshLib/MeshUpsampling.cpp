@@ -1,5 +1,8 @@
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/MeshLib/MeshConnectivity.h"
+#include "../../dep/SecStencils/Subd.h"
+#include "../../dep/SecStencils/Loop.h"
+
 #include <igl/adjacency_list.h>
 #include <igl/triangle_triangle_adjacency.h>
 #include <igl/unique.h>
@@ -463,4 +466,42 @@ static void loopWithCorners(
 	}
 
 }
+
+ void subdivideWrinkleFields(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, int level, Mesh& subMesh, Eigen::VectorXd& upOmega, std::vector<std::complex<double>>& upZvals)
+ {
+	 subMesh = mesh;
+	 upOmega = omega;
+	 upZvals = zvals;
+	 if (level == 0)
+	 {
+		 return;
+	 }
+
+	 int nverts = mesh.GetVertCount();
+
+	 Eigen::VectorXd amp(nverts);
+	 Eigen::VectorXd theta(nverts);
+
+	 for (int i = 0; i < nverts; i++)
+	 {
+		 amp(i) = std::abs(zvals[i]);
+		 theta(i) = std::arg(zvals[i]);
+	 }
+	 
+	 Subd* subd = ChooseSubdivisionScheme(mesh, false); // use loop subdivision
+
+	 SparseMatrixX S0;
+	 SparseMatrixX S1;
+
+	 BuildDiagonalMatrix(VectorX::Ones(mesh.GetVertCount()), S0);
+	 BuildDiagonalMatrix(VectorX::Ones(mesh.GetEdgeCount()), S1);
+
+
+	 for (int l = 0; l < level; ++l)
+	 {
+		
+	 }
+
+ }
+
 

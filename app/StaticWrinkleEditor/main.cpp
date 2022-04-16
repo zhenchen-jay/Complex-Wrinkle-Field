@@ -33,6 +33,7 @@
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
+#include "../../include/ComplexLoop.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
 enum RegionOpType
@@ -43,8 +44,8 @@ enum RegionOpType
 
 std::vector<VertexOpInfo> vertOpts;
 
-Eigen::MatrixXd triV, upsampledTriV, loopTriV, upsampledN;
-Eigen::MatrixXi triF, upsampledTriF, loopTriF;
+Eigen::MatrixXd triV, upsampledTriV;
+Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
 Mesh secMesh, subSecMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -191,6 +192,7 @@ std::vector<std::vector<int>> swapEdgeIndices(const Eigen::MatrixXi& faces, cons
 Eigen::MatrixXd edgeVec2FaceVec(const Mesh &mesh, Eigen::VectorXd &edgeVec)
 {
     int nfaces = mesh.GetFaceCount();
+	int nedges = mesh.GetEdgeCount();
     Eigen::MatrixXd fVec(nfaces, 3);
     fVec.setZero();
 
@@ -389,15 +391,27 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 	magList.resize(wFrames.size());
 	phaseList.resize(wFrames.size());
 
+	subOmegaList.resize(wFrames.size());
+	subFaceOmegaList.resize(wFrames.size());
+
 	MeshConnectivity mesh(triF);
 
 	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
+			Eigen::VectorXd edgeVec = wFrames[i];
+			edgeVec = swapEdgeVec(triF, edgeVec, 0);
+
+			Mesh tmpMesh;
+
+			Subdivide(secMesh, edgeVec, zFrames[i], subOmegaList[i], interpZList[i], loopLevel, tmpMesh);
 			magList[i].setZero(interpZList[i].size());
 			phaseList[i].setZero(interpZList[i].size());
+
+			Eigen::MatrixXd faceVec = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
+
+			subFaceOmegaList[i] = faceVec;
 
 			for (int j = 0; j < magList[i].size(); j++)
 			{
@@ -409,11 +423,35 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
+
+	/*for (uint32_t i = 0; i < interpZList.size(); ++i)
+	{
+		Eigen::VectorXd edgeVec = wFrames[i];
+		edgeVec = swapEdgeVec(triF, edgeVec, 0);
+
+		Mesh tmpMesh;
+
+		Subdivide(secMesh, edgeVec, zFrames[i], subOmegaList[i], interpZList[i], loopLevel, tmpMesh);
+		magList[i].setZero(interpZList[i].size());
+		phaseList[i].setZero(interpZList[i].size());
+
+		Eigen::MatrixXd faceVec = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
+
+		subFaceOmegaList[i] = faceVec;
+
+		for (int j = 0; j < magList[i].size(); j++)
+		{
+			magList[i](j) = std::abs(interpZList[i][j]);
+			phaseList[i](j) = std::arg(interpZList[i][j]);
+		}
+	}*/
+
+
 }
 
 void updateSubOmega(const std::vector<Eigen::VectorXd>& wFrames, std::vector<Eigen::VectorXd>& subOmegaList, std::vector<Eigen::MatrixXd>& subFaceOmegaList)
 {
-    std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
+   /* std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
     subOmegaList.resize(wFrames.size());
     subFaceOmegaList.resize(wFrames.size());
 
@@ -436,7 +474,7 @@ void updateSubOmega(const std::vector<Eigen::VectorXd>& wFrames, std::vector<Eig
     };
 
     tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
-    tbb::parallel_for(rangex, computeMagPhase);
+    tbb::parallel_for(rangex, computeMagPhase);*/
 }
 
 
@@ -445,8 +483,6 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	Eigen::SparseMatrix<double> S;
 	std::vector<int> facemap;
 
-	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, loopLevel, &S, &facemap, &bary);
-	igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledN);
 	triMesh = MeshConnectivity(triF);
 
     std::vector<Eigen::Vector3d> pos;
@@ -471,16 +507,17 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
     Subdivide(subSecMesh, loopLevel, true, loopMat, true, loopMatOneForm, true, loopMatTwoForm, subd, 0);
 
 
-    subSecMesh.GetPos(loopTriV);
-    loopTriF.resize(subSecMesh.GetFaceCount(), 3);
-    for(int i = 0; i < loopTriF.rows(); i++)
+    subSecMesh.GetPos(upsampledTriV);
+	upsampledTriF.resize(subSecMesh.GetFaceCount(), 3);
+    for(int i = 0; i < upsampledTriF.rows(); i++)
     {
         for(int j = 0; j < 3; j++)
-            loopTriF(i, j) = subSecMesh.GetFaceVerts(i)[j];
+			upsampledTriF(i, j) = subSecMesh.GetFaceVerts(i)[j];
     }
 
 	selectedFids.setZero(triMesh.nFaces());
 	initSelectedFids = selectedFids;
+	
 }
 
 
@@ -793,8 +830,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 		shiftF.setConstant(curVerts);
 		shiftV.col(0).setConstant(3 * shiftx);
 		Eigen::MatrixXd tmpV = upPos - shiftV;
-		//Eigen::MatrixXd tmpN;
-		//igl::per_vertex_normals(tmpV, upF, tmpN);
+		Eigen::MatrixXd tmpN;
+		igl::per_vertex_normals(tmpV, upF, tmpN);
 
 		Eigen::MatrixXd wrinkledV = upPos;
 
@@ -802,8 +839,8 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 		for(int i = 0; i < nupverts; i++)
 		{
-			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * upsampledN.row(i);
-			wrinkledV.row(i) =  upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * upsampledN.row(i);
+			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
+			wrinkledV.row(i) =  upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
 			ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
 		}
 		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
@@ -891,7 +928,7 @@ void updateFieldsInView(int frameId)
     }
     
 
-    polyscope::registerSurfaceMesh("vector field mesh", loopTriV, loopTriF);
+    polyscope::registerSurfaceMesh("vector field mesh", upsampledTriV, upsampledTriF);
 
 	if (isShowVectorFields)
 	{
@@ -946,7 +983,6 @@ bool loadProblem()
 
 	std::string meshFile = jval["mesh_name"];
 	loopLevel = jval["upsampled_times"];
-    loopLevel = 1;
     
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
@@ -1069,12 +1105,14 @@ bool loadProblem()
 		std::cout << "failed to load zvals and omegas from file, set them to be random values!" << std::endl;
 		zList.resize(numFrames);
 		omegaList.resize(numFrames);
+		omegaList = refOmegaList;
 
 		for (int i = 0; i < numFrames; i++)
 		{
-			omegaList[i].setRandom(nedges, 2);
+			//omegaList[i].setRandom(nedges);
 			Eigen::Vector2d rnd = Eigen::Vector2d::Random();
-			zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
+			//zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
+			zList[i].resize(nverts, std::complex<double>(1, 0));
 		}
 	}
 
