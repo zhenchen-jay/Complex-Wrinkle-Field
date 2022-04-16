@@ -920,20 +920,20 @@ void updateFieldsInView(int frameId)
     polyscope::registerSurfaceMesh("init vector field mesh", triV, triF);
 
     polyscope::getSurfaceMesh("init vector field mesh")->translate(glm::vec3(shiftx, 0, 0));
+	polyscope::getSurfaceMesh("init vector field mesh")->setEnabled(false);
 
     if (isShowVectorFields)
     {
         polyscope::getSurfaceMesh("init vector field mesh")->addFaceVectorQuantity("vector field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-        polyscope::getSurfaceMesh("init vector field mesh")->getQuantity("vector field")->setEnabled(true);
     }
     
 
     polyscope::registerSurfaceMesh("vector field mesh", upsampledTriV, upsampledTriF);
+	polyscope::getSurfaceMesh("vector field mesh")->setEnabled(false);
 
 	if (isShowVectorFields)
 	{
 		polyscope::getSurfaceMesh("vector field mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-		polyscope::getSurfaceMesh("vector field mesh")->getQuantity("upsampled vector field")->setEnabled(true);
 	}
 
 }
