@@ -358,13 +358,13 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 					_zvalsList[id][j].imag() * _zvalsList[id][j].imag();
 				double refAmpSq = _combinedRefAmpList[id][j] * _combinedRefAmpList[id][j];
 
-				energy += _spatialAmpRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
+				energy += _spatialAmpRatio * _vertArea(j) * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
 
 				if (grad)
 				{
-					(*grad)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(*grad)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 						(2.0 * _zvalsList[id][j].real());
-					(*grad)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(*grad)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 						(2.0 * _zvalsList[id][j].imag());
 				}
 
@@ -374,8 +374,8 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 					tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
 						2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
 
-					tmpHess *= 2.0 * _spatialAmpRatio / (aveAmp * aveAmp);
-					tmpHess += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+					tmpHess *= 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp);
+					tmpHess += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
 
 					if (isProj)
 						tmpHess = SPDProjection(tmpHess);
@@ -397,6 +397,7 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 
 			Eigen::VectorXd edgeWeight(nedges);
 			edgeWeight.setOnes();
+			edgeWeight = _edgeArea;
 
 			double knoppel = IntrinsicFormula::KnoppelEdgeEnergyGivenMag(_mesh, _combinedRefOmegaList[id], _combinedRefAmpList[id] / aveAmp, edgeWeight, _zvalsList[id], grad ? &kDeriv : NULL, hess ? &kT : NULL);
 			energy += _spatialKnoppelRatio * knoppel;
