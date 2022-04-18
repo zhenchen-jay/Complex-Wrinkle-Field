@@ -1,6 +1,7 @@
 #include "../include/ComplexLoop.h"
 #include <iostream>
 #include <cassert>
+#include <memory>
 
 bool
 ComplexLoop::IsVertRegular(int vert) const
@@ -180,7 +181,7 @@ ComplexLoop::BuildS0(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
 
@@ -218,9 +219,9 @@ ComplexLoop::_AssembleVertEvenInterior(int vi, TripletInserter out) const
         int edge = edges[k];
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge + 1) % 2];
-        *out++ = Triplet(row, vj, alpha);
+        *out++ = TripletX(row, vj, alpha);
     }
-    *out++ = Triplet(row, vi, 1. - alpha * edges.size());
+    *out++ = TripletX(row, vi, 1. - alpha * edges.size());
 }
 
 void
@@ -238,9 +239,9 @@ ComplexLoop::_AssembleVertEvenBoundary(int vi, TripletInserter out) const
         assert(_meshPtr->IsEdgeBoundary(edge));
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge + 1) % 2];
-        *out++ = Triplet(row, vj, 0.125);
+        *out++ = TripletX(row, vj, 0.125);
     }
-    *out++ = Triplet(row, vi, 0.75);
+    *out++ = TripletX(row, vi, 0.75);
 }
 
 void
@@ -257,9 +258,9 @@ ComplexLoop::_AssembleVertOddInterior(int edge, TripletInserter out) const
         int vk = _meshPtr->GetFaceVerts(face)[(offset + 2) % 3];
 
         int row = _GetEdgeVertIndex(edge);
-        *out++ = Triplet(row, vi, 0.1875);
-        *out++ = Triplet(row, vj, 0.1875);
-        *out++ = Triplet(row, vk, 0.125);
+        *out++ = TripletX(row, vi, 0.1875);
+        *out++ = TripletX(row, vj, 0.1875);
+        *out++ = TripletX(row, vk, 0.125);
     }
 }
 
@@ -271,7 +272,7 @@ ComplexLoop::_AssembleVertOddBoundary(int edge, TripletInserter out) const
     for (int j = 0; j < 2; ++j)
     {
         int vj = _meshPtr->GetEdgeVerts(edge)[j];
-        *out++ = Triplet(row, vj, 0.5);
+        *out++ = TripletX(row, vj, 0.5);
     }
 }
 
@@ -280,7 +281,7 @@ void ComplexLoop::BuildComplexS0(SparseMatrixX& A, SparseMatrixX& B) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> tripletsV, tripletsE;
+    std::vector<TripletX> tripletsV, tripletsE;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
 
@@ -323,9 +324,9 @@ void ComplexLoop::_AssembleVertEvenInterior(int vi, TripletInserter outV, Triple
         int sign = 1;
         if (viInEdge == 1)
             sign *= -1;
-        *outE++ = Triplet(row, edge, sign * alpha);
+        *outE++ = TripletX(row, edge, sign * alpha);
     }
-    *outV++ = Triplet(row, vi, 1.);
+    *outV++ = TripletX(row, vi, 1.);
 }
 
 
@@ -346,9 +347,9 @@ void ComplexLoop::_AssembleVertEvenBoundary(int vi, TripletInserter outV, Triple
         if (viInEdge == 1)
             sign *= -1;
 
-        *outE++ = Triplet(row, edge, sign * 0.125);
+        *outE++ = TripletX(row, edge, sign * 0.125);
     }
-    *outV++ = Triplet(row, vi, 1.);
+    *outV++ = TripletX(row, vi, 1.);
 }
 
 void ComplexLoop::_AssembleVertOddInterior(int edge, TripletInserter outV, TripletInserter outE) const
@@ -373,20 +374,20 @@ void ComplexLoop::_AssembleVertOddInterior(int edge, TripletInserter outV, Tripl
         if (_meshPtr->GetVertIndexInEdge(ej, vj) == 1)
             sign1 *= -1;
 
-        *outE++ = Triplet(row, ek, sign0 * 1. / 16);
-        *outE++ = Triplet(row, ej, sign1 * 1. / 16);
+        *outE++ = TripletX(row, ek, sign0 * 1. / 16);
+        *outE++ = TripletX(row, ej, sign1 * 1. / 16);
     }
 
-    *outE++ = Triplet(row, edge, 1. / 2);
-    *outV++ = Triplet(row, _meshPtr->GetEdgeVerts(edge)[0], 1.);
+    *outE++ = TripletX(row, edge, 1. / 2);
+    *outV++ = TripletX(row, _meshPtr->GetEdgeVerts(edge)[0], 1.);
 }
 
 void ComplexLoop::_AssembleVertOddBoundary(int edge, TripletInserter outV, TripletInserter outE) const
 {
     int row = _GetEdgeVertIndex(edge);
 
-    *outE++ = Triplet(row, edge, 1. / 2.);
-    *outV++ = Triplet(row, _meshPtr->GetEdgeVerts(edge)[0], 1.);
+    *outE++ = TripletX(row, edge, 1. / 2.);
+    *outV++ = TripletX(row, _meshPtr->GetEdgeVerts(edge)[0], 1.);
 }
 
 
@@ -396,7 +397,7 @@ ComplexLoop::BuildS1(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
 
@@ -451,14 +452,14 @@ ComplexLoop::_AssembleEdgeEvenBoundary(int edge, int vertInEdge, TripletInserter
     if (edge == nEdge)
     {
         // Symmetric case of Fig8 right in [Wang et al. 2006]
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? -0.375 : 0.375);
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? 0.125 : -0.125);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.375 : 0.375);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? 0.125 : -0.125);
     }
     else
     {
         // Fig8 right in [Wang et al. 2006]
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? -0.375 : 0.375);
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? 0.125 : -0.125);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.375 : 0.375);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? 0.125 : -0.125);
     }
 }
 
@@ -468,7 +469,7 @@ ComplexLoop::_InsertEdgeEdgeValue(int row, int col, int vert, int rSign, Scalar 
     // Handy function that sets the sign of val for an edge col incident to vert.
     int vertInCol = _meshPtr->GetVertIndexInEdge(col, vert);
     int sign = _meshPtr->GetVertSignInEdge(col, vertInCol);
-    *out++ = Triplet(row, col, (sign == rSign) ? -val : val);
+    *out++ = TripletX(row, col, (sign == rSign) ? -val : val);
 }
 
 void
@@ -479,7 +480,7 @@ ComplexLoop::_InsertEdgeFaceValue(int row, int face, int vert, int rSign, Scalar
     int colInFace = (vertInFace + 1) % 3;
     int col = _meshPtr->GetFaceEdges(face)[colInFace];
     int sign = _meshPtr->GetEdgeSignInFace(face, colInFace);
-    *out++ = Triplet(row, col, (sign == rSign) ? val : -val);
+    *out++ = TripletX(row, col, (sign == rSign) ? val : -val);
 }
 
 void
@@ -737,30 +738,30 @@ ComplexLoop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) con
     if (nBdry && pBdry)
     {
         // Ear case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign) ? 0.25 : -0.25);
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? -0.25 : 0.25);
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? -0.25 : 0.25);
+        *out++ = TripletX(row, oEdge, (oSign == rSign) ? 0.25 : -0.25);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.25 : 0.25);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.25 : 0.25);
     }
     else if (nBdry)
     {
         // Symmetric case of Fig10 top-left in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign) ? 0.21875 : -0.21875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? -0.1875 : 0.1875);
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? -0.15625 : 0.15625);
+        *out++ = TripletX(row, oEdge, (oSign == rSign) ? 0.21875 : -0.21875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.1875 : 0.1875);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.15625 : 0.15625);
     }
     else if (pBdry)
     {
         // Fig10 top-left in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign) ? 0.21875 : -0.21875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? -0.15625 : 0.15625);
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? -0.1875 : 0.1875);
+        *out++ = TripletX(row, oEdge, (oSign == rSign) ? 0.21875 : -0.21875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.15625 : 0.15625);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.1875 : 0.1875);
     }
     else
     {
         // Fig4 mid-bot [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign) ? 0.1875 : -0.1875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign) ? -0.09375 : 0.09375);
-        *out++ = Triplet(row, nEdge, (nSign == rSign) ? -0.09375 : 0.09375);
+        *out++ = TripletX(row, oEdge, (oSign == rSign) ? 0.1875 : -0.1875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.09375 : 0.09375);
+        *out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.09375 : 0.09375);
     }
 
     std::vector<int> flaps;
@@ -782,7 +783,7 @@ ComplexLoop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) con
             int cEdge = _meshPtr->GetFaceEdges(flap)[(edgeInFlap + j) % 3];
             int cSign = _meshPtr->GetEdgeSignInFace(flap, (edgeInFlap + j) % 3);
             if (_meshPtr->GetVertIndexInEdge(cEdge, vert) == -1) val = -0.03125;
-            *out++ = Triplet(row, cEdge, (cSign == rSign) ? -val : val);
+            *out++ = TripletX(row, cEdge, (cSign == rSign) ? -val : val);
         }
     }
 }

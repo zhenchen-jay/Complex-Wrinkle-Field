@@ -180,7 +180,7 @@ Loop::BuildS0(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
 
@@ -218,9 +218,9 @@ Loop::_AssembleVertEvenInterior(int vi, TripletInserter out) const
         int edge = edges[k];
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge+1)%2];
-        *out++ = Triplet(row, vj, alpha);
+        *out++ = TripletX(row, vj, alpha);
     }
-    *out++ = Triplet(row, vi, 1. - alpha * edges.size());
+    *out++ = TripletX(row, vi, 1. - alpha * edges.size());
 }
 
 void
@@ -238,9 +238,9 @@ Loop::_AssembleVertEvenBoundary(int vi, TripletInserter out) const
         assert(_meshPtr->IsEdgeBoundary(edge));
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge+1)%2];
-        *out++ = Triplet(row, vj, 0.125);
+        *out++ = TripletX(row, vj, 0.125);
     }
-    *out++ = Triplet(row, vi, 0.75);
+    *out++ = TripletX(row, vi, 0.75);
 }
 
 void 
@@ -257,9 +257,9 @@ Loop::_AssembleVertOddInterior(int edge, TripletInserter out) const
         int vk = _meshPtr->GetFaceVerts(face)[(offset+2)%3];
 
         int row = _GetEdgeVertIndex(edge);
-        *out++ = Triplet(row, vi, 0.1875);
-        *out++ = Triplet(row, vj, 0.1875);
-        *out++ = Triplet(row, vk, 0.125 );
+        *out++ = TripletX(row, vi, 0.1875);
+        *out++ = TripletX(row, vj, 0.1875);
+        *out++ = TripletX(row, vk, 0.125 );
     }
 }
 
@@ -271,7 +271,7 @@ Loop::_AssembleVertOddBoundary(int edge, TripletInserter out) const
     for (int j = 0; j < 2; ++j)
     {
         int vj = _meshPtr->GetEdgeVerts(edge)[j];
-        *out++ = Triplet(row, vj, 0.5);
+        *out++ = TripletX(row, vj, 0.5);
     }
 }
 
@@ -281,7 +281,7 @@ Loop::BuildS1(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
 
@@ -336,14 +336,14 @@ Loop::_AssembleEdgeEvenBoundary(int edge, int vertInEdge, TripletInserter out) c
     if (edge == nEdge)
     {
         // Symmetric case of Fig8 right in [Wang et al. 2006]
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.375 :  0.375);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)?  0.125 : -0.125);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.375 :  0.375);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)?  0.125 : -0.125);
     }
     else
     {
         // Fig8 right in [Wang et al. 2006]
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.375 :  0.375);
-        *out++ = Triplet(row, nEdge, (nSign == rSign)?  0.125 : -0.125);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.375 :  0.375);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)?  0.125 : -0.125);
     }
 }
 
@@ -353,7 +353,7 @@ Loop::_InsertEdgeEdgeValue(int row, int col, int vert, int rSign, Scalar val, Tr
     // Handy function that sets the sign of val for an edge col incident to vert.
     int vertInCol = _meshPtr->GetVertIndexInEdge(col, vert);
     int sign = _meshPtr->GetVertSignInEdge(col, vertInCol);
-    *out++ = Triplet(row, col, (sign == rSign)? -val : val);
+    *out++ = TripletX(row, col, (sign == rSign)? -val : val);
 }
 
 void
@@ -364,7 +364,7 @@ Loop::_InsertEdgeFaceValue(int row, int face, int vert, int rSign, Scalar val, T
     int colInFace = (vertInFace+1) % 3;
     int col = _meshPtr->GetFaceEdges(face)[colInFace];
     int sign = _meshPtr->GetEdgeSignInFace(face, colInFace);
-    *out++ = Triplet(row, col, (sign == rSign)? val : -val);
+    *out++ = TripletX(row, col, (sign == rSign)? val : -val);
 }
 
 void
@@ -622,30 +622,30 @@ Loop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) const
     if (nBdry && pBdry)
     {
         // Ear case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign)?  0.25 : -0.25);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.25 :  0.25);
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.25 :  0.25);
+        *out++ = TripletX(row, oEdge, (oSign == rSign)?  0.25 : -0.25);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.25 :  0.25);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.25 :  0.25);
     }
     else if (nBdry)
     {
         // Symmetric case of Fig10 top-left in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign)?  0.21875 : -0.21875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.1875  :  0.1875 );
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.15625 :  0.15625);
+        *out++ = TripletX(row, oEdge, (oSign == rSign)?  0.21875 : -0.21875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.1875  :  0.1875 );
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.15625 :  0.15625);
     }
     else if (pBdry)
     {
         // Fig10 top-left in [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign)?  0.21875 : -0.21875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.15625 :  0.15625);
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.1875  :  0.1875 );
+        *out++ = TripletX(row, oEdge, (oSign == rSign)?  0.21875 : -0.21875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.15625 :  0.15625);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.1875  :  0.1875 );
     }
     else
     {
         // Fig4 mid-bot [Wang et al. 2006]
-        *out++ = Triplet(row, oEdge, (oSign == rSign)?  0.1875  : -0.1875 );
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.09375 :  0.09375);
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.09375 :  0.09375);
+        *out++ = TripletX(row, oEdge, (oSign == rSign)?  0.1875  : -0.1875 );
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.09375 :  0.09375);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.09375 :  0.09375);
     }
 
     std::vector<int> flaps;
@@ -667,7 +667,7 @@ Loop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) const
             int cEdge = _meshPtr->GetFaceEdges(flap)[(edgeInFlap+j)%3];
             int cSign = _meshPtr->GetEdgeSignInFace(flap, (edgeInFlap+j)%3);
             if (_meshPtr->GetVertIndexInEdge(cEdge, vert) == -1) val = -0.03125;
-            *out++ = Triplet(row, cEdge, (cSign == rSign)? -val : val);
+            *out++ = TripletX(row, cEdge, (cSign == rSign)? -val : val);
         }
     }
 }
@@ -678,7 +678,7 @@ Loop::BuildS2(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int F = _meshPtr->GetFaceCount();
 
     for (int face = 0; face < F; ++face)
@@ -718,28 +718,28 @@ Loop::_AssembleFaceCentral(int face, TripletInserter out) const
     if (fFaces.size() == 3) 
     {
         // Fig4 right [Wang et al. 2006] divided by 4
-        *out++ = Triplet(row, fFaces[0], 0.0625);
-        *out++ = Triplet(row, fFaces[1], 0.0625);
-        *out++ = Triplet(row, fFaces[2], 0.0625);
-        *out++ = Triplet(row, face     , 0.0625);
+        *out++ = TripletX(row, fFaces[0], 0.0625);
+        *out++ = TripletX(row, fFaces[1], 0.0625);
+        *out++ = TripletX(row, fFaces[2], 0.0625);
+        *out++ = TripletX(row, face     , 0.0625);
     }
     else if (fFaces.size() == 2) 
     {
         // Fig9 right [Wang et al. 2006] divided by 4
-        *out++ = Triplet(row, fFaces[0], 0.0625);
-        *out++ = Triplet(row, fFaces[1], 0.0625);
-        *out++ = Triplet(row, face     , 0.125 );
+        *out++ = TripletX(row, fFaces[0], 0.0625);
+        *out++ = TripletX(row, fFaces[1], 0.0625);
+        *out++ = TripletX(row, face     , 0.125 );
     }
     else if (fFaces.size() == 1) 
     {
         // Case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, fFaces[0], 0.0625);
-        *out++ = Triplet(row, face     , 0.1875);
+        *out++ = TripletX(row, fFaces[0], 0.0625);
+        *out++ = TripletX(row, face     , 0.1875);
     }
     else
     {
         // Case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, face, 0.25);
+        *out++ = TripletX(row, face, 0.25);
     }
 }
 
@@ -758,19 +758,19 @@ Loop::_AssembleFaceCornerInterior(int face, int vertInFace, TripletInserter out)
     Scalar beta = _GetBeta(vert);
     beta /= 4;
 
-    *out++ = Triplet(row, face, 0.1875-beta);
+    *out++ = TripletX(row, face, 0.1875-beta);
 
     int nextFace = (faceInVert + 1) % vFaces.size();
-    *out++ = Triplet(row, vFaces[nextFace], 0.03125);
+    *out++ = TripletX(row, vFaces[nextFace], 0.03125);
 
     int nextNextFace = (nextFace + 1) % vFaces.size();
-    *out++ = Triplet(row, vFaces[nextNextFace], 0.5*beta);
+    *out++ = TripletX(row, vFaces[nextNextFace], 0.5*beta);
 
     int prevFace = (faceInVert == 0)? vFaces.size()-1 : faceInVert-1;
-    *out++ = Triplet(row, vFaces[prevFace], 0.03125);
+    *out++ = TripletX(row, vFaces[prevFace], 0.03125);
 
     int prevPrevFace = (prevFace == 0)? vFaces.size()-1 : prevFace-1;
-    *out++ = Triplet(row, vFaces[prevPrevFace], 0.5*beta);
+    *out++ = TripletX(row, vFaces[prevPrevFace], 0.5*beta);
 }
 
 void
@@ -784,42 +784,42 @@ Loop::_AssembleFaceCornerBoundary(int face, int vertInFace, TripletInserter out)
     if (vFaces.size() == 1)
     {
         // Case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[0], 0.25);
+        *out++ = TripletX(row, vFaces[0], 0.25);
         return;
     }
 
     if (vFaces.size() == 2)
     {
         // Case not covered in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[(faceInVert+0)%2], 0.5 /3);
-        *out++ = Triplet(row, vFaces[(faceInVert+1)%2], 0.25/3);
+        *out++ = TripletX(row, vFaces[(faceInVert+0)%2], 0.5 /3);
+        *out++ = TripletX(row, vFaces[(faceInVert+1)%2], 0.25/3);
         return;
     }
 
     if (vFaces.size() == 3 && faceInVert == 1)
     {
         // Fig9 top-left in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[0], 0.125/3);
-        *out++ = Triplet(row, vFaces[1], 0.5  /3);
-        *out++ = Triplet(row, vFaces[2], 0.125/3);
+        *out++ = TripletX(row, vFaces[0], 0.125/3);
+        *out++ = TripletX(row, vFaces[1], 0.5  /3);
+        *out++ = TripletX(row, vFaces[2], 0.125/3);
         return;
     }
 
     if (faceInVert == 0)
     {
         // Fig9 top-mid in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[0], 0.5  /3);
-        *out++ = Triplet(row, vFaces[1], 0.125/3);
-        *out++ = Triplet(row, vFaces[2], 0.125/3);
+        *out++ = TripletX(row, vFaces[0], 0.5  /3);
+        *out++ = TripletX(row, vFaces[1], 0.125/3);
+        *out++ = TripletX(row, vFaces[2], 0.125/3);
         return;
     }
 
     if (faceInVert == vFaces.size()-1)
     {
         // Symmetric case of Fig9 top-mid in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[vFaces.size()-1], 0.5  /3);
-        *out++ = Triplet(row, vFaces[vFaces.size()-2], 0.125/3);
-        *out++ = Triplet(row, vFaces[vFaces.size()-3], 0.125/3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-1], 0.5  /3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-2], 0.125/3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-3], 0.125/3);
         return;
     }
 
@@ -828,29 +828,29 @@ Loop::_AssembleFaceCornerBoundary(int face, int vertInFace, TripletInserter out)
     if (faceInVert == 1)
     {
         // Fig9 bot-left in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[0], 0.15625/3);
-        *out++ = Triplet(row, vFaces[1], 0.4375 /3);
-        *out++ = Triplet(row, vFaces[2], 0.0625 /3);
-        *out++ = Triplet(row, vFaces[3], 0.09375/3);
+        *out++ = TripletX(row, vFaces[0], 0.15625/3);
+        *out++ = TripletX(row, vFaces[1], 0.4375 /3);
+        *out++ = TripletX(row, vFaces[2], 0.0625 /3);
+        *out++ = TripletX(row, vFaces[3], 0.09375/3);
         return;
     }
 
     if (faceInVert == vFaces.size()-2)
     {
         // Symmetric case of Fig9 bot-left in [Wang et al. 2006]
-        *out++ = Triplet(row, vFaces[vFaces.size()-1], 0.15625/3);
-        *out++ = Triplet(row, vFaces[vFaces.size()-2], 0.4375 /3);
-        *out++ = Triplet(row, vFaces[vFaces.size()-3], 0.0625 /3);
-        *out++ = Triplet(row, vFaces[vFaces.size()-4], 0.09375/3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-1], 0.15625/3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-2], 0.4375 /3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-3], 0.0625 /3);
+        *out++ = TripletX(row, vFaces[vFaces.size()-4], 0.09375/3);
         return;
     }
 
     assert(vFaces.size() > 4);
     
     // Fig9 bot-mid in [Wang et al. 2006]
-    *out++ = Triplet(row, vFaces[faceInVert-2], 0.03125);
-    *out++ = Triplet(row, vFaces[faceInVert-1], 0.03125);
-    *out++ = Triplet(row, vFaces[faceInVert  ], 0.125  );
-    *out++ = Triplet(row, vFaces[faceInVert+1], 0.03125);
-    *out++ = Triplet(row, vFaces[faceInVert+2], 0.03125);
+    *out++ = TripletX(row, vFaces[faceInVert-2], 0.03125);
+    *out++ = TripletX(row, vFaces[faceInVert-1], 0.03125);
+    *out++ = TripletX(row, vFaces[faceInVert  ], 0.125  );
+    *out++ = TripletX(row, vFaces[faceInVert+1], 0.03125);
+    *out++ = TripletX(row, vFaces[faceInVert+2], 0.03125);
 }

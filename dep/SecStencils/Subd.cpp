@@ -200,11 +200,11 @@ AssemblePullBack(int i, const Mesh& mesh, const Mesh& subdMesh, SparseMatrixX& A
 void 
 AssemblePullBack0(const Mesh& mesh, const Mesh& subdMesh, SparseMatrixX& A)
 {
-    std::vector<Triplet> triplet;
+    std::vector<TripletX> triplet;
     triplet.reserve(mesh.GetVertCount());
     for (int vert = 0; vert < mesh.GetVertCount(); ++vert)  
     {
-        triplet.push_back(Triplet(vert, vert, 1.));
+        triplet.push_back(TripletX(vert, vert, 1.));
     }
     A.resize(mesh.GetVertCount(), subdMesh.GetVertCount());
     A.setFromTriplets(triplet.begin(), triplet.end());
@@ -217,14 +217,14 @@ AssemblePullBack1(const Mesh& mesh, const Mesh& subdMesh, SparseMatrixX& A)
     int ratio = subdMesh.GetFaceCount() / mesh.GetFaceCount(); // 4^level
     ratio = (int) std::sqrt(ratio); // 2^level
 
-    std::vector<Triplet> triplet;
+    std::vector<TripletX> triplet;
     triplet.reserve(mesh.GetEdgeCount() * ratio);
     for (int edge = 0; edge < mesh.GetEdgeCount(); ++edge)
     {
         int offset = ratio * edge;
         for (int i = 0; i < ratio; ++i)
         {
-            triplet.push_back(Triplet(edge, offset+i, GetSubdEdgeSign(i)? 1. : -1.));
+            triplet.push_back(TripletX(edge, offset+i, GetSubdEdgeSign(i)? 1. : -1.));
         }
     }
     A.resize(mesh.GetEdgeCount(), subdMesh.GetEdgeCount());
@@ -237,14 +237,14 @@ AssemblePullBack2(const Mesh& mesh, const Mesh& subdMesh, SparseMatrixX& A)
     assert(subdMesh.GetFaceCount() % mesh.GetFaceCount() == 0);
     int ratio = subdMesh.GetFaceCount() / mesh.GetFaceCount(); // 4^level
 
-    std::vector<Triplet> triplet;
+    std::vector<TripletX> triplet;
     triplet.reserve(mesh.GetFaceCount() * ratio);
     for (int face = 0; face < mesh.GetFaceCount(); ++face)
     {
         int offset = ratio * face;
         for (int i = 0; i < ratio; ++i)
         {
-            triplet.push_back(Triplet(face, offset+i, 1.));
+            triplet.push_back(TripletX(face, offset+i, 1.));
         }
     }
     A.resize(mesh.GetFaceCount(), subdMesh.GetFaceCount());

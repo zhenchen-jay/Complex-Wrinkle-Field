@@ -1,2 +1,3 @@
 add_subdirectory(StaticWrinkleEditor)
 add_subdirectory(UserDesignerApp)
+add_subdirectory(LoopSubdivide)
