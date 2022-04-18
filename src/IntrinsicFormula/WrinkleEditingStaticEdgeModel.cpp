@@ -10,7 +10,7 @@
 
 using namespace IntrinsicFormula;
 
-WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialRatio)
+WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio)
 {
 	_pos = pos;
 	_mesh = mesh;
@@ -19,7 +19,10 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	igl::doublearea(pos, mesh.faces(), _faceArea);
 	_faceArea /= 2.0;
 	_quadOrd = quadOrd;
-	_spatialRatio = spatialRatio;
+	_spatialAmpRatio = spatialAmpRatio;
+	_spatialEdgeRatio = spatialEdgeRatio;
+	_spatialKnoppelRatio = spatialKnoppelRatio;
+
 	_vertexOpts = vertexOpts;
 
 	int nverts = pos.rows();
@@ -34,7 +37,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 
 	_vertArea.setZero(nverts);
 	_edgeArea.setZero(nedges);
-	
+
 	buildVertexNeighboringInfo(_mesh, _pos.rows(), _vertNeiEdges, _vertNeiFaces);
 
 	_edgeCotCoeffs.setZero(nedges);
@@ -59,7 +62,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			int eid = _mesh.faceEdge(i, j);
 
 			_vertArea(vid) += _faceArea(i) / 3.0;
-			
+
 
 			if (_mesh.edgeFace(eid, 0) == -1 || _mesh.edgeFace(eid, 1) == -1)
 			{
@@ -82,7 +85,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 					faceset.insert(i);
 					_nInterfaces++;
 				}
-				
+
 				if (vertset.count(vid) == 0)
 					vertset.insert(vid);
 				if (edgeset.count(eid) == 0)
@@ -118,38 +121,38 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 
 }
 
-void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAmp, const Eigen::VectorXd &initOmega,
-                                                   double numFrames)
+void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega,
+	double numFrames)
 {
-	
+
 	std::vector<std::complex<double>> initZvals;
-    roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+	roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
 
 
-    std::vector<Eigen::VectorXd> refOmegaList(numFrames + 2);
-    std::vector<Eigen::VectorXd> refAmpList(numFrames + 2);
+	std::vector<Eigen::VectorXd> refOmegaList(numFrames + 2);
+	std::vector<Eigen::VectorXd> refAmpList(numFrames + 2);
 
-    refAmpList[0] = initAmp;
-    refOmegaList[0]= initOmega;
+	refAmpList[0] = initAmp;
+	refOmegaList[0] = initOmega;
 
-    double dt = 1.0 / (numFrames + 1);
-    for(int i = 1; i <= numFrames + 1; i++)
-    {
-        std::vector<VertexOpInfo> curVertOpts = _vertexOpts;
-        for(int j = 0; j < _vertexOpts.size(); j++)
-        {
-            if(_vertexOpts[j].vecOptType == None)
-                continue;
-            double offset = _vertexOpts[j].vecOptType != Enlarge ? 0 : 1;
-            double A = _vertexOpts[j].vecOptType != Enlarge ? _vertexOpts[j].vecOptValue : _vertexOpts[j].vecOptValue - 1;
+	double dt = 1.0 / (numFrames + 1);
+	for (int i = 1; i <= numFrames + 1; i++)
+	{
+		std::vector<VertexOpInfo> curVertOpts = _vertexOpts;
+		for (int j = 0; j < _vertexOpts.size(); j++)
+		{
+			if (_vertexOpts[j].vecOptType == None)
+				continue;
+			double offset = _vertexOpts[j].vecOptType != Enlarge ? 0 : 1;
+			double A = _vertexOpts[j].vecOptType != Enlarge ? _vertexOpts[j].vecOptValue : _vertexOpts[j].vecOptValue - 1;
 
-            curVertOpts[j].vecOptValue = offset + A * dt * i;
-            curVertOpts[j].vecMagValue = 1 + (_vertexOpts[j].vecMagValue - 1) * dt * i;
-            
-        }
+			curVertOpts[j].vecOptValue = offset + A * dt * i;
+			curVertOpts[j].vecMagValue = 1 + (_vertexOpts[j].vecMagValue - 1) * dt * i;
 
-        WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmega, curVertOpts, refAmpList[i], refOmegaList[i]);
-    }
+		}
+
+		WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmega, curVertOpts, refAmpList[i], refOmegaList[i]);
+	}
 
 	std::vector<std::complex<double>> tarZvals;
 
@@ -166,7 +169,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 
 	for (int i = 0; i < _vertexOpts.size(); i++)
 	{
-		if(_vertexOpts[i].vecOptType != None)
+		if (_vertexOpts[i].vecOptType != None)
 			firstStepFlags(i) = 0;
 	}
 
@@ -177,7 +180,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 		_combinedRefOmegaList = refOmegaList;
 		_combinedRefAmpList = refAmpList;
 
-        roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[numFrames + 1], refAmpList[numFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[numFrames + 1], refAmpList[numFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 	}
 	else
 	{
@@ -201,15 +204,15 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 
 		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
 
-        for (int i = 0; i < tarZvals.size(); i++)
-        {
-            if (bndVertsFlag[i] == 0)
-            {
-                double arg = std::arg(tarZvals[i]);
-                tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
-            }
+		for (int i = 0; i < tarZvals.size(); i++)
+		{
+			if (bndVertsFlag[i] == 0)
+			{
+				double arg = std::arg(tarZvals[i]);
+				tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
+			}
 
-        }
+		}
 	}
 
 
@@ -223,14 +226,14 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd &initAm
 	std::cout << "initialize the intermediate frames." << std::endl;
 	for (int i = 1; i <= numFrames; i++)
 	{
-		 double t = i * dt;
+		double t = i * dt;
 
-		 _zvalsList[i] = tarZvals;
+		_zvalsList[i] = tarZvals;
 
-		 for(int j = 0; j < tarZvals.size(); j++)
-		 {
-			 _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
-		 }
+		for (int j = 0; j < tarZvals.size(); j++)
+		{
+			_zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+		}
 	}
 
 	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
@@ -246,7 +249,7 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 	int DOFsPerframe = (2 * nverts);
 	int DOFs = numFrames * DOFsPerframe;
 
-	auto convertVec2ZList = [&](const Eigen::VectorXd & x)
+	auto convertVec2ZList = [&](const Eigen::VectorXd& x)
 	{
 		for (int i = 0; i < numFrames; i++)
 		{
@@ -283,7 +286,7 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 		}
 
 		std::vector<Eigen::Triplet<double>> T;
-		
+
 		for (int i = 0; i < _zvalsList.size() - 1; i++)
 		{
 			for (int j = 0; j < nverts; j++)
@@ -338,41 +341,41 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 				}
 			}
 		}
-		
+
 		for (int i = 0; i < numFrames; i++)
 		{
 			int id = i + 1;
-			
+
 			double aveAmp = 0;
 			for (int j = 0; j < nverts; j++)
 			{
 				aveAmp += _combinedRefAmpList[id][j] / nverts;
 			}
 
-			
+
 			for (int j = 0; j < nverts; j++) {
 				double ampSq = _zvalsList[id][j].real() * _zvalsList[id][j].real() +
 					_zvalsList[id][j].imag() * _zvalsList[id][j].imag();
 				double refAmpSq = _combinedRefAmpList[id][j] * _combinedRefAmpList[id][j];
 
-				energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
+				energy += _spatialAmpRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
 
-				if (grad) 
+				if (grad)
 				{
-					(*grad)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(*grad)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 						(2.0 * _zvalsList[id][j].real());
-					(*grad)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio  / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+					(*grad)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 						(2.0 * _zvalsList[id][j].imag());
 				}
 
-				if (hess) 
+				if (hess)
 				{
 					Eigen::Matrix2d tmpHess;
 					tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
 						2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
 
-					tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
-					tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+					tmpHess *= 2.0 * _spatialAmpRatio / (aveAmp * aveAmp);
+					tmpHess += 2.0 * _spatialAmpRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
 
 					if (isProj)
 						tmpHess = SPDProjection(tmpHess);
@@ -383,12 +386,12 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 
 				}
 			}
-			
+
 
 			//std::cout << energy << std::endl;
 
 			// knoppel part
-			
+
 			Eigen::VectorXd kDeriv;
 			std::vector<Eigen::Triplet<double>> kT;
 
@@ -396,20 +399,20 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 			edgeWeight.setOnes();
 
 			double knoppel = IntrinsicFormula::KnoppelEdgeEnergyGivenMag(_mesh, _combinedRefOmegaList[id], _combinedRefAmpList[id] / aveAmp, edgeWeight, _zvalsList[id], grad ? &kDeriv : NULL, hess ? &kT : NULL);
-			energy += _spatialRatio * knoppel;
+			energy += _spatialKnoppelRatio * knoppel;
 
 			if (grad) {
-				grad->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialRatio * kDeriv;
+				grad->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialKnoppelRatio * kDeriv;
 			}
 
 			if (hess) {
 				for (auto& it : kT) {
-					T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialRatio * it.value() });
+					T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialKnoppelRatio * it.value() });
 				}
 			}
-			
+
 		}
-		
+
 		if (hess)
 		{
 			//std::cout << "num of triplets: " << T.size() << std::endl;
@@ -434,7 +437,7 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 	//OptSolver::testFuncGradHessian(funVal, x);
 	OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
 	convertVec2ZList(x);
-	
+
 }
 
 void WrinkleEditingStaticEdgeModel::convertList2Variable(Eigen::VectorXd& x)
@@ -639,12 +642,12 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 	Eigen::SparseMatrix<double> L;
 	igl::cotmatrix(_pos, _mesh.faces(), L);
 
-    _combinedRefAmpList[0] = refAmpList[0];
+	_combinedRefAmpList[0] = refAmpList[0];
 
-    Eigen::VectorXd prevX = refAmpList[0];
+	Eigen::VectorXd prevX = refAmpList[0];
 
-    Eigen::SparseMatrix<double> idmat(prevX.rows(), prevX.rows());
-    idmat.setIdentity();
+	Eigen::SparseMatrix<double> idmat(prevX.rows(), prevX.rows());
+	idmat.setIdentity();
 
 
 	for (int i = 1; i < nFrames; i++)
@@ -700,9 +703,9 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 			double E = funVal(x0, &deriv, NULL, false);
 			std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
 		}
-			
+
 		_combinedRefAmpList[i] = unProjVar(x0, i);
-        prevX = _combinedRefAmpList[i];
+		prevX = _combinedRefAmpList[i];
 	}
 }
 
@@ -720,7 +723,7 @@ double WrinkleEditingStaticEdgeModel::curlFreeEnergyPerface(const Eigen::MatrixX
 	{
 		int eid = _mesh.faceEdge(faceId, i);
 		edgews(i) = w(eid);
-		
+
 		if (_mesh.faceVertex(faceId, (i + 1) % 3) == _mesh.edgeVertex(eid, 0))
 		{
 			select0(i) = 1;
@@ -814,7 +817,7 @@ double WrinkleEditingStaticEdgeModel::divFreeEnergyPervertex(const Eigen::Matrix
 
 	Eigen::VectorXd selectedVec0;
 	selectedVec0.setZero(neiEdges);
-	
+
 	Eigen::VectorXd edgew;
 	edgew.setZero(neiEdges);
 
@@ -837,7 +840,7 @@ double WrinkleEditingStaticEdgeModel::divFreeEnergyPervertex(const Eigen::Matrix
 	energy = 0.5 * (diff0 * diff0);
 	if (deriv)
 	{
-		(*deriv) = (diff0 * selectedVec0 );
+		(*deriv) = (diff0 * selectedVec0);
 	}
 	if (hess)
 	{
@@ -957,13 +960,13 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 			{
 				fullX(i) = refOmegaList[frameId](i);
 			}
-			
+
 		}
 		return fullX;
 	};
 
 	Eigen::VectorXd prevw = refOmegaList[0];
-    _combinedRefOmegaList[0] = refOmegaList[0];
+	_combinedRefOmegaList[0] = refOmegaList[0];
 
 	for (int k = 1; k < nFrames; k++)
 	{
@@ -1019,7 +1022,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 			double E = funVal(x0, &deriv, NULL, false);
 			std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
 		}
-			
+
 		prevw = unProjVar(x0, k);
 		_combinedRefOmegaList[k] = prevw;
 	}
@@ -1107,12 +1110,12 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 				_zvalsList[id][j].imag() * _zvalsList[id][j].imag();
 			double refAmpSq = _combinedRefAmpList[id][j] * _combinedRefAmpList[id][j];
 
-			energy += _spatialRatio * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
+			energy += _spatialAmpRatio * _vertArea(j)  * (ampSq - refAmpSq) * (ampSq - refAmpSq) / (aveAmp * aveAmp);
 
 			if (deriv) {
-				(*deriv)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+				(*deriv)(i * DOFsPerframe + 2 * j) += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 					(2.0 * _zvalsList[id][j].real());
-				(*deriv)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
+				(*deriv)(i * DOFsPerframe + 2 * j + 1) += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) *
 					(2.0 * _zvalsList[id][j].imag());
 			}
 
@@ -1121,9 +1124,9 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 				tmpHess << 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].real(), 2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(),
 					2.0 * _zvalsList[id][j].real() * 2.0 * _zvalsList[id][j].imag(), 2.0 * _zvalsList[id][j].imag() * 2.0 * _zvalsList[id][j].imag();
 
-				tmpHess *= 2.0 * _spatialRatio / (aveAmp * aveAmp);
-				tmpHess += 2.0 * _spatialRatio / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
-				
+				tmpHess *= 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp);
+				tmpHess += 2.0 * _spatialAmpRatio * _vertArea(j) / (aveAmp * aveAmp) * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+
 
 				if (isProj)
 					tmpHess = SPDProjection(tmpHess);
@@ -1137,17 +1140,17 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 
 		// edge omega difference
 		for (int j = 0; j < nedges; j++) {
-			energy += _spatialRatio * (aveAmp * aveAmp) * (_edgeOmegaList[id](j) - _combinedRefOmegaList[id](j)) * (_edgeOmegaList[id](j) - _combinedRefOmegaList[id](j));
+			energy += _spatialEdgeRatio * _edgeArea(j) * (aveAmp * aveAmp) * (_edgeOmegaList[id](j) - _combinedRefOmegaList[id](j)) * (_edgeOmegaList[id](j) - _combinedRefOmegaList[id](j));
 
 			if (deriv) {
-				(*deriv)(i * DOFsPerframe + 2 * nverts + j) += 2 * _spatialRatio * (aveAmp * aveAmp) *
+				(*deriv)(i * DOFsPerframe + 2 * nverts + j) += 2 * _spatialEdgeRatio * _edgeArea(j) * (aveAmp * aveAmp) *
 					(_edgeOmegaList[id](j) - _combinedRefOmegaList[id](j));
 
 			}
 
 			if (hess) {
 				T.push_back({ i * DOFsPerframe + 2 * nverts + j, i * DOFsPerframe + 2 * nverts + j,
-							 2 * _spatialRatio * (aveAmp * aveAmp) });
+							 2 * _spatialEdgeRatio * _edgeArea(j) * (aveAmp * aveAmp) });
 			}
 		}
 
@@ -1158,19 +1161,21 @@ double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Ei
 		Eigen::VectorXd edgeWeight(nedges);
 		edgeWeight.setOnes();
 
+		edgeWeight = _edgeArea;
+
 		double knoppel = IntrinsicFormula::KnoppelEdgeEnergyGivenMag(_mesh, _combinedRefOmegaList[id],
 			_combinedRefAmpList[id] / aveAmp, edgeWeight,
 			_zvalsList[id], deriv ? &kDeriv : NULL,
 			hess ? &kT : NULL);
-		energy += _spatialRatio * knoppel;
+		energy += _spatialKnoppelRatio * knoppel;
 
 		if (deriv) {
-			deriv->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialRatio * kDeriv;
+			deriv->segment(i * DOFsPerframe, kDeriv.rows()) += _spatialKnoppelRatio * kDeriv;
 		}
 
 		if (hess) {
 			for (auto& it : kT) {
-				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialRatio * it.value() });
+				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), _spatialKnoppelRatio * it.value() });
 			}
 		}
 	}
@@ -1205,7 +1210,7 @@ void WrinkleEditingStaticEdgeModel::testCurlFreeEnergy(const Eigen::VectorXd& w)
 		double eps = std::pow(0.1, i);
 		Eigen::VectorXd deriv1;
 		Eigen::VectorXd w1 = w + eps * dir;
-		
+
 		double E1 = curlFreeEnergy(w1, &deriv1, NULL);
 
 		std::cout << "\neps: " << eps << std::endl;
@@ -1262,7 +1267,7 @@ void WrinkleEditingStaticEdgeModel::testDivFreeEnergy(const Eigen::VectorXd& w)
 		double eps = std::pow(0.1, i);
 		Eigen::VectorXd deriv1;
 		Eigen::VectorXd w1 = w + eps * dir;
-		
+
 		double E1 = divFreeEnergy(w1, &deriv1, NULL);
 
 		std::cout << "\neps: " << eps << std::endl;
