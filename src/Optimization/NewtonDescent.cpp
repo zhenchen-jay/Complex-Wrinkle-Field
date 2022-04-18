@@ -202,7 +202,7 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		std::cout << "terminate with reaching the maximum iteration, with gradient L2-norm = " << grad.norm() << std::endl;
 
     double f = objFunc(x0, &grad, &hessian, false);
-    Eigen::SparseMatrix<double> I(DIM, DIM), H = hessian;
+    /*Eigen::SparseMatrix<double> I(DIM, DIM), H = hessian;
     I.setIdentity();
     Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
 
@@ -220,9 +220,9 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
         H = hessian + reg * I;
         solver.compute(H);
         reg = std::max(2 * reg, 1e-16);
-    }
+    }*/
     std::cout << "end up with energy: " << f << ", gradient: " << grad.norm() << std::endl;
-    std::cout << "mininal evalues of hessian is between: " << reg / 2 << ", " << reg << std::endl;
+    //std::cout << "mininal evalues of hessian is between: " << reg / 2 << ", " << reg << std::endl;
 
     totalTimer.stop();
     if(disPlayInfo)

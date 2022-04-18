@@ -149,6 +149,7 @@ std::vector<std::complex<double>> IntrinsicFormula::upsamplingZvals(const MeshCo
 {
 	int size = bary.size();
 	std::vector<std::complex<double>> upzvals(size);
+
 	auto computeZvals = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{

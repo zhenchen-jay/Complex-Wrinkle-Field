@@ -5,15 +5,17 @@ class ComplexLoop	// We modify the Loop.h
 {
 protected:
     Mesh const* _meshPtr;
+    std::vector<int> _fixedPts;
 
 public:
-    ComplexLoop() : _meshPtr(0) { }
+    ComplexLoop() : _meshPtr(0), _fixedPts(0) { }
 
     ~ComplexLoop() { }
 
     inline Mesh const* GetMesh() const { return _meshPtr; }
     inline void  SetMesh(Mesh const* ptr) { _meshPtr = ptr; }
     inline void  SetMesh(const Mesh& mesh) { SetMesh(&mesh); }
+    inline void  SetFixedPts(const std::vector<int>& pts) { _fixedPts = pts; }
 
     void BuildS0(SparseMatrixX& A) const;
     void BuildComplexS0(SparseMatrixX& A, SparseMatrixX& B) const;
