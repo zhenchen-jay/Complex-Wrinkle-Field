@@ -162,7 +162,7 @@ Catmark::BuildS0(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
@@ -200,7 +200,7 @@ Catmark::_AssembleVertFromFace(int face, TripletInserter out) const
     const std::vector<int>& fVerts = _meshPtr->GetFaceVerts(face);
     for (int i = 0; i < fVerts.size(); ++i)
     {
-        *out++ = Triplet(row, fVerts[i], 0.25);
+        *out++ = TripletX(row, fVerts[i], 0.25);
     }
 }
 
@@ -219,9 +219,9 @@ Catmark::_AssembleVertFromBoundaryVert(int vi, TripletInserter out) const
         assert(_meshPtr->IsEdgeBoundary(edge));
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge+1)%2];
-        *out++ = Triplet(row, vj, 0.125);
+        *out++ = TripletX(row, vj, 0.125);
     }
-    *out++ = Triplet(row, vi, 0.75);
+    *out++ = TripletX(row, vi, 0.75);
 }
 
 void 
@@ -237,14 +237,14 @@ Catmark::_AssembleVertFromInteriorVert(int vi, TripletInserter out) const
     Scalar beta = _GetBeta(vi);
     Scalar gamma = _GetGamma(vi);
 
-    *out++ = Triplet(row, vi, 1.-beta-gamma);
+    *out++ = TripletX(row, vi, 1.-beta-gamma);
 
     for (int i = 0; i < vEdges.size(); ++i)
     {
         int edge = vEdges[i];
         int viInEdge = _meshPtr->GetVertIndexInEdge(edge, vi);
         int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge+1)%2];
-        *out++ = Triplet(row, vj, beta/k);
+        *out++ = TripletX(row, vj, beta/k);
     }
 
     for (int i = 0; i < vFaces.size(); ++i)
@@ -252,7 +252,7 @@ Catmark::_AssembleVertFromInteriorVert(int vi, TripletInserter out) const
         int face = vFaces[i];
         int viInFace = _meshPtr->GetVertIndexInFace(face, vi);
         int vj = _meshPtr->GetFaceVerts(face)[(viInFace+2)%4];
-        *out++ = Triplet(row, vj, gamma/k);
+        *out++ = TripletX(row, vj, gamma/k);
     }
 }
 
@@ -264,7 +264,7 @@ Catmark::_AssembleVertFromBoundaryEdge(int edge, TripletInserter out) const
     const std::vector<int>& eVerts = _meshPtr->GetEdgeVerts(edge);
     for (int i = 0; i < eVerts.size(); ++i)
     {
-        *out++ = Triplet(row, eVerts[i], 0.5);
+        *out++ = TripletX(row, eVerts[i], 0.5);
     }
 }
 
@@ -277,7 +277,7 @@ Catmark::_AssembleVertFromInteriorEdge(int edge, TripletInserter out) const
     const std::vector<int>& eVerts = _meshPtr->GetEdgeVerts(edge);
     for (int i = 0; i < eVerts.size(); ++i)
     {
-        *out++ = Triplet(row, eVerts[i], 0.25);
+        *out++ = TripletX(row, eVerts[i], 0.25);
     }
 
     const std::vector<int>& eFaces = _meshPtr->GetEdgeFaces(edge);
@@ -286,7 +286,7 @@ Catmark::_AssembleVertFromInteriorEdge(int edge, TripletInserter out) const
         const std::vector<int>& fVerts = _meshPtr->GetFaceVerts(eFaces[i]);
         for (int j = 0; j < fVerts.size(); ++j)
         {
-            *out++ = Triplet(row, fVerts[j], 0.0625);
+            *out++ = TripletX(row, fVerts[j], 0.0625);
         }
     }
 }
@@ -297,7 +297,7 @@ Catmark::BuildS1(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
 
@@ -355,15 +355,15 @@ Catmark::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletInser
     assert(faceCount > 1);
 
     std::vector< std::pair<int, Scalar> > eValues;
-    std::vector<Triplet> fValues;
+    std::vector<TripletX> fValues;
 
     if (faceCount == 2)
     {
         Scalar f0, f1, f2;
         _GetVertWeights(vert, 1, f0, f1, f2);
         eValues.push_back(std::make_pair(vEdges[1], 0.25 + f0 - f1));
-        fValues.push_back(Triplet(vFaces[0], 1,  f1));
-        fValues.push_back(Triplet(vFaces[1], 2, -f1));
+        fValues.push_back(TripletX(vFaces[0], 1,  f1));
+        fValues.push_back(TripletX(vFaces[1], 2, -f1));
     }
     else if (edgeInVert == 1)
     {
@@ -375,16 +375,16 @@ Catmark::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletInser
         eValues.push_back(std::make_pair(vEdges[2], 0.0625 + f1 - f2));
         eValues.push_back(std::make_pair(vEdges[edgeCount-1], f2 - 0.125));
 
-        fValues.push_back(Triplet(vFaces[0], 1, 0.25   - f0));
-        fValues.push_back(Triplet(vFaces[0], 2, 0.1875 - f0));
+        fValues.push_back(TripletX(vFaces[0], 1, 0.25   - f0));
+        fValues.push_back(TripletX(vFaces[0], 2, 0.1875 - f0));
 
-        fValues.push_back(Triplet(vFaces[1], 1, 0.0625 - f1));
-        fValues.push_back(Triplet(vFaces[1], 2,        - f1));
+        fValues.push_back(TripletX(vFaces[1], 1, 0.0625 - f1));
+        fValues.push_back(TripletX(vFaces[1], 2,        - f1));
         
         for (int i = 2; i < faceCount; ++i)
         {
-            fValues.push_back(Triplet(vFaces[i], 1, -f2));
-            fValues.push_back(Triplet(vFaces[i], 2, -f2));
+            fValues.push_back(TripletX(vFaces[i], 1, -f2));
+            fValues.push_back(TripletX(vFaces[i], 2, -f2));
         }
     }
     else if (edgeInVert == edgeCount-2)
@@ -398,16 +398,16 @@ Catmark::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletInser
         eValues.push_back(std::make_pair(vEdges[edgeCount-3], 0.0625 + f1 - f2));
         eValues.push_back(std::make_pair(vEdges[0], f2 - 0.125));
 
-        fValues.push_back(Triplet(vFaces[faceCount-1], 1, f0 - 0.1875));
-        fValues.push_back(Triplet(vFaces[faceCount-1], 2, f0 - 0.25  ));
+        fValues.push_back(TripletX(vFaces[faceCount-1], 1, f0 - 0.1875));
+        fValues.push_back(TripletX(vFaces[faceCount-1], 2, f0 - 0.25  ));
         
-        fValues.push_back(Triplet(vFaces[faceCount-2], 1, f1         ));
-        fValues.push_back(Triplet(vFaces[faceCount-2], 2, f1 - 0.0625));
+        fValues.push_back(TripletX(vFaces[faceCount-2], 1, f1         ));
+        fValues.push_back(TripletX(vFaces[faceCount-2], 2, f1 - 0.0625));
         
         for (int i = 0; i < faceCount-2; ++i)
         {
-            fValues.push_back(Triplet(vFaces[i], 1, f2));
-            fValues.push_back(Triplet(vFaces[i], 2, f2));
+            fValues.push_back(TripletX(vFaces[i], 1, f2));
+            fValues.push_back(TripletX(vFaces[i], 2, f2));
         }
     }
     else
@@ -432,20 +432,20 @@ Catmark::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletInser
 
         for (int i = 0; i < edgeInVert-1; ++i)
         {
-            fValues.push_back(Triplet(vFaces[i], 1, xi [0]));
-            fValues.push_back(Triplet(vFaces[i], 2, eta[0]));            
+            fValues.push_back(TripletX(vFaces[i], 1, xi [0]));
+            fValues.push_back(TripletX(vFaces[i], 2, eta[0]));            
         }
 
         for (int i = -1; i < 2; ++i)
         {
-            fValues.push_back(Triplet(vFaces[edgeInVert+i], 1, xi [2+i]));
-            fValues.push_back(Triplet(vFaces[edgeInVert+i], 2, eta[2+i]));
+            fValues.push_back(TripletX(vFaces[edgeInVert+i], 1, xi [2+i]));
+            fValues.push_back(TripletX(vFaces[edgeInVert+i], 2, eta[2+i]));
         }
 
         for (int i = edgeInVert+2; i < faceCount; ++i)
         {
-            fValues.push_back(Triplet(vFaces[i], 1, xi [4]));
-            fValues.push_back(Triplet(vFaces[i], 2, eta[4]));            
+            fValues.push_back(TripletX(vFaces[i], 1, xi [4]));
+            fValues.push_back(TripletX(vFaces[i], 2, eta[4]));            
         }
     }
 
@@ -539,13 +539,13 @@ Catmark::_AssembleEdgeEvenBoundary(int edge, int vertInEdge, TripletInserter out
 
     if (edge == nEdge)
     {
-        *out++ = Triplet(row, nEdge, (nSign == rSign)? -0.375 :  0.375);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)?  0.125 : -0.125);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)? -0.375 :  0.375);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)?  0.125 : -0.125);
     }
     else
     {
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.375 :  0.375);
-        *out++ = Triplet(row, nEdge, (nSign == rSign)?  0.125 : -0.125);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.375 :  0.375);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)?  0.125 : -0.125);
     }
 }
 
@@ -567,8 +567,8 @@ Catmark::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) const
     if (_meshPtr->IsEdgeBoundary(edge))
     {
         // Boundary case not covered in [Wang thesis]
-        *out++ = Triplet(row, nEdge, (nSign == rSign)?  0.25 : -0.25);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.25 :  0.25);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)?  0.25 : -0.25);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.25 :  0.25);
     }
     else
     {
@@ -585,11 +585,11 @@ Catmark::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) const
         int pOppEdge = _meshPtr->GetFaceEdges(oFace)[(edgeInOface+3)%4];
         int pOppSign = _meshPtr->GetEdgeSignInFace(oFace, (edgeInOface+3)%4);
 
-        *out++ = Triplet(row, nEdge, (nSign == rSign)?  0.1875 : -0.1875);
-        *out++ = Triplet(row, pEdge, (pSign == rSign)? -0.1875 :  0.1875);
+        *out++ = TripletX(row, nEdge, (nSign == rSign)?  0.1875 : -0.1875);
+        *out++ = TripletX(row, pEdge, (pSign == rSign)? -0.1875 :  0.1875);
     
-        *out++ = Triplet(row, nOppEdge, (nOppSign == rSign)? -0.0625 :  0.0625);
-        *out++ = Triplet(row, pOppEdge, (pOppSign == rSign)?  0.0625 : -0.0625);
+        *out++ = TripletX(row, nOppEdge, (nOppSign == rSign)? -0.0625 :  0.0625);
+        *out++ = TripletX(row, pOppEdge, (pOppSign == rSign)?  0.0625 : -0.0625);
     }
 }
 
@@ -599,7 +599,7 @@ Catmark::BuildS2(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int F = _meshPtr->GetFaceCount();
 
     for (int face = 0; face < F; ++face)
@@ -634,32 +634,32 @@ Catmark::_AssembleFaceCorner(int face, int vertInFace, TripletInserter out) cons
     {
         if (faceInVert < k-1)
         {
-            *out++ = Triplet(row, vFaces[faceInVert+1], f1);
+            *out++ = TripletX(row, vFaces[faceInVert+1], f1);
         }
         for (int i = faceInVert+2; i < k; ++i) 
         {
-            *out++ = Triplet(row, vFaces[i], f2);
+            *out++ = TripletX(row, vFaces[i], f2);
         }
         for (int i = faceInVert-2; i >= 0; --i) 
         {
-            *out++ = Triplet(row, vFaces[i], f2);
+            *out++ = TripletX(row, vFaces[i], f2);
         }
         if (faceInVert > 0)
         {
-            *out++ = Triplet(row, vFaces[faceInVert-1], f1);
+            *out++ = TripletX(row, vFaces[faceInVert-1], f1);
         }
-        *out++ = Triplet(row, face, f0);
+        *out++ = TripletX(row, face, f0);
     }
     else
     {
         assert(k > 2);
-        *out++ = Triplet(row, vFaces[(faceInVert+1)%k], f1);
+        *out++ = TripletX(row, vFaces[(faceInVert+1)%k], f1);
         for (int i = 2; i < k-1; ++i) 
         {
-            *out++ = Triplet(row, vFaces[(faceInVert+i)%k], f2);
+            *out++ = TripletX(row, vFaces[(faceInVert+i)%k], f2);
         }
-        *out++ = Triplet(row, vFaces[(faceInVert+k-1)%k], f1);
-        *out++ = Triplet(row, face, f0);
+        *out++ = TripletX(row, vFaces[(faceInVert+k-1)%k], f1);
+        *out++ = TripletX(row, face, f0);
     }
 }
 
@@ -715,7 +715,7 @@ Catmark::_InsertEdgeVertValue(int row, int col, int vert, int rSign, Scalar val,
     // Handy function that sets the sign of val for an edge col incident to vert.
     int vertInCol = _meshPtr->GetVertIndexInEdge(col, vert);
     int sign = _meshPtr->GetVertSignInEdge(col, vertInCol);
-    *out++ = Triplet(row, col, (sign == rSign)? -val : val);
+    *out++ = TripletX(row, col, (sign == rSign)? -val : val);
 }
 
 void
@@ -724,7 +724,7 @@ Catmark::_InsertFaceVertValue(int row, int col, int face, int rSign, Scalar val,
     // Handy function that sets the sign of val for an edge col incident to face.
     int colInFace = _meshPtr->GetEdgeIndexInFace(face, col);
     int sign = _meshPtr->GetEdgeSignInFace(face, colInFace);
-    *out++ = Triplet(row, col, (sign == rSign)? val : -val);
+    *out++ = TripletX(row, col, (sign == rSign)? val : -val);
 }
 
 void

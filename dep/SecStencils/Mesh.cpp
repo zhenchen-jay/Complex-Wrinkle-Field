@@ -164,7 +164,7 @@ Mesh::BuildD0(SparseMatrixX &D) const
     int V = GetVertCount();
     int E = GetEdgeCount();
 
-    std::vector<Triplet> coef;
+    std::vector<TripletX> coef;
     coef.reserve(2*E);
 
     for (int edge = 0; edge < E; ++edge) 
@@ -172,7 +172,7 @@ Mesh::BuildD0(SparseMatrixX &D) const
         const std::vector<int>& eVerts = GetEdgeVerts(edge);
         for (size_t i = 0; i < eVerts.size(); ++i)
         {
-            coef.push_back(Triplet(edge, eVerts[i], GetVertSignInEdge(edge, i)));
+            coef.push_back(TripletX(edge, eVerts[i], GetVertSignInEdge(edge, i)));
         }
     }
 
@@ -186,7 +186,7 @@ Mesh::BuildD1(SparseMatrixX &D) const
     int E = GetEdgeCount();
     int F = GetFaceCount();
 
-    std::vector<Triplet> coef;
+    std::vector<TripletX> coef;
     coef.reserve(2*E);
 
     for (int face = 0; face < F; ++face) 
@@ -194,7 +194,7 @@ Mesh::BuildD1(SparseMatrixX &D) const
         const std::vector<int>& fEdges = GetFaceEdges(face);
         for (size_t i = 0; i < fEdges.size(); ++i)
         {
-            coef.push_back(Triplet(face, fEdges[i], GetEdgeSignInFace(face, i)));
+            coef.push_back(TripletX(face, fEdges[i], GetEdgeSignInFace(face, i)));
         }
     }
 

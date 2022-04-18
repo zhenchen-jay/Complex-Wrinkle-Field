@@ -146,7 +146,7 @@ Whitney::BuildS0(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
 
@@ -154,7 +154,7 @@ Whitney::BuildS0(SparseMatrixX& A) const
     for (int vert = 0; vert < V; ++vert)
     {
         int row = _GetVertVertIndex(vert);
-        triplets.push_back(Triplet(row, vert, 1.));
+        triplets.push_back(TripletX(row, vert, 1.));
     }
 
     // Odd verts
@@ -164,7 +164,7 @@ Whitney::BuildS0(SparseMatrixX& A) const
         for (int i = 0; i < 2; ++i)
         {
             int vert = _meshPtr->GetEdgeVerts(edge)[i];
-            triplets.push_back(Triplet(row, vert, 0.5));
+            triplets.push_back(TripletX(row, vert, 0.5));
         }
     }
 
@@ -178,7 +178,7 @@ Whitney::BuildS1(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
 
@@ -194,7 +194,7 @@ Whitney::BuildS1(SparseMatrixX& A) const
 
             int vertVert = _GetVertVertIndex(vert);
             int edgeSign = (vertVert < edgeVert)? -1 : 1;
-            triplets.push_back(Triplet(row, edge, (vertSign == edgeSign)? 0.5 : -0.5));
+            triplets.push_back(TripletX(row, edge, (vertSign == edgeSign)? 0.5 : -0.5));
         }        
     }
 
@@ -218,9 +218,9 @@ Whitney::BuildS1(SparseMatrixX& A) const
 
             int rSign = (_GetEdgeVertIndex(nEdge) < _GetEdgeVertIndex(pEdge))? 1 : -1;
 
-            triplets.push_back(Triplet(row, nEdge, (nSign == rSign)? -0.25 :  0.25));
-            triplets.push_back(Triplet(row, oEdge, (oSign == rSign)?  0.25 : -0.25));
-            triplets.push_back(Triplet(row, pEdge, (pSign == rSign)? -0.25 :  0.25));
+            triplets.push_back(TripletX(row, nEdge, (nSign == rSign)? -0.25 :  0.25));
+            triplets.push_back(TripletX(row, oEdge, (oSign == rSign)?  0.25 : -0.25));
+            triplets.push_back(TripletX(row, pEdge, (pSign == rSign)? -0.25 :  0.25));
         }
     }
 
@@ -234,15 +234,15 @@ Whitney::BuildS2(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int F = _meshPtr->GetFaceCount();
 
     for (int face = 0; face < F; ++face)
     {
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 0), face, 0.25));
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 1), face, 0.25));
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 2), face, 0.25));
-        triplets.push_back(Triplet(_GetCentralFaceIndex(face), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 0), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 1), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 2), face, 0.25));
+        triplets.push_back(TripletX(_GetCentralFaceIndex(face), face, 0.25));
     }
 
     A.resize(4*F, F);

@@ -135,7 +135,7 @@ Bilinear::BuildS0(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int V = _meshPtr->GetVertCount();
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
@@ -143,23 +143,23 @@ Bilinear::BuildS0(SparseMatrixX& A) const
     for (int vi = 0; vi < V; ++vi)
     {
         int row = _GetVertVertIndex(vi);
-        triplets.push_back(Triplet(row, vi, 1.));
+        triplets.push_back(TripletX(row, vi, 1.));
     }
 
     for (int edge = 0; edge < E; ++edge)
     {
         int row = _GetEdgeVertIndex(edge);
-        triplets.push_back(Triplet(row, _meshPtr->GetEdgeVerts(edge)[0], 0.5));
-        triplets.push_back(Triplet(row, _meshPtr->GetEdgeVerts(edge)[1], 0.5));
+        triplets.push_back(TripletX(row, _meshPtr->GetEdgeVerts(edge)[0], 0.5));
+        triplets.push_back(TripletX(row, _meshPtr->GetEdgeVerts(edge)[1], 0.5));
     }
 
     for (int face = 0; face < F; ++face)
     {
         int row = _GetFaceVertIndex(face);
-        triplets.push_back(Triplet(row, _meshPtr->GetFaceVerts(face)[0], 0.25));
-        triplets.push_back(Triplet(row, _meshPtr->GetFaceVerts(face)[1], 0.25));
-        triplets.push_back(Triplet(row, _meshPtr->GetFaceVerts(face)[2], 0.25));
-        triplets.push_back(Triplet(row, _meshPtr->GetFaceVerts(face)[3], 0.25));
+        triplets.push_back(TripletX(row, _meshPtr->GetFaceVerts(face)[0], 0.25));
+        triplets.push_back(TripletX(row, _meshPtr->GetFaceVerts(face)[1], 0.25));
+        triplets.push_back(TripletX(row, _meshPtr->GetFaceVerts(face)[2], 0.25));
+        triplets.push_back(TripletX(row, _meshPtr->GetFaceVerts(face)[3], 0.25));
     }
 
     A.resize(V+E+F, V);
@@ -172,7 +172,7 @@ Bilinear::BuildS1(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int E = _meshPtr->GetEdgeCount();
     int F = _meshPtr->GetFaceCount();
 
@@ -188,7 +188,7 @@ Bilinear::BuildS1(SparseMatrixX& A) const
 
             int vertVert = _GetVertVertIndex(vert);
             int edgeSign = (vertVert < edgeVert)? -1 : 1;
-            triplets.push_back(Triplet(row, edge, (vertSign == edgeSign)? 0.5 : -0.5));
+            triplets.push_back(TripletX(row, edge, (vertSign == edgeSign)? 0.5 : -0.5));
         }        
     }
 
@@ -206,8 +206,8 @@ Bilinear::BuildS1(SparseMatrixX& A) const
             int pEdge = _meshPtr->GetFaceEdges(face)[(edgeInFace+3)%4];
             int pSign = _meshPtr->GetEdgeSignInFace(face, (edgeInFace+3)%4);
 
-            triplets.push_back(Triplet(row, nEdge, (nSign == rSign)?  0.25 : -0.25));
-            triplets.push_back(Triplet(row, pEdge, (pSign == rSign)? -0.25 :  0.25));
+            triplets.push_back(TripletX(row, nEdge, (nSign == rSign)?  0.25 : -0.25));
+            triplets.push_back(TripletX(row, pEdge, (pSign == rSign)? -0.25 :  0.25));
         }
     }
 
@@ -221,15 +221,15 @@ Bilinear::BuildS2(SparseMatrixX& A) const
     assert(_meshPtr);
     assert(_meshPtr->IsQuadrangulated());
 
-    std::vector<Triplet> triplets;
+    std::vector<TripletX> triplets;
     int F = _meshPtr->GetFaceCount();
 
     for (int face = 0; face < F; ++face)
     {
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 0), face, 0.25));
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 1), face, 0.25));
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 2), face, 0.25));
-        triplets.push_back(Triplet(_GetCornerFaceIndex(face, 3), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 0), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 1), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 2), face, 0.25));
+        triplets.push_back(TripletX(_GetCornerFaceIndex(face, 3), face, 0.25));
     }
 
     A.resize(4*F, F);

@@ -1,16 +1,9 @@
 #include "../../include/MeshLib/MeshUpsampling.h"
-#include "../../include/MeshLib/MeshConnectivity.h"
-#include "../../dep/SecStencils/Subd.h"
-#include "../../dep/SecStencils/Loop.h"
 
 #include <igl/adjacency_list.h>
 #include <igl/triangle_triangle_adjacency.h>
-#include <igl/unique.h>
-#include <igl/per_vertex_normals.h>
 #include <igl/writeOBJ.h>
 #include <igl/boundary_loop.h>
-#include <igl/cotmatrix.h>
-#include <igl/triangle_triangle_adjacency.h>
 #include <deque>
 #include <vector>
 

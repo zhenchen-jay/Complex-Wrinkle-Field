@@ -8,10 +8,10 @@ BuildDiagonalMatrix(
     const VectorX& values, 
     SparseMatrixX& A)
 {
-    std::vector<Triplet> triplet(values.size());
+    std::vector<TripletX> triplet(values.size());
     for (size_t i = 0; i < values.size(); ++i) 
     {
-        triplet[i] = Triplet(i, i, values[i]);
+        triplet[i] = TripletX(i, i, values[i]);
     }
     A.resize(values.size(), values.size());
     A.setFromTriplets(triplet.begin(), triplet.end());
@@ -27,14 +27,14 @@ BuildSelectorMatrix(
     assert(rowSelection.size() > 0);
     assert(rowSelection.size() <= colCount);
 
-    std::vector<Triplet> triplet;
+    std::vector<TripletX> triplet;
     triplet.reserve(rowSelection.size());
 
     for (size_t i = 0; i < rowSelection.size(); ++i) 
     {
         assert(rowSelection[i] >= 0);
         assert(rowSelection[i] < colCount);
-        triplet.push_back(Triplet(i, rowSelection[i], 1.));
+        triplet.push_back(TripletX(i, rowSelection[i], 1.));
     }
 
     A.resize(rowSelection.size(), colCount);

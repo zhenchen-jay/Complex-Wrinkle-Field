@@ -68,11 +68,11 @@ void convertGeoCentralMesh(HalfedgeMesh& geoMesh, VertexPositionGeometry& geoPos
 
 void getVecTransport(VertexPositionGeometry& geoPos, std::vector<SourceVert> sourcePoints, Eigen::MatrixXd& vertVecs)
 {
-	std::vector<std::tuple<SurfacePoint, Vector2>> points;
+	std::vector<std::tuple<SurfacePoint, geometrycentral::Vector2>> points;
 	for (SourceVert& s : sourcePoints) {
-		points.emplace_back(s.vertex, Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag);
+		points.emplace_back(s.vertex, geometrycentral::Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag);
 	}
-	VertexData<Vector2> vectorExtension = solver->transportTangentVectors(points);
+	VertexData<geometrycentral::Vector2> vectorExtension = solver->transportTangentVectors(points);
 
 	int nverts = geoPos.inputVertexPositions.size();
 
@@ -81,13 +81,13 @@ void getVecTransport(VertexPositionGeometry& geoPos, std::vector<SourceVert> sou
 
 	for (size_t iV = 0; iV < nverts; iV++) {
 
-		Vector3 normal = geoPos.vertexNormals[iV];
-		Vector3 basisX = geoPos.vertexTangentBasis[iV][0];
-		Vector3 basisY = geoPos.vertexTangentBasis[iV][1];
+        geometrycentral::Vector3 normal = geoPos.vertexNormals[iV];
+        geometrycentral::Vector3 basisX = geoPos.vertexTangentBasis[iV][0];
+        geometrycentral::Vector3 basisY = geoPos.vertexTangentBasis[iV][1];
 
 		std::complex<double> angle = std::complex<double>(vectorExtension[iV][0], vectorExtension[iV][1]);
 
-		Vector3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
+        geometrycentral::Vector3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
 		vertVecs.row(iV) << vec3.x, vec3.y, vec3.z;
 	}
 }
@@ -384,10 +384,10 @@ void updateSourceSetViz()
 	}
 
 	// Vectors at sources
-	VertexData<Vector2> sourceVectors(*mesh, Vector2::zero());
+	VertexData<geometrycentral::Vector2> sourceVectors(*mesh, geometrycentral::Vector2::zero());
 	for (SourceVert& s : sourcePoints) 
 	{
-		sourceVectors[s.vertex] = Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
+		sourceVectors[s.vertex] = geometrycentral::Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
 	}
 	auto vectorQ = polyscope::getSurfaceMesh("base mesh")->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
 	vectorQ->setVectorLengthScale(.05);
@@ -705,7 +705,7 @@ int main(int argc, char** argv) {
 
 
 	// Set vertex tangent spaces
-	VertexData<Vector3> vBasisX(*mesh);
+	VertexData<geometrycentral::Vector3> vBasisX(*mesh);
 	for (Vertex v : mesh->vertices()) {
 		vBasisX[v] = geometry->vertexTangentBasis[v][0];
 	}
@@ -714,7 +714,7 @@ int main(int argc, char** argv) {
 
 	
 	// Set face tangent spaces
-	FaceData<Vector3> fBasisX(*mesh);
+	FaceData<geometrycentral::Vector3> fBasisX(*mesh);
 	for (Face f : mesh->faces()) {
 		fBasisX[f] = geometry->faceTangentBasis[f][0];
 	}
