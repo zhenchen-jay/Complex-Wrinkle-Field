@@ -712,12 +712,6 @@ void updatePaintingItems()
 
 void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
-	Eigen::VectorXd faceArea;
-	igl::doublearea(triV, triF, faceArea);
-	faceArea /= 2;
-	Eigen::MatrixXd cotEntries;
-	igl::cotmatrix_entries(triV, triF, cotEntries);
-
 	editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
 	editModel.initialization(initAmp, initOmega, numFrames - 2);
@@ -1273,7 +1267,7 @@ bool saveProblem()
 			},
 			{
 			 "reference",         {
-										  {"ref_amp", "/ refAmp / "},
+										  {"ref_amp", "/refAmp/"},
 										  {"ref_omega", "/refOmega/"}
 								  }
 			},

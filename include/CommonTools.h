@@ -69,4 +69,8 @@ void buildVertexNeighboringInfo(const MeshConnectivity& mesh, int nverts, std::v
 
 Eigen::SparseMatrix<double> buildD0(const MeshConnectivity& mesh, int nverts);
 
+Eigen::VectorXd getFaceArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
+Eigen::VectorXd getEdgeArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
+Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
+
 void mkdir(const std::string& foldername);

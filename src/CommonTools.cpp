@@ -779,3 +779,51 @@ void mkdir(const std::string& foldername)
         }
     }
 }
+
+Eigen::VectorXd getFaceArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh)
+{
+	Eigen::VectorXd faceArea;
+	igl::doublearea(V, mesh.faces(), faceArea);
+	faceArea /= 2;
+	return faceArea;
+}
+
+Eigen::VectorXd getEdgeArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh)
+{
+	Eigen::VectorXd faceArea = getFaceArea(V, mesh);
+	Eigen::VectorXd edgeArea;
+	edgeArea.setZero(mesh.nEdges());
+
+	for (int i = 0; i < mesh.nEdges(); i++)
+	{
+		int f0 = mesh.edgeFace(i, 0);
+		int f1 = mesh.edgeFace(i, 1);
+
+		if (f0 != -1 && f1 != -1)
+			edgeArea(i) = (faceArea(f0) + faceArea(f1)) / 2.;
+		else if (f0 == -1)
+			edgeArea(i) = faceArea(f1) / 2.;
+		else
+			edgeArea(i) = faceArea(f0) / 2.;
+	}
+	return edgeArea;
+}
+
+
+Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh)
+{
+	Eigen::VectorXd faceArea = getFaceArea(V, mesh);
+	Eigen::VectorXd vertArea;
+	vertArea.setZero(V.rows());
+
+	for (int i = 0; i < mesh.nFaces(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = mesh.faceVertex(i, j);
+			vertArea(vid) += faceArea(i) / 3.;
+		}
+	}
+
+	return vertArea;
+}

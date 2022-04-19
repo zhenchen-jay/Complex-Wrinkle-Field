@@ -360,9 +360,6 @@ int pCenter = 2;
 
 std::vector<SourceVert> sourcePoints;
 
-Eigen::MatrixXd cotEntries;
-Eigen::VectorXd faceArea;
-
 
 bool vizFirstRun = true;
 void updateSourceSetViz() 
@@ -514,8 +511,12 @@ void wrinkleExtraction()
 		if(!vertFlags(i))
 			amp(i) = 0;*/
 
+	Eigen::VectorXd edgeArea, vertArea;
+	edgeArea = getEdgeArea(triV, triMesh);
+	vertArea = getVertArea(triV, triMesh);
+
 	std::vector<std::complex<double>> zvals, upsampledZvals;
-	IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, edgeVec, amp, faceArea, cotEntries, amp.rows(), zvals);
+	IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, edgeVec, amp, edgeArea, vertArea, amp.rows(), zvals);
 
 
 	Eigen::MatrixXd upsampledTriV, wrinkledV;
@@ -723,11 +724,6 @@ int main(int argc, char** argv) {
 	// To start, pick two vertices as sources
 	geometry->requireVertexIndices();
 	addVertexSource(mesh->nVertices() / 2);
-
-
-	igl::doublearea(triV, triMesh.faces(), faceArea);
-	faceArea /= 2;
-	igl::cotmatrix_entries(triV, triMesh.faces(), cotEntries);
 
 
 	polyscope::view::upDir = polyscope::view::UpDir::ZUp;

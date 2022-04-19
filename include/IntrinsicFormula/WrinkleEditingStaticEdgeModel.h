@@ -109,8 +109,7 @@ namespace IntrinsicFormula
         std::vector<int> _effectiveEids;
         std::vector<int> _effectiveVids;
 
-        Eigen::MatrixXd _cotMatrixEntries;
-        Eigen::VectorXd _faceArea;
+
         std::vector<Eigen::VectorXd> _combinedRefAmpList;
         std::vector<Eigen::VectorXd> _combinedRefOmegaList;
 
@@ -120,9 +119,12 @@ namespace IntrinsicFormula
         int _quadOrd;
         std::vector<std::vector<int>> _vertNeiFaces;
         std::vector<std::vector<int>> _vertNeiEdges;
+
+        Eigen::VectorXd _faceArea;
         Eigen::VectorXd _vertArea;
         Eigen::VectorXd _edgeArea;
         Eigen::VectorXd _edgeCotCoeffs;
+
 
         std::vector<std::vector<Eigen::Matrix2d>> _faceVertMetrics;
         double _spatialAmpRatio;

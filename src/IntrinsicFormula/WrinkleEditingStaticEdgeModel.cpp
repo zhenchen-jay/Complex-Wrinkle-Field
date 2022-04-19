@@ -15,9 +15,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	_pos = pos;
 	_mesh = mesh;
 	_faceFlag = faceFlag;
-	igl::cotmatrix_entries(pos, mesh.faces(), _cotMatrixEntries);
-	igl::doublearea(pos, mesh.faces(), _faceArea);
-	_faceArea /= 2.0;
+
 	_quadOrd = quadOrd;
 	_spatialAmpRatio = spatialAmpRatio;
 	_spatialEdgeRatio = spatialEdgeRatio;
@@ -35,12 +33,15 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	_edgeFlag.resize(nedges);
 	_edgeFlag.setConstant(-1);
 
-	_vertArea.setZero(nverts);
-	_edgeArea.setZero(nedges);
+	_edgeCotCoeffs.setZero(nedges);
+
+	
 
 	buildVertexNeighboringInfo(_mesh, _pos.rows(), _vertNeiEdges, _vertNeiFaces);
-
-	_edgeCotCoeffs.setZero(nedges);
+	_vertArea = getVertArea(_pos, _mesh);
+	_edgeArea = getEdgeArea(_pos, _mesh);
+	_faceArea = getFaceArea(_pos, _mesh);
+	
 
 	_effectiveVids.clear();
 	_effectiveEids.clear();
@@ -54,6 +55,10 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	std::set<int> faceset;
 	_nInterfaces = 0;
 
+	Eigen::MatrixXd cotMatrixEntries;
+
+	igl::cotmatrix_entries(pos, mesh.faces(), cotMatrixEntries);
+
 	for (int i = 0; i < nfaces; i++)
 	{
 		for (int j = 0; j < 3; j++)
@@ -61,17 +66,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			int vid = _mesh.faceVertex(i, j);
 			int eid = _mesh.faceEdge(i, j);
 
-			_vertArea(vid) += _faceArea(i) / 3.0;
-
-
-			if (_mesh.edgeFace(eid, 0) == -1 || _mesh.edgeFace(eid, 1) == -1)
-			{
-				_edgeArea(eid) += _faceArea(i);
-			}
-			else
-				_edgeArea(eid) += _faceArea(i) / 2;
-
-			_edgeCotCoeffs(eid) += _cotMatrixEntries(i, j);
+			_edgeCotCoeffs(eid) += cotMatrixEntries(i, j);
 
 			if (faceFlag(i) != -1)
 			{
@@ -126,7 +121,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 {
 
 	std::vector<std::complex<double>> initZvals;
-	roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _faceArea, _cotMatrixEntries, _pos.rows(), initZvals);
+	roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _edgeArea, _vertArea, _pos.rows(), initZvals);
 
 
 	std::vector<Eigen::VectorXd> refOmegaList(numFrames + 2);
@@ -180,7 +175,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 		_combinedRefOmegaList = refOmegaList;
 		_combinedRefAmpList = refAmpList;
 
-		roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[numFrames + 1], refAmpList[numFrames + 1], _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[numFrames + 1], refAmpList[numFrames + 1], _edgeArea, _vertArea, _pos.rows(), tarZvals);
 	}
 	else
 	{
@@ -190,7 +185,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
 		tarZvals = initZvals;
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -202,7 +197,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 
 		}
 
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _faceArea, _cotMatrixEntries, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
