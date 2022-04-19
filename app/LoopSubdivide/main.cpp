@@ -471,10 +471,6 @@ bool loadProblem()
     std::string meshFile = jval["mesh_name"];
     loopLevel = jval["upsampled_times"];
 
-    //spatialAmpRatio = jval["spatial_ratio"]["amp_ratio"];
-    //spatialEdgeRatio = jval["spatial_ratio"]["edge_ratio"];
-    //spatialKnoppelRatio = jval["spatial_ratio"]["knoppel_ratio"];
-
     meshFile = workingFolder + meshFile;
 
 
@@ -487,6 +483,7 @@ bool loadProblem()
 
     std::string initAmpPath = jval["init_amp"];
     std::string initOmegaPath = jval["init_omega"];
+    std::string initZvalPath = jval["init_zvals"];
 
     if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
     {
@@ -499,15 +496,21 @@ bool loadProblem()
         return false;
     }
 
-    Eigen::VectorXd faceArea;
-    igl::doublearea(triV, triF, faceArea);
+    Eigen::VectorXd edgeWeight = getEdgeArea(triV, triF);
+    Eigen::VectorXd vertWeight = getVertArea(triV, triF);
 
-    Eigen::MatrixXd cotEntries;
-    igl::cotmatrix_entries(triV, triF, cotEntries);
-    IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, faceArea, cotEntries, nverts, initZvals);
+    if (!loadVertexZvals(workingFolder + initZvalPath, nverts, initZvals))
+    {
+        std::cout << "missiing init zvals, round it based one amp and edge omega" << std::endl;
+        IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, edgeWeight, vertWeight, nverts, initZvals);
+    }
+    
 
-    for(int i = 0; i < nverts; i++)
+    for(int i = 0; i < nverts / 2; i++)
         initZvals[i] = 1;
+    for (int i = nverts / 2; i < nverts; i++)
+        initZvals[i] = -1;
+
 
     updateMagnitudePhase(initOmega, initZvals, loopedOmega, loopedZvals, loopedAmp, loopedPhase);
 

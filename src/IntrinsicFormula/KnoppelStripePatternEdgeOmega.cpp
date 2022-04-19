@@ -9,25 +9,13 @@
 
 using namespace IntrinsicFormula;
 
-void IntrinsicFormula::computeEdgeMatrix(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW,
-									 const Eigen::VectorXd &faceArea, const Eigen::MatrixXd &cotEntries,
+void IntrinsicFormula::computeEdgeMatrix(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& edgeWeight,
 									 const int nverts, Eigen::SparseMatrix<double> &A)
 {
 	std::vector<Eigen::Triplet<double>> AT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	Eigen::VectorXd edgeWeight(nedges);
-	edgeWeight.setConstant(1.0);
-
-//    for (int i = 0; i < nfaces; i++)  // form mass matrix
-//    {
-//        for (int j = 0; j < 3; j++)
-//        {
-//            int eid = mesh.faceEdge(i, j);
-//            edgeWeight(eid) += cotEntries(i, j);
-//        }
-//    }
 	for(int i = 0; i < nedges; i++)
 	{
 		int vid0 = mesh.edgeVertex(i, 0);
@@ -56,22 +44,10 @@ void IntrinsicFormula::computeEdgeMatrix(const MeshConnectivity &mesh, const Eig
 	A.setFromTriplets(AT.begin(), AT.end());
 }
 
-void IntrinsicFormula::computeEdgeMatrixGivenMag(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, Eigen::SparseMatrix<double>& A) {
+void IntrinsicFormula::computeEdgeMatrixGivenMag(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& edgeWeight, const int nverts, Eigen::SparseMatrix<double>& A) {
 	std::vector<Eigen::Triplet<double>> AT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
-
-	Eigen::VectorXd edgeWeight(nedges);
-	edgeWeight.setConstant(1.0);
-
-//    for (int i = 0; i < nfaces; i++)  // form mass matrix
-//    {
-//        for (int j = 0; j < 3; j++)
-//        {
-//            int eid = mesh.faceEdge(i, j);
-//            edgeWeight(eid) += cotEntries(i, j);
-//        }
-//    }
 
 	for (int i = 0; i < nedges; i++) {
 		int vid0 = mesh.edgeVertex(i, 0);
@@ -104,24 +80,13 @@ void IntrinsicFormula::computeEdgeMatrixGivenMag(const MeshConnectivity &mesh, c
 	A.setFromTriplets(AT.begin(), AT.end());
 }
 
-double IntrinsicFormula::KnoppelEdgeEnergy(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess)
+double IntrinsicFormula::KnoppelEdgeEnergy(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& edgeWeight, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hess)
 {
 	std::vector<Eigen::Triplet<double>> AT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 	int nverts = zvals.size();
 
-	Eigen::VectorXd edgeWeight(nedges);
-	edgeWeight.setConstant(1.0);
-
-//    for (int i = 0; i < nfaces; i++)  // form mass matrix
-//    {
-//        for (int j = 0; j < 3; j++)
-//        {
-//            int eid = mesh.faceEdge(i, j);
-//            edgeWeight(eid) += cotEntries(i, j);
-//        }
-//    }
 	double energy = 0;
 	
 	for (int i = 0; i < nedges; i++)
@@ -257,25 +222,21 @@ double IntrinsicFormula::KnoppelEdgeEnergyGivenMag(const MeshConnectivity& mesh,
 }
 
 void IntrinsicFormula::roundZvalsFromEdgeOmega(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW,
-														 const Eigen::VectorXd &faceArea,
-														 const Eigen::MatrixXd &cotEntries, const int nverts,
-														 std::vector<std::complex<double>> &zvals)
+	const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>> &zvals)
 {
 	std::vector<Eigen::Triplet<double>> BT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
-	
-	for(int i = 0; i < nfaces; i++)  // form mass matrix
+
+	for (int i = 0; i < nverts; i++)
 	{
-		for(int j =0; j < 3; j++)
-		{
-			int vid = mesh.faceVertex(i, j);
-			BT.push_back({2 * vid, 2 * vid, faceArea(i) / 3.0});
-			BT.push_back({2 * vid + 1, 2 * vid + 1, faceArea(i) / 3.0});
-		}
+		BT.push_back({ 2 * i, 2 * i, vertArea(i) });
+		BT.push_back({ 2 * i + 1, 2 * i + 1, vertArea(i) });
 	}
+	
+	
 	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrix(mesh, edgeW, faceArea, cotEntries, nverts, A);
+	computeEdgeMatrix(mesh, edgeW, edgeWeight, nverts, A);
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
 	B.setFromTriplets(BT.begin(), BT.end());
@@ -307,23 +268,20 @@ void IntrinsicFormula::roundZvalsFromEdgeOmega(const MeshConnectivity &mesh, con
 	}
 }
 
-void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals)
+void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& zvals)
 {
 	std::vector<Eigen::Triplet<double>> BT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	for(int i = 0; i < nfaces; i++)  // form mass matrix
+	for (int i = 0; i < nverts; i++)
 	{
-		for(int j =0; j < 3; j++)
-		{
-			int vid = mesh.faceVertex(i, j);
-			BT.push_back({2 * vid, 2 * vid, faceArea(i) / 3.0});
-			BT.push_back({2 * vid + 1, 2 * vid + 1, faceArea(i) / 3.0});
-		}
+		BT.push_back({ 2 * i, 2 * i, vertArea(i) });
+		BT.push_back({ 2 * i + 1, 2 * i + 1, vertArea(i) });
 	}
+
 	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrixGivenMag(mesh, edgeW, vertAmp, faceArea, cotEntries, nverts, A);
+	computeEdgeMatrixGivenMag(mesh, edgeW, vertAmp, edgeWeight, nverts, A);
 
 	Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
 	Eigen::SparseMatrix<double> I = A;
@@ -372,23 +330,20 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 	}
 }
 
-void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& zvals)
+void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& zvals)
 {
 	std::vector<Eigen::Triplet<double>> BT;
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	for (int i = 0; i < nfaces; i++)  // form mass matrix
+	for (int i = 0; i < nverts; i++)
 	{
-		for (int j = 0; j < 3; j++)
-		{
-			int vid = mesh.faceVertex(i, j);
-			BT.push_back({ 2 * vid, 2 * vid, faceArea(i) / 3.0 });
-			BT.push_back({ 2 * vid + 1, 2 * vid + 1, faceArea(i) / 3.0 });
-		}
+		BT.push_back({ 2 * i, 2 * i, vertArea(i) });
+		BT.push_back({ 2 * i + 1, 2 * i + 1, vertArea(i) });
 	}
+
 	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrixGivenMag(mesh, edgeW, vertAmp, faceArea, cotEntries, nverts, A);
+	computeEdgeMatrixGivenMag(mesh, edgeW, vertAmp, edgeWeight, nverts, A);
 //    computeMatrixA(mesh, edgeW, faceArea, cotEntries, nverts, A);
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
@@ -442,7 +397,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(const Me
 	}
 }
 
-void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& faceArea, const Eigen::MatrixXd& cotEntries, const int nverts, std::vector<std::complex<double>>& vertZvals)
+void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals)
 {
 	Eigen::VectorXd clampedVals(2 * nverts);
 	clampedVals.setZero();
@@ -477,7 +432,7 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const E
 	PT = P.transpose();
 
 	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrix(mesh, edgeW, faceArea, cotEntries, nverts, A);
+	computeEdgeMatrix(mesh, edgeW, edgeWeight, nverts, A);
 
 	A = P * A * PT;
 
@@ -499,14 +454,10 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const E
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	for (int i = 0; i < nfaces; i++)  // form mass matrix
+	for (int i = 0; i < nverts; i++)
 	{
-		for (int j = 0; j < 3; j++)
-		{
-			int vid = mesh.faceVertex(i, j);
-			BT.push_back({ 2 * vid, 2 * vid, faceArea(i) / 3.0 });
-			BT.push_back({ 2 * vid + 1, 2 * vid + 1, faceArea(i) / 3.0 });
-		}
+		BT.push_back({ 2 * i, 2 * i, vertArea(i) });
+		BT.push_back({ 2 * i + 1, 2 * i + 1, vertArea(i) });
 	}
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
