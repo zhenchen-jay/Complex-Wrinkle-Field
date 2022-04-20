@@ -4,6 +4,9 @@
 #include <queue>
 #include <Eigen/SPQRSupport>
 #include <igl/per_vertex_normals.h>
+#include <igl/cotmatrix_entries.h>
+#include <igl/cotmatrix.h>
+#include <igl/boundary_loop.h>
 #include <filesystem>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
@@ -826,4 +829,85 @@ Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 	}
 
 	return vertArea;
+}
+
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio, int opTimes)
+{
+    newV = V;
+    if(opTimes == 0)
+        return;
+
+    Eigen::SparseMatrix<double> L;
+    igl::cotmatrix(V, F, L);
+
+    Eigen::VectorXd sum;
+    sum.setZero(V.rows());
+
+    for (int k=0; k<L.outerSize(); ++k)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(L,k); it; ++it)
+        {
+            if(it.row() == it.col())
+                sum(it.row()) = it.value();
+        }
+
+    std::vector<Eigen::Triplet<double>> T;
+
+    for (int k=0; k<L.outerSize(); ++k)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(L,k); it; ++it)
+        {
+            if(sum(it.row()) != 0)
+                T.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value() / sum(it.row())));
+            else
+                T.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value() / (1e-6 + sum(it.row()))));
+        }
+
+    L.setFromTriplets(T.begin(), T.end());      // normalized laplacian
+    Eigen::SparseMatrix<double> idmat(V.rows(), V.rows());
+    idmat.setIdentity();
+
+    Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
+
+    std::vector<int> bnd;
+    igl::boundary_loop(F, bnd);
+
+    for(int i = 0; i < opTimes; i++)
+    {
+        for(int j = 0; j < 3; j++)
+            newV.col(j) = smoothL * newV.col(j);
+
+        for(int j = 0; j < bnd.size(); j++)
+            newV.row(bnd[j]) = V.row(bnd[j]);
+    }
+
+//    if(!isImplicit)     // explicit
+//    {
+//        Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
+//
+//        for(int i = 0; i < opTimes; i++)
+//        {
+//            for(int j = 0; j < 3; j++)
+//                newV.col(j) = smoothL * newV.col(j);
+//        }
+//
+//    }
+//
+//    else
+//    {
+//        Eigen::SparseMatrix<double> smoothL = idmat + smoothingRatio * L;
+//        Eigen::SparseMatrix<double> poweredL = idmat;
+//        for(int i=0; i<opTimes; i++)
+//        {
+//            poweredL = smoothL * poweredL;
+//        }
+//
+//        Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
+//        solver.compute(poweredL);
+//        for(int j = 0; j < 3; j++)
+//        {
+//            Eigen::VectorXd rhs = newV.col(j);
+//            newV.col(j) = solver.solve(rhs);
+//        }
+//    }
+
+
 }
