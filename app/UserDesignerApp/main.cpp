@@ -19,11 +19,15 @@
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/Optimization/NewtonDescent.h"
+#include "../../include/json.hpp"
 
 #include <igl/doublearea.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/cotmatrix.h>
 #include <igl/per_vertex_normals.h>
+#include <igl/file_dialog_open.h>
+#include <igl/file_dialog_save.h>
+#include <igl/writeOBJ.h>
 
 #include <sstream>
 
@@ -35,9 +39,13 @@ struct SourceVert {
 	Vertex vertex;
 	double scalarVal = 1.;
 	int effectiveRadius = 5;
-	double vectorMag = 1.;
+	double vectorMag = 100.;
 	float vectorAngleRad = 0.;
 };
+
+// smoothing
+int smoothingTimes = 3;
+double smoothingRatio = 0.95;
 
 std::unique_ptr<VectorHeatMethodSolver> solver;
 
@@ -215,11 +223,11 @@ void getSourceEffectedVids(const MeshConnectivity& mesh, int nverts, std::vector
 	}
 }
 
-double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, const Eigen::VectorXd& amp, const Eigen::VectorXd& vertArea, std::vector<std::vector<std::pair<int, double>>> effectedVids, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess)
+double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, const Eigen::VectorXd& amp, const Eigen::VectorXd& vertArea, std::vector<std::vector<std::pair<int, double>>> effectedVids, double smoothnessCoef = 1.0, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL)
 {
 	Eigen::SparseMatrix<double> L;
 	igl::cotmatrix(pos, mesh.faces(), L);
-	double E = -0.5 * amp.dot(L * amp);
+	double E = -0.5 * amp.dot(L * amp) * smoothnessCoef;
 
 	Eigen::VectorXd deriv1;
 	std::vector<Eigen::Triplet<double>> T;
@@ -246,19 +254,19 @@ double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh
 
 	if (deriv)
 	{
-		(*deriv) = deriv1 - L * amp;
+		(*deriv) = deriv1 - L * amp * smoothnessCoef;
 	}
 	if (hess)
 	{
 		hess->resize(amp.rows(), amp.rows());
 		hess->setFromTriplets(T.begin(), T.end());
-		(*hess) += -L;
+		(*hess) += -L * smoothnessCoef;
 	}
 	return E;
 }
 
 
-void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, std::vector<SourceVert> sourcePoints, Eigen::VectorXd& amp)
+void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, std::vector<SourceVert> sourcePoints, Eigen::VectorXd& amp, double smoothCoeff = 1.0)
 {
 	int nverts = pos.rows();
 	int nfaces = mesh.nFaces();
@@ -279,14 +287,6 @@ void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const E
 	std::vector<std::vector<std::pair<int, double>>> effectedVids;
 	Eigen::VectorXi selectedVids;
 	getSourceEffectedVids(mesh, nverts, sourcePoints, effectedVids, &selectedVids);
-
-	/*for (int i = 0; i < effectedVids.size(); i++)
-	{
-		for (int j = 0; j < effectedVids[i].size(); j++)
-		{
-			std::cout << selectedVids(effectedVids[i][j].first) << " " << effectedVids[i][j].first << " " << effectedVids[i][j].second << " " << vertArea(effectedVids[i][j].first) << std::endl;
-		}
-	}*/
 
 	std::vector<int> freeDOFs;
 	for (int i = 0; i < nverts; i++)
@@ -312,7 +312,7 @@ void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const E
 
 		Eigen::VectorXd fullx = unProjM * x;
 
-		double E = computeAmpEnergy(pos, mesh, w, fullx, vertArea, effectedVids, grad ? &deriv : NULL, hess ? &H : NULL);
+		double E = computeAmpEnergy(pos, mesh, w, fullx, vertArea, effectedVids, smoothCoeff, grad ? &deriv : NULL, hess ? &H : NULL);
 
 
 		if (grad)
@@ -348,18 +348,222 @@ std::unique_ptr<VertexPositionGeometry> geometry;
 
 Eigen::MatrixXd triV;
 MeshConnectivity triMesh;
-int loopLevel = 2;
+int upsampleTimes = 2;
 
 // Polyscope visualization handle, to quickly add data to the surface
 polyscope::SurfaceMesh* psMesh;
 
 // Some algorithm parameters
 float tCoef = 1.0;
+double sCoef = 1.0;
 int vertexInd = 0;
 int pCenter = 2;
 
 std::vector<SourceVert> sourcePoints;
+Eigen::VectorXd edgeVec;
+Eigen::VectorXd vertAmp;
 
+void loadBaseMesh(const std::string& meshPath)
+{
+	std::tie(mesh, geometry) = loadMesh(meshPath);
+	geometry->requireVertexTangentBasis();
+	geometry->requireVertexNormals();
+	geometry->requireFaceTangentBasis();
+	geometry->requireVertexIndices();
+
+	// Register the mesh with polyscope
+	psMesh = polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
+
+	convertGeoCentralMesh(*mesh, *geometry, triV, triMesh);
+
+
+	// Set vertex tangent spaces
+	VertexData<geometrycentral::Vector3> vBasisX(*mesh);
+	for (Vertex v : mesh->vertices()) {
+		vBasisX[v] = geometry->vertexTangentBasis[v][0];
+	}
+	polyscope::getSurfaceMesh("base mesh")->setVertexTangentBasisX(vBasisX);
+
+
+
+	// Set face tangent spaces
+	FaceData<geometrycentral::Vector3> fBasisX(*mesh);
+	for (Face f : mesh->faces()) {
+		fBasisX[f] = geometry->faceTangentBasis[f][0];
+	}
+	polyscope::getSurfaceMesh("base mesh")->setFaceTangentBasisX(fBasisX);
+}
+
+void load()
+{
+	std::string loadFileName = igl::file_dialog_open();
+
+	std::cout << "load file in: " << loadFileName << std::endl;
+	using json = nlohmann::json;
+	std::ifstream inputJson(loadFileName);
+	if (!inputJson) {
+		std::cerr << "missing json file in " << loadFileName << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	std::string filePath = loadFileName;
+	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+	int id = filePath.rfind("/");
+	std::string workingFolder = filePath.substr(0, id + 1);
+	std::cout << "working folder: " << workingFolder << std::endl;
+
+	json jval;
+	inputJson >> jval;
+
+	std::string meshFile = jval["mesh_name"];
+	meshFile = workingFolder + meshFile;
+
+	loadBaseMesh(meshFile);
+	std::cout << "load base mesh finished!" << std::endl;
+
+	upsampleTimes = jval["upsampled_times"];
+	tCoef = jval["vector_heat_timeStep"];
+	sCoef = jval["amplitude_extend_coeff"];
+
+	std::cout << "t coef: " << tCoef << ", s coef: " << sCoef << std::endl;
+
+	smoothingRatio = jval["laplacian_smooth"]["smoothing_ratio"];
+	smoothingTimes = jval["laplacian_smooth"]["smoothing_times"];
+	
+	sourcePoints.clear();
+
+	Eigen::VectorXi vertFlags = Eigen::VectorXi::Zero(mesh->nVertices());
+
+	std::cout << "num of source points: " << jval["source_points"].size() << std::endl;
+
+	for (int i = 0; i < jval["source_points"].size(); i++)
+	{
+		int ind = jval["source_points"][i]["vert_id"];
+		Vertex v = mesh->vertex(ind);
+
+		if (vertFlags[ind])
+		{
+			std::stringstream ss;
+			ss << "Vertex " << v;
+			std::string vStr = ss.str();
+			polyscope::warning("Vertex " + vStr + " is already a source");
+			return;
+		}
+
+		SourceVert newV;
+		newV.vertex = v;
+		newV.vectorMag = jval["source_points"][i]["vector_magnitude"];
+		newV.vectorAngleRad = jval["source_points"][i]["vector_radiusAngle"];
+		newV.scalarVal = jval["source_points"][i]["scalar_value"];
+		newV.effectiveRadius = jval["source_points"][i]["effective_domain_radius"];
+
+		sourcePoints.push_back(newV);
+	}
+	std::cout << "loading finished!" << std::endl;
+
+}
+
+void save()
+{
+	std::string filePath = igl::file_dialog_save();
+	
+	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+	int id = filePath.rfind("/");
+	std::string workingFolder = filePath.substr(0, id + 1);
+
+	std::ofstream iwfs(workingFolder + "omega.txt");
+	iwfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << edgeVec << std::endl;
+
+	std::ofstream iafs(workingFolder + "amp.txt");
+	iafs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertAmp << std::endl;
+
+	igl::writeOBJ(workingFolder + "mesh.obj", triV, triMesh.faces());
+
+	using json = nlohmann::json;
+	json jval =
+	{
+			{"mesh_name",         "mesh.obj"},
+			{"num_frame",         10},
+			{"quad_order",        4},
+			{"spatial_ratio",     {
+										   {"amp_ratio", 10},
+										   {"edge_ratio", 10},
+										   {"knoppel_ratio", 10}
+
+								  }
+			},
+			{"upsampled_times", upsampleTimes},
+			{"init_omega",        "omega.txt"},
+			{"init_amp",          "amp.txt"},
+			{
+			 "region_details",    {
+										  {"select_all", false},
+										  {"selected_fid", -1},
+										  {"selected_domain_dilation", 10},
+										  {"interface_dilation", 5}
+
+								  }
+			},
+			{
+			 "operation_details", {
+										  {"omega_operation_type", "None"},
+										  {"omega_operation_value", 1},
+										  {"amp_omega_coupling", false},
+										  {"amp_operation_value", 1}
+								  }
+			},
+			{
+			 "reference",         {
+										  {"ref_amp", "/refAmp/"},
+										  {"ref_omega", "/refOmega/"}
+								  }
+			},
+			{
+			 "solution",          {
+										  {"opt_zvals", "/optZvals/"},
+										  {"opt_omega", "/optOmega/"},
+										  {"wrinkle_mesh", "/wrinkledMesh/"},
+										  {"upsampled_amp", "/upsampledAmp/"},
+										  {"upsampled_phase", "/upsampledPhase/"}
+								  }
+			}
+	};
+
+	std::string saveDataFileName = workingFolder + "/data.json";
+	std::ofstream o(saveDataFileName);
+	o << std::setw(4) << jval << std::endl;
+	std::cout << "save file in: " << saveDataFileName << std::endl;
+
+	json vecJval =
+	{
+			{"mesh_name",         "mesh.obj"},
+			{"upsampled_times", upsampleTimes},
+			{"laplacian_smooth",
+									{
+										{"smoothing_times", smoothingTimes},
+										{"smoothing_ratio", smoothingRatio}
+									}
+			},
+			{"vector_heat_timeStep", tCoef},
+			{"amplitude_extend_coeff", sCoef}
+	};
+	for (int i = 0; i < sourcePoints.size(); i++)
+	{
+		json spJval = 
+		{
+			{"vert_id", sourcePoints[i].vertex.getIndex()},
+			{"vector_magnitude", sourcePoints[i].vectorMag},
+			{"vector_radiusAngle", sourcePoints[i].vectorAngleRad},
+			{"effective_domain_radius", sourcePoints[i].effectiveRadius},
+			{"scalar_value", sourcePoints[i].scalarVal}
+		};
+		vecJval["source_points"].push_back(spJval);
+	}
+	
+	std::ofstream wo(filePath);
+	wo << std::setw(4) << vecJval << std::endl;
+	std::cout << "save wrinkle design file in: " << filePath << std::endl;
+}
 
 bool vizFirstRun = true;
 void updateSourceSetViz() 
@@ -471,7 +675,7 @@ void wrinkleExtraction()
 	Eigen::MatrixXd vertVec;
 	getVecTransport(*geometry, sourcePoints, vertVec);
 
-	Eigen::VectorXd edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
+	edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
 	for (int i = 0; i < triMesh.nEdges(); i++)
 		edgeVec(i) *= edgeFlags(i);
 
@@ -479,32 +683,15 @@ void wrinkleExtraction()
 	for (int i = 0; i < triMesh.nFaces(); i++)
 		faceVec.row(i) *= faceFlags(i);
 
-	std::vector<std::pair<int, double>> clampedAmps;
-	for (int i = 0; i < vertFlags.rows(); i++)
-	{
-		if (vertFlags(i) == 0)
-			clampedAmps.push_back({ i, 0 });
-	}
-
-	for (SourceVert& s : sourcePoints)
-	{
-		int vid = s.vertex.getIndex();
-		clampedAmps.push_back({ vid, s.scalarVal });
-	}
-
-	Eigen::VectorXd amp;
-
-	//ampExtraction(triV, triMesh, edgeVec, clampedAmps, amp);
-
-	extendAmp(triV, triMesh, edgeVec, sourcePoints, amp);
+	extendAmp(triV, triMesh, edgeVec, sourcePoints, vertAmp, sCoef);
 	//amp.setConstant(sourcePoints[0].scalarVal);
 
-	std::cout << "amp range: " << amp.minCoeff() << " " << amp.maxCoeff() << std::endl;
+	std::cout << "amp range: " << vertAmp.minCoeff() << " " << vertAmp.maxCoeff() << std::endl;
 
 	auto fVec = psMesh->addFaceVectorQuantity("face vector", faceVec);
 	fVec->setEnabled(true);
 
-	auto pScal = psMesh->addVertexScalarQuantity("amp", amp);
+	auto pScal = psMesh->addVertexScalarQuantity("amp", vertAmp);
 	pScal->setEnabled(true);
 
 	/*for (int i = 0; i < triV.rows(); i++)
@@ -516,14 +703,23 @@ void wrinkleExtraction()
 	vertArea = getVertArea(triV, triMesh);
 
 	std::vector<std::complex<double>> zvals, upsampledZvals;
-	IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, edgeVec, amp, edgeArea, vertArea, amp.rows(), zvals);
+	zvals.resize(triV.rows(), 0);
+
+	Eigen::VectorXi freeVerts = Eigen::VectorXi::Ones(triV.rows()) - vertFlags;
+
+	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(triMesh, edgeVec, freeVerts, edgeArea, vertArea, triV.rows(), zvals);
+	for (int i = 0; i < zvals.size(); i++)
+	{
+		double theta = std::arg(zvals[i]);
+		zvals[i] = vertAmp(i)*std::complex<double>(std::cos(theta), std::sin(theta));
+	}
 
 
 	Eigen::MatrixXd upsampledTriV, wrinkledV;
 	Eigen::MatrixXi upsampledTriF;
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
 	
-	meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, loopLevel, NULL, NULL, &bary);
+	meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
 
 	upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, zvals, edgeVec, bary);
 
@@ -538,6 +734,7 @@ void wrinkleExtraction()
 		phase(i) = std::arg(upsampledZvals[i]);
 		wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
 	}
+	laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
 
 	PaintGeometry mpaint;
 	mpaint.setNormalization(true);
@@ -553,35 +750,29 @@ void wrinkleExtraction()
 
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 
-	Eigen::MatrixXd shiftV = Eigen::MatrixXd::Zero(nupverts, 3);
-	shiftV.col(0).setConstant(shiftx);
-	Eigen::MatrixXi shiftF = upsampledTriF;
-	shiftF.setConstant(nupverts);
+	std::cout << "shift x: " << shiftx << std::endl;
 
-	Eigen::MatrixXd dataV;
-	Eigen::MatrixXi dataF;
-	Eigen::MatrixXd dataColor;
-
-	dataV.setZero(nupverts * 3, 3);
-	dataColor.setZero(nupverts * 3, 3);
-	dataF.setZero(nupfaces * 3, 3);
-	
-	dataV.block(0, 0, nupverts, 3) = wrinkledV - shiftV;
-	dataF.block(0, 0, nupfaces, 3) = upsampledTriF;
+	Eigen::MatrixXd wrinkleColor = wrinkledV;
 	for (int i = 0; i < nupverts; i++)
-		dataColor.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
+		wrinkleColor.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
 
-	dataV.block(nupverts, 0, nupverts, 3) = upsampledTriV - 2 * shiftV;
-	dataV.block(2 * nupverts, 0, nupverts, 3) = upsampledTriV - 3 * shiftV;
-	dataF.block(nupfaces, 0, nupfaces, 3) = upsampledTriF + shiftF;
-	dataF.block(2 * nupfaces, 0, nupfaces, 3) = upsampledTriF + 2 * shiftF;
+	Eigen::MatrixXd shiftV = Eigen::MatrixXd::Zero(nupverts, 3);
+	shiftV.col(0).setConstant(-shiftx);
 
-	dataColor.block(nupverts, 0, nupverts, 3) = phiColor;
-	dataColor.block(2 * nupverts, 0, nupverts, 3) = ampColor;
-
-	polyscope::registerSurfaceMesh("wrinkled mesh", dataV, dataF); 
-	polyscope::getSurfaceMesh("wrinkled mesh")->addVertexColorQuantity("VertexColor", dataColor);
+	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV + shiftV, upsampledTriF); 
+	polyscope::getSurfaceMesh("wrinkled mesh")->addVertexColorQuantity("VertexColor", wrinkleColor);
 	polyscope::getSurfaceMesh("wrinkled mesh")->getQuantity("VertexColor")->setEnabled(true);
+
+
+	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV + 2* shiftV, upsampledTriF);
+	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("VertexColor", phiColor);
+	polyscope::getSurfaceMesh("phase mesh")->getQuantity("VertexColor")->setEnabled(true);
+
+	polyscope::registerSurfaceMesh("ampliude mesh", upsampledTriV + 3 * shiftV, upsampledTriF);
+	polyscope::getSurfaceMesh("ampliude mesh")->addVertexColorQuantity("VertexColor", ampColor);
+	polyscope::getSurfaceMesh("ampliude mesh")->getQuantity("VertexColor")->setEnabled(true);
+
+
 }
 
 void buildPointsMenu() 
@@ -643,87 +834,98 @@ void buildPointsMenu()
 }
 
 void myCallback() {
+	ImGui::PushItemWidth(100);
+	float w = ImGui::GetContentRegionAvailWidth();
+	float p = ImGui::GetStyle().FramePadding.x;
+	if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
+	{
+		load();
+		updateSourceSetViz();
+	}
+	ImGui::SameLine(0, p);
+	if (ImGui::Button("Save", ImVec2((w - p) / 2.f, 0)))
+	{
+		save();
+	}
 
 	ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-	if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags)) {
-		if (ImGui::BeginTabItem("Basic algorithm")) {
-
-			ImGui::TextUnformatted("Algorithm options:");
-			ImGui::PushItemWidth(100);
-			if (ImGui::InputFloat("tCoef", &tCoef)) {
-				solver.reset();
-			}
-			ImGui::PopItemWidth();
-			if (ImGui::InputInt("upsampled level", &loopLevel))
+	if (ImGui::BeginTabBar("Visualization Options", tab_bar_flags))
+	{
+		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
+		{
+			if (ImGui::InputInt("smoothing times", &smoothingTimes))
 			{
-				if (loopLevel < 0)
-					loopLevel = 2;
+				smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
 			}
-			// Build the list of source points
-			if (ImGui::TreeNode("select source points")) {
-				buildPointsMenu();
-				ImGui::TreePop();
+			if (ImGui::InputDouble("smoothing ratio", &smoothingRatio))
+			{
+				smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
 			}
-
-			if (ImGui::Button("run vector transport")) {
-				vectorTransport();
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
+		{
+			if (ImGui::InputInt("upsampled level", &upsampleTimes))
+			{
+				if (upsampleTimes < 0)
+					upsampleTimes = 2;
 			}
-			if (ImGui::Button("run wrinkle extraction")) {
-				wrinkleExtraction();
-			}
-
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();
 	}
+	if (ImGui::BeginTabBar("Wrinkle Design", tab_bar_flags)) 
+	{
+		if (ImGui::BeginTabItem("Vector Heat Algorithm")) 
+		{
+			ImGui::TextUnformatted("Algorithm options:");
+			ImGui::PushItemWidth(100);
+			if (ImGui::InputFloat("tCoef", &tCoef))
+			{
+				solver.reset();
+			}
+			ImGui::PopItemWidth();
+			// Build the list of source points
+			if (ImGui::TreeNode("select source points")) 
+			{
+				buildPointsMenu();
+				ImGui::TreePop();
+			}
+			ImGui::EndTabItem();
+		}
+
+		if (ImGui::BeginTabItem("Amplitude interpolation Algorithm"))
+		{
+			ImGui::TextUnformatted("Algorithm options:");
+			ImGui::PushItemWidth(100);
+			if (ImGui::InputDouble("smoothness coef", &sCoef))
+			{
+				if (sCoef < 0)
+				{
+					sCoef = 1;
+				}
+			}
+			ImGui::EndTabItem();
+		}
+
+		ImGui::EndTabBar();
+	}
+
+	if (ImGui::Button("run wrinkle extraction")) 
+	{
+		wrinkleExtraction();
+	}
 }
 
 int main(int argc, char** argv) {
-
-	// Make sure a mesh name was given
-	if (argc != 2) {
-		std::cerr << "Please specify a mesh file as argument" << std::endl;
-		return EXIT_FAILURE;
-	}
-
 	// Initialize polyscope
 	polyscope::init();
 
 	// Set the callback function
 	polyscope::state::userCallback = myCallback;
-
-	// Load mesh
-	std::tie(mesh, geometry) = loadMesh(argv[1]);
-	geometry->requireVertexTangentBasis();
-	geometry->requireVertexNormals();
-	geometry->requireFaceTangentBasis();
-	geometry->requireVertexIndices();
-
-	// Register the mesh with polyscope
-	psMesh = polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
-
-	convertGeoCentralMesh(*mesh, *geometry, triV, triMesh);
-
-
-	// Set vertex tangent spaces
-	VertexData<geometrycentral::Vector3> vBasisX(*mesh);
-	for (Vertex v : mesh->vertices()) {
-		vBasisX[v] = geometry->vertexTangentBasis[v][0];
-	}
-	polyscope::getSurfaceMesh("base mesh")->setVertexTangentBasisX(vBasisX);
-
-
-	
-	// Set face tangent spaces
-	FaceData<geometrycentral::Vector3> fBasisX(*mesh);
-	for (Face f : mesh->faces()) {
-		fBasisX[f] = geometry->faceTangentBasis[f][0];
-	}
-	polyscope::getSurfaceMesh("base mesh")->setFaceTangentBasisX(fBasisX);
-
-	// To start, pick two vertices as sources
-	geometry->requireVertexIndices();
-	addVertexSource(mesh->nVertices() / 2);
+	load();
+	updateSourceSetViz();
+	wrinkleExtraction();
 
 
 	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
