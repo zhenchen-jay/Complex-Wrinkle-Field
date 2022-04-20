@@ -126,6 +126,10 @@ int dilationTimes = 10;
 bool isShowWrinkleColorField = false;
 bool isWarmStart = false;
 
+// smoothing
+int smoothingTimes = 3;
+double smoothingRatio = 0.95;
+
 
 std::map<std::pair<int, int>, int> he2Edge(const Eigen::MatrixXi& faces)
 {
@@ -935,10 +939,21 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 
 		for (int i = 0; i < nupverts; i++)
 		{
-			renderV.row(curVerts + i) = tmpV.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
 			wrinkledV.row(i) = upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
 			ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
 		}
+        Eigen::MatrixXd wrinkledVNew;
+        laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledVNew, smoothingRatio, smoothingTimes);
+        std::cout << "smoothing finished" << std::endl;
+
+        for (int i = 0; i < nupverts; i++)
+        {
+            renderV.row(curVerts + i) = tmpV.row(i) + (wrinkledVNew.row(i) - upsampledTriV.row(i));
+        }
+
+        igl::writeOBJ(workingFolder + "wrinkledMesh.obj", wrinkledV, upsampledTriF);
+        igl::writeOBJ(workingFolder + "wrinkledMesh_smoothed.obj", wrinkledVNew, upsampledTriF);
+
 		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
 
 		mPaint.setNormalization(false);
@@ -1111,6 +1126,7 @@ bool loadProblem()
 
 	igl::readOBJ(meshFile, triV, triF);
 	triMesh = MeshConnectivity(triF);
+    
 	initialization(triV, triF, upsampledTriV, upsampledTriF);
 	updateEditionDomain();
 
@@ -1338,6 +1354,8 @@ bool saveProblem()
 		}
 
 		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
+        laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
+        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
 
 		/*Eigen::MatrixXd upWrinkledV;
 		Eigen::MatrixXi upWrinkledF;
@@ -1432,12 +1450,26 @@ void callback() {
 			updateFieldsInView(curFrame);
 		}
 		if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
-		{
-			if (wrinkleAmpScalingRatio >= 0)
-				updateFieldsInView(curFrame);
-		}
-
+        {
+            if (wrinkleAmpScalingRatio >= 0)
+                updateFieldsInView(curFrame);
+        }
 	}
+
+    if (ImGui::CollapsingHeader("smoothing Options", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        if(ImGui::InputInt("smoothing times", &smoothingTimes))
+        {
+            smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
+            updateFieldsInView(curFrame);
+        }
+        if(ImGui::InputDouble("smoothing ratio", &smoothingRatio))
+        {
+            smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
+            updateFieldsInView(curFrame);
+        }
+    }
+
 
 
 	if (ImGui::CollapsingHeader("Selected Region", ImGuiTreeNodeFlags_DefaultOpen))
