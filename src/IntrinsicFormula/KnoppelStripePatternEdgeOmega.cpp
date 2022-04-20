@@ -330,74 +330,7 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 	}
 }
 
-void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaGivenMag(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& zvals)
-{
-	std::vector<Eigen::Triplet<double>> BT;
-	int nfaces = mesh.nFaces();
-	int nedges = mesh.nEdges();
-
-	for (int i = 0; i < nverts; i++)
-	{
-		BT.push_back({ 2 * i, 2 * i, vertArea(i) });
-		BT.push_back({ 2 * i + 1, 2 * i + 1, vertArea(i) });
-	}
-
-	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrixGivenMag(mesh, edgeW, vertAmp, edgeWeight, nverts, A);
-//    computeMatrixA(mesh, edgeW, faceArea, cotEntries, nverts, A);
-
-	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
-	B.setFromTriplets(BT.begin(), BT.end());
-
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
-    Eigen::SparseMatrix<double> I = A;
-    I.setIdentity();
-    double eps = 1e-16;
-    Eigen::SparseMatrix<double> tmpA = A + eps * I;
-    solver.compute(tmpA);
-    while(solver.info() != Eigen::Success)
-    {
-        std::cout << "matrix is not PD after adding "<< eps << " * I" << std::endl;
-        solver.compute(tmpA);
-        eps *= 2;
-        tmpA = A + eps * I;
-    }
-
-	Spectra::SymShiftInvert<double> op(A, B);
-	Spectra::SparseSymMatProd<double> Bop(B);
-	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -2 * eps);
-	geigs.init();
-	int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
-
-	Eigen::VectorXd evalues;
-	Eigen::MatrixXd evecs;
-
-	evalues = geigs.eigenvalues();
-	evecs = geigs.eigenvectors();
-	if (nconv != 1 || geigs.info() != Spectra::CompInfo::Successful)
-	{
-		std::cout << "Eigensolver failed to converge!!" << std::endl;
-	}
-
-	std::cout << "Eigenvalue is " << evalues[0] << std::endl;
-
-	zvals.clear();
-    Eigen::VectorXd fullVar = evecs;
-//	Eigen::VectorXd fullVar = projM.transpose() * evecs;
-	for (int i = 0; i < nverts; i++)
-	{
-		std::complex<double> z = std::complex<double>(fullVar(2 * i, 0), fullVar(2 * i + 1, 0));
-
-        if (vertFlags(i) == 1)
-        {
-            z *= vertAmp(i) / std::abs(z);
-        }
-
-		zvals.push_back(z);
-	}
-}
-
-void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals)
+void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals)
 {
 	Eigen::VectorXd clampedVals(2 * nverts);
 	clampedVals.setZero();
@@ -422,11 +355,23 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const E
 	if (nDOFs == 0)
 		return;
 
-	Eigen::SparseMatrix<double> PT(clampedVals.rows(), 2 * nDOFs + 1), P(2 * nDOFs + 1, clampedVals.rows());
-	for (int i = 0; i < clampedVals.rows(); i++)
+	std::cout << "num of DOFs: " << nDOFs << std::endl;
+
+	Eigen::SparseMatrix<double> PT, P;
+
+	if (clampedVals.norm())
 	{
-		T.push_back(Eigen::Triplet<double>(2 * nDOFs, i, clampedVals(i)));
+		PT.resize(clampedVals.rows(), 2 * nDOFs + 1), P.resize(2 * nDOFs + 1, clampedVals.rows());
+		for (int i = 0; i < clampedVals.rows(); i++)
+		{
+			T.push_back(Eigen::Triplet<double>(2 * nDOFs, i, clampedVals(i)));
+		}
 	}
+	else
+	{
+		PT.resize(clampedVals.rows(), 2 * nDOFs), P.resize(2 * nDOFs, clampedVals.rows());
+	}
+	
 	
 	P.setFromTriplets(T.begin(), T.end());
 	PT = P.transpose();
@@ -484,10 +429,25 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const E
 		std::cout << "Eigensolver failed to converge!!" << std::endl;
 	}
 
-	std::cout << "Eigenvalue is " << evalues[0] << ", scale value: " << evecs(2 * nDOFs) << std::endl;
+	std::cout << "Eigenvalue is " << evalues[0];
+
+	Eigen::VectorXd fullVar;
+
+	if (clampedVals.norm())
+	{
+		std::cout << ", scale value: " << evecs(2 * nDOFs) << std::endl;
+		fullVar = PT * evecs / evecs(2 * nDOFs);
+	}
+		
+	else
+	{
+		std::cout << std::endl;
+		fullVar = PT * evecs;
+	}
+		
 
 	vertZvals.clear();
-	Eigen::VectorXd fullVar = PT * evecs / evecs(2 * nDOFs);
+	 
 
 	for (int i = 0; i < nverts; i++)
 	{

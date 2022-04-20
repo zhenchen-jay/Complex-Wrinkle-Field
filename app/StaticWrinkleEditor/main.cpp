@@ -44,8 +44,8 @@ enum RegionOpType
 
 std::vector<VertexOpInfo> vertOpts;
 
-Eigen::MatrixXd triV, loopTriV, upsampledTriV;
-Eigen::MatrixXi triF, loopTriF, upsampledTriF;
+Eigen::MatrixXd triV, upsampledTriV;
+Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
 Mesh secMesh, subSecMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -72,7 +72,6 @@ Eigen::MatrixXi dataF;
 Eigen::MatrixXd dataVec;
 Eigen::MatrixXd curColor;
 
-int loopLevel = 1;
 int upsampleTimes = 2;
 
 bool isForceOptimize = false;
@@ -545,34 +544,6 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 
 }
 
-void updateSubOmega(const std::vector<Eigen::VectorXd>& wFrames, std::vector<Eigen::VectorXd>& subOmegaList, std::vector<Eigen::MatrixXd>& subFaceOmegaList)
-{
-	/* std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
-	 subOmegaList.resize(wFrames.size());
-	 subFaceOmegaList.resize(wFrames.size());
-
-	 MeshConnectivity mesh(triF);
-
-	 auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
-	 {
-		 for (uint32_t i = range.begin(); i < range.end(); ++i)
-		 {
-			 Eigen::VectorXd edgeVec = wFrames[i];
-
-			 edgeVec = swapEdgeVec(triF, edgeVec, 0);
-			 edgeVec = loopMatOneForm * edgeVec;
-
-			 subOmegaList[i] = edgeVec;
-			 Eigen::MatrixXd faceVec = edgeVec2FaceVec(subSecMesh, edgeVec);
-
-			 subFaceOmegaList[i] = faceVec;
-		 }
-	 };
-
-	 tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
-	 tbb::parallel_for(rangex, computeMagPhase);*/
-}
-
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
@@ -580,9 +551,6 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	std::vector<int> facemap;
 
 	triMesh = MeshConnectivity(triF);
-
-	loopTriV = triV;
-	loopTriF = triF;
 
 	std::vector<Eigen::Vector3d> pos;
 	std::vector<std::vector<int>> faces;
@@ -602,23 +570,7 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	secMesh.Populate(pos, faces);
 	subSecMesh = secMesh;
 
-	if (loopLevel > 0)
-	{
-		Subd* subd = ChooseSubdivisionScheme(subSecMesh, false);
-
-		Subdivide(subSecMesh, loopLevel, subd, 0);
-
-		subSecMesh.GetPos(loopTriV);
-		loopTriF.resize(subSecMesh.GetFaceCount(), 3);
-		for (int i = 0; i < loopTriF.rows(); i++)
-		{
-			for (int j = 0; j < 3; j++)
-				loopTriF(i, j) = subSecMesh.GetFaceVerts(i)[j];
-		}
-		meshUpSampling(loopTriV, loopTriF, upsampledTriV, upsampledTriF, upsampleTimes - loopLevel, NULL, NULL, &bary);
-	}
-	else
-		meshUpSampling(loopTriV, loopTriF, upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
+	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
 
 
 	selectedFids.setZero(triMesh.nFaces());
@@ -684,8 +636,6 @@ void updatePaintingItems()
 	// get interploated amp and phase frames
 	std::cout << "compute upsampled phase: " << std::endl;
 	updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
-	std::cout << "compute upsampled omega: " << std::endl;
-	updateSubOmega(omegaList, subOmegaList, subFaceOmegaList);
 
 
 	std::cout << "compute face vector fields:" << std::endl;
@@ -699,12 +649,12 @@ void updatePaintingItems()
 	// update global maximum amplitude
 	std::cout << "update max and min amp. " << std::endl;
 
-	globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), editModel.getRefAmpList()[0].maxCoeff());
-	globalAmpMin = std::min(ampFieldsList[0].minCoeff(), editModel.getRefAmpList()[0].minCoeff());
+	globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), refAmpList[0].maxCoeff());
+	globalAmpMin = std::min(ampFieldsList[0].minCoeff(), refAmpList[0].minCoeff());
 	for (int i = 1; i < ampFieldsList.size(); i++)
 	{
-		globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), editModel.getRefAmpList()[i].maxCoeff()));
-		globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), editModel.getRefAmpList()[i].minCoeff()));
+		globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), refAmpList[i].maxCoeff()));
+		globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), refAmpList[i].minCoeff()));
 	}
 
 	std::cout << "start to update viewer." << std::endl;
@@ -987,7 +937,7 @@ void registerMesh(int frameId)
 
 	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
 	int totalfames = ampFieldsList.size();
-	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(editModel.getRefWList()[frameId], triV, triMesh);
+	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
 
 	Eigen::VectorXi selectedVids, initSelectedVids;
 	faceFlags2VertFlags(triMesh, triV.rows(), selectedFids, selectedVids);
@@ -1000,7 +950,7 @@ void registerMesh(int frameId)
 	}
 
 	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax,
-		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], editModel.getRefAmpList()[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
+		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], refAmpList[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
 	std::cout << "register mesh finished" << std::endl;
 
@@ -1093,7 +1043,6 @@ bool loadProblem()
 
 	std::string meshFile = jval["mesh_name"];
 	upsampleTimes = jval["upsampled_times"];
-	loopLevel = 0;
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
@@ -1117,9 +1066,29 @@ bool loadProblem()
 	dilationTimes = jval["region_details"]["selected_domain_dilation"];
 	optTimes = jval["region_details"]["interface_dilation"];
 
-	//spatialAmpRatio = jval["spatial_ratio"]["amp_ratio"];
-	//spatialEdgeRatio = jval["spatial_ratio"]["edge_ratio"];
-	//spatialKnoppelRatio = jval["spatial_ratio"]["knoppel_ratio"];
+	if (jval.contains(std::string_view{ "spatial_ratio" }))
+	{
+		if (jval["spatial_ratio"].contains(std::string_view{ "amp_ratio" }))
+			spatialAmpRatio = jval["spatial_ratio"]["amp_ratio"];
+		else
+			spatialAmpRatio = 100;
+
+		if (jval["spatial_ratio"].contains(std::string_view{ "edge_ratio" }))
+			spatialEdgeRatio = jval["spatial_ratio"]["edge_ratio"];
+		else
+			spatialEdgeRatio = 100;
+
+		if (jval["spatial_ratio"].contains(std::string_view{ "knoppel_ratio" }))
+			spatialKnoppelRatio = jval["spatial_ratio"]["knoppel_ratio"];
+		else
+			spatialKnoppelRatio = 100;
+	}
+	else
+	{
+		spatialAmpRatio = 100;
+		spatialEdgeRatio = 100;
+		spatialKnoppelRatio = 100;
+	}
 
 	meshFile = workingFolder + meshFile;
 
@@ -1214,20 +1183,20 @@ bool loadProblem()
 	{
 		std::cout << "load zvals and omegas from file!" << std::endl;
 	}
-	else
+	if (!isLoadOpt || !isLoadRef)
 	{
-		std::cout << "failed to load zvals and omegas from file, set them to be random values!" << std::endl;
-		zList.resize(numFrames);
-		omegaList.resize(numFrames);
-		omegaList = refOmegaList;
+		editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-		for (int i = 0; i < numFrames; i++)
+		editModel.initialization(initAmp, initOmega, numFrames - 2);
+		refAmpList = editModel.getRefAmpList();
+		refOmegaList = editModel.getRefWList();
+
+		if (!isLoadOpt)
 		{
-			//omegaList[i].setRandom(nedges);
-			Eigen::Vector2d rnd = Eigen::Vector2d::Random();
-			//zList[i].resize(nverts, std::complex<double>(rnd(0), rnd(1)));
-			zList[i].resize(nverts, std::complex<double>(1, 0));
+			zList = editModel.getVertValsList();
+			omegaList = editModel.getWList();
 		}
+		
 	}
 
 	updatePaintingItems();
@@ -1261,7 +1230,7 @@ bool saveProblem()
 
 								  }
 			},
-			{"upsampled_times", loopLevel},
+			{"upsampled_times",  upsampleTimes},
 			{"init_omega",        "omega.txt"},
 			{"init_amp",          "amp.txt"},
 			{
@@ -1415,17 +1384,9 @@ void callback() {
 		updateFieldsInView(curFrame);
 	}
 
-	if (ImGui::InputInt("underline loop level", &loopLevel))
-	{
-		if (loopLevel < 0)
-			loopLevel = 0;
-		if (loopLevel > upsampleTimes)
-			loopLevel = upsampleTimes;
-	}
-
 	if (ImGui::InputInt("upsampled times", &upsampleTimes))
 	{
-		if (upsampleTimes >= loopLevel)
+		if (upsampleTimes >= 0)
 		{
 			initialization(triV, triF, upsampledTriV, upsampledTriF);
 			if (isForceOptimize)	//already solve for the interp states

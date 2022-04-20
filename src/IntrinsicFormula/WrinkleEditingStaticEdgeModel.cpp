@@ -121,9 +121,23 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 {
 
 	std::vector<std::complex<double>> initZvals;
-	roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _edgeArea, _vertArea, _pos.rows(), initZvals);
+	initZvals.resize(_pos.rows(), 0);
 
+	Eigen::VectorXi freeDOFs = Eigen::VectorXi::Ones(_pos.rows());
+	for (int i = 0; i < initAmp.rows(); i++)
+	{
+		if (initAmp(i) != 0)
+			freeDOFs(i) = 0;
+	}
 
+	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, initOmega, freeDOFs, _edgeArea, _vertArea, _pos.rows(), initZvals);
+	for (int i = 0; i < initZvals.size(); i++)
+	{
+		double theta = std::arg(initZvals[i]);
+		initZvals[i] = initAmp(i) * std::complex<double>(std::cos(theta), std::sin(theta));
+	}
+
+	//roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _edgeArea, _vertArea, _pos.rows(), initZvals);
 	std::vector<Eigen::VectorXd> refOmegaList(numFrames + 2);
 	std::vector<Eigen::VectorXd> refAmpList(numFrames + 2);
 
@@ -185,7 +199,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
 		tarZvals = initZvals;
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -197,7 +211,7 @@ void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAm
 
 		}
 
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_pos, _mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -428,10 +442,12 @@ void WrinkleEditingStaticEdgeModel::warmstart()
 		//            interpModel.postProcess(x);
 	};
 
-	Eigen::VectorXd x;
+	Eigen::VectorXd x, x0;
 	convertZList2Vec(x);
-	//OptSolver::testFuncGradHessian(funVal, x);
+	x0 = x;
 	OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
+	std::cout << "before optimization: ||x|| = " << x0.norm() << std::endl;
+	std::cout << "after optimization: ||x|| = " << x.norm() << std::endl;
 	convertVec2ZList(x);
 
 }
