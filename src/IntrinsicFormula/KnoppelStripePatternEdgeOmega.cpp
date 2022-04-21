@@ -299,8 +299,6 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
 	B.setFromTriplets(BT.begin(), BT.end());
-	/* std::cout << A.toDense() << std::endl;
-	 std::cout << B.toDense() << std::endl;*/
 
 	Spectra::SymShiftInvert<double> op(A, B);
 	Spectra::SparseSymMatProd<double> Bop(B);

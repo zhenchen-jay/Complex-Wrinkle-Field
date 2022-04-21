@@ -117,7 +117,7 @@ ComplexLoop::GetSubdividedEdges(std::vector< std::vector<int> >& edgeToVert) con
 }
 
 void
-ComplexLoop::GetSubdividedFaces(std::vector< std::vector<int> >& faceToVert) const
+ComplexLoop::GetSubdividedFaces(std::vector< std::vector<int> >& faceToVert)
 {
     assert(_meshPtr);
     assert(_meshPtr->IsTriangulated());
@@ -125,6 +125,9 @@ ComplexLoop::GetSubdividedFaces(std::vector< std::vector<int> >& faceToVert) con
     int V = _meshPtr->GetVertCount();
     int F = _meshPtr->GetFaceCount();
     faceToVert.resize(4 * F);
+
+    std::vector<int> faceFlagsNew;
+    faceFlagsNew.resize(4 * F, 0);  
 
     for (int face = 0; face < _meshPtr->GetFaceCount(); ++face)
     {
@@ -140,8 +143,13 @@ ComplexLoop::GetSubdividedFaces(std::vector< std::vector<int> >& faceToVert) con
             faceToVert[index].push_back(_GetEdgeVertIndex(fEdges[(j + 2) % 3]));
             // Central face
             faceToVert[central].push_back(_GetEdgeVertIndex(fEdges[j]));
+
+            faceFlagsNew[index] = _faceFlags[face];
         }
+        faceFlagsNew[central] = _faceFlags[face];
     }
+
+    _faceFlags.swap(faceFlagsNew);
 }
 
 Scalar
@@ -788,8 +796,36 @@ ComplexLoop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) con
     }
 }
 
+void identifyBadFaces(const Mesh& mesh, const Eigen::VectorXd& omega, const Eigen::VectorXd& amp, std::vector<int>& faceFlags, double ampTol, double curlTol)
+{
+    int nfaces = mesh.GetFaceCount();
+    faceFlags.resize(nfaces, 0);
 
-void Subdivide(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, int level, Mesh& meshNew)
+    for(int i = 0; i < nfaces; i++)
+    {
+        double omegaSum = 0, ampMin = std::numeric_limits<double>::infinity(), absOmegSum = 0;
+        for (int j = 0; j < 3; j++)
+        {
+            int eid = mesh.GetFaceEdges(i)[j];
+            int vid = mesh.GetFaceVerts(i)[j];
+
+            ampMin = std::min(ampMin, amp(vid));
+
+            int sign = 1;
+            if (mesh.GetEdgeVerts(eid)[0] != vid)
+                sign = -1;
+
+            omegaSum += sign * omega(eid);
+            absOmegSum += std::abs(omega(eid));
+        }
+
+        if (std::abs(omegaSum / absOmegSum) > curlTol || ampMin < ampTol * amp.maxCoeff())
+            faceFlags[i] = 1;
+    }
+}
+
+
+void Subdivide(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, int level, Mesh& meshNew, double ampTol, double curlTol, std::vector<int>* faceFlags)
 {
     std::unique_ptr<ComplexLoop> subd = std::make_unique<ComplexLoop>();
     subd->SetMesh(mesh);
@@ -805,6 +841,8 @@ void Subdivide(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector
         amp(i) = std::abs(zvals[i]);
         theta(i) = std::arg(zvals[i]);
     }
+
+    identifyBadFaces(mesh, omega, amp, subd->_faceFlags, ampTol, curlTol);
 
     SparseMatrixX S0, S1;
 
@@ -846,8 +884,7 @@ void Subdivide(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector
 
         meshNew.Populate(points, faceToVert, edgeToVert);
 
-        SparseMatrixX D0;
-        meshNew.BuildD0(D0);
+        identifyBadFaces(meshNew, omegaNew, amp, subd->_faceFlags, ampTol, curlTol);
     }
 
     int nupverts = meshNew.GetVertCount();
@@ -857,5 +894,8 @@ void Subdivide(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector
     {
         upZvals[i] = amp(i)*std::complex<double>(std::cos(theta(i)), std::sin(theta(i)));
     }
+
+    if (faceFlags)
+        *faceFlags = subd->GetFaceIndicate();
 
 }

@@ -116,28 +116,17 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 
 }
 
-void WrinkleEditingStaticEdgeModel::initialization(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega,
+void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega,
 	double numFrames)
 {
+	Eigen::VectorXd initAmp;
+	initAmp.setZero(_pos.rows());
 
-	std::vector<std::complex<double>> initZvals;
-	initZvals.resize(_pos.rows(), 0);
-
-	Eigen::VectorXi freeDOFs = Eigen::VectorXi::Ones(_pos.rows());
 	for (int i = 0; i < initAmp.rows(); i++)
 	{
-		if (initAmp(i) != 0)
-			freeDOFs(i) = 0;
+		initAmp(i) = std::abs(initZvals[i]);
 	}
 
-	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, initOmega, freeDOFs, _edgeArea, _vertArea, _pos.rows(), initZvals);
-	for (int i = 0; i < initZvals.size(); i++)
-	{
-		double theta = std::arg(initZvals[i]);
-		initZvals[i] = initAmp(i) * std::complex<double>(std::cos(theta), std::sin(theta));
-	}
-
-	//roundZvalsFromEdgeOmegaVertexMag(_mesh, initOmega, initAmp, _edgeArea, _vertArea, _pos.rows(), initZvals);
 	std::vector<Eigen::VectorXd> refOmegaList(numFrames + 2);
 	std::vector<Eigen::VectorXd> refAmpList(numFrames + 2);
 

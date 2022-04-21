@@ -76,5 +76,8 @@ Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio = 0.95, int opTimes = 3);
 // smooth type: 0 for explicit, 1 for implicit
 
+void curvedPNTriangleUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& VN, const std::vector<std::pair<int, Eigen::Vector3d>>& baryList, Eigen::MatrixXd& NV, Eigen::MatrixXd& newVN);
+
+void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<std::complex<double>>& zvals, std::vector<std::vector<int>> *vertNeiFaces, Eigen::MatrixXd& wrinkledV, double scaleRatio, bool isTangentCorrection);
 
 void mkdir(const std::string& foldername);
