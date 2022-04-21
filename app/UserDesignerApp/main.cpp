@@ -362,6 +362,7 @@ int pCenter = 2;
 std::vector<SourceVert> sourcePoints;
 Eigen::VectorXd edgeVec;
 Eigen::VectorXd vertAmp;
+std::vector<std::complex<double>> vertZvals;
 
 void loadBaseMesh(const std::string& meshPath)
 {
@@ -477,6 +478,12 @@ void save()
 	std::ofstream iafs(workingFolder + "amp.txt");
 	iafs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertAmp << std::endl;
 
+	std::ofstream izfs(workingFolder + "zvals.txt");
+	for (int i = 0; i < vertZvals.size(); i++)
+	{
+		izfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertZvals[i].real() << " " << vertZvals[i].imag() << std::endl;
+	}
+
 	igl::writeOBJ(workingFolder + "mesh.obj", triV, triMesh.faces());
 
 	using json = nlohmann::json;
@@ -495,6 +502,7 @@ void save()
 			{"upsampled_times", upsampleTimes},
 			{"init_omega",        "omega.txt"},
 			{"init_amp",          "amp.txt"},
+			{"init_zvls",         "zvals.txt"},
 			{
 			 "region_details",    {
 										  {"select_all", false},
@@ -702,16 +710,16 @@ void wrinkleExtraction()
 	edgeArea = getEdgeArea(triV, triMesh);
 	vertArea = getVertArea(triV, triMesh);
 
-	std::vector<std::complex<double>> zvals, upsampledZvals;
-	zvals.resize(triV.rows(), 0);
+	std::vector<std::complex<double>> upsampledZvals;
+	vertZvals.resize(triV.rows(), 0);
 
 	Eigen::VectorXi freeVerts = Eigen::VectorXi::Ones(triV.rows()) - vertFlags;
 
-	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(triMesh, edgeVec, freeVerts, edgeArea, vertArea, triV.rows(), zvals);
-	for (int i = 0; i < zvals.size(); i++)
+	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(triMesh, edgeVec, freeVerts, edgeArea, vertArea, triV.rows(), vertZvals);
+	for (int i = 0; i < vertZvals.size(); i++)
 	{
-		double theta = std::arg(zvals[i]);
-		zvals[i] = vertAmp(i)*std::complex<double>(std::cos(theta), std::sin(theta));
+		double theta = std::arg(vertZvals[i]);
+		vertZvals[i] = vertAmp(i)*std::complex<double>(std::cos(theta), std::sin(theta));
 	}
 
 
@@ -721,18 +729,23 @@ void wrinkleExtraction()
 	
 	meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
 
-	upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, zvals, edgeVec, bary);
+	upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, vertZvals, edgeVec, bary);
 
 	Eigen::VectorXd mag(upsampledTriV.rows()), phase(upsampledTriV.rows());
 	wrinkledV = upsampledTriV;
-	Eigen::MatrixXd vertNormals;
-	igl::per_vertex_normals(upsampledTriV, upsampledTriF, vertNormals);
+	/*Eigen::MatrixXd vertNormals;
+	igl::per_vertex_normals(upsampledTriV, upsampledTriF, vertNormals);*/
+
+	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
+	buildVertexNeighboringInfo(MeshConnectivity(upsampledTriF), upsampledTriV.rows(), vertNeiEdges, vertNeiFaces);
+
+	getWrinkledMesh(upsampledTriV, upsampledTriF, upsampledZvals, &vertNeiFaces, wrinkledV, 1.0, true);
 
 	for (int i = 0; i < upsampledTriV.rows(); i++)
 	{
 		mag(i) = std::abs(upsampledZvals[i]);
 		phase(i) = std::arg(upsampledZvals[i]);
-		wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
+		//wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
 	}
 	laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
 

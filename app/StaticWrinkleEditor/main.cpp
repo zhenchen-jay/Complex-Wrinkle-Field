@@ -26,6 +26,7 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingStaticEdgeModel.h"
+#include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../include/SpherigonSmoothing.h"
 #include "../../dep/SecStencils/types.h"
@@ -52,6 +53,7 @@ std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
 Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
+std::vector<std::complex<double>> initZvals;
 
 std::vector<Eigen::VectorXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
@@ -62,6 +64,8 @@ std::vector<Eigen::MatrixXd> subFaceOmegaList;
 
 std::vector<Eigen::VectorXd> phaseFieldsList;
 std::vector<Eigen::VectorXd> ampFieldsList;
+std::vector<std::vector<std::complex<double>>> upZList;
+std::vector<Eigen::MatrixXd> wrinkledVList;
 
 // reference amp and omega
 std::vector<Eigen::VectorXd> refOmegaList;
@@ -122,7 +126,7 @@ bool isLoadOpt;
 int clickedFid = -1;
 int dilationTimes = 10;
 
-bool isShowWrinkleColorField = false;
+bool isUseV2 = false;
 bool isWarmStart = false;
 
 // smoothing
@@ -418,11 +422,14 @@ void buildWrinkleMotions()
 
 }
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::VectorXd>& magList, std::vector<Eigen::VectorXd>& phaseList)
+void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			std::vector<std::vector<std::complex<double>>>& zFrames, 
+	std::vector<Eigen::VectorXd>& magList, 
+	std::vector<Eigen::VectorXd>& phaseList,
+	std::vector<std::vector<std::complex<double>>>& upZFrames)
 {
-	std::vector<std::vector<std::complex<double>>> interpZList(wFrames.size());
 	magList.resize(wFrames.size());
 	phaseList.resize(wFrames.size());
+	upZFrames.resize(wFrames.size());
 
 	subOmegaList.resize(wFrames.size());
 	subFaceOmegaList.resize(wFrames.size());
@@ -433,19 +440,19 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			interpZList[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
-			magList[i].setZero(interpZList[i].size());
-			phaseList[i].setZero(interpZList[i].size());
+			upZFrames[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
+			magList[i].setZero(upZFrames[i].size());
+			phaseList[i].setZero(upZFrames[i].size());
 
 			for (int j = 0; j < magList[i].size(); j++)
 			{
-				magList[i](j) = std::abs(interpZList[i][j]);
-				phaseList[i](j) = std::arg(interpZList[i][j]);
+				magList[i](j) = std::abs(upZFrames[i][j]);
+				phaseList[i](j) = std::arg(upZFrames[i][j]);
 			}
 		}
 	};
 
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size(), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
 
 	/*
@@ -545,6 +552,30 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 }
 
 
+void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<std::vector<std::complex<double>>>& zFrames, std::vector<Eigen::MatrixXd>& wrinkledVFrames, double scaleRatio, bool isUseV2)
+{
+	std::vector<std::vector<std::complex<double>>> interpZList(zFrames.size());
+	wrinkledVFrames.resize(zFrames.size());
+
+	std::vector<std::vector<int>> vertNeiEdges;
+	std::vector<std::vector<int>> vertNeiFaces;
+
+	buildVertexNeighboringInfo(MeshConnectivity(F), V.rows(), vertNeiEdges, vertNeiFaces);
+
+	auto computeWrinkles = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
+			getWrinkledMesh(V, F, zFrames[i], &vertNeiFaces, wrinkledVFrames[i], scaleRatio, isUseV2);
+		}
+	};
+
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
+	tbb::parallel_for(rangex, computeWrinkles);
+
+
+}
+
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
 	Eigen::SparseMatrix<double> S;
@@ -635,7 +666,10 @@ void updatePaintingItems()
 {
 	// get interploated amp and phase frames
 	std::cout << "compute upsampled phase: " << std::endl;
-	updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+	updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList, upZList);
+
+	std::cout << "compute wrinkle meshes: " << std::endl;
+	updateWrinkles(upsampledTriV, upsampledTriF, upZList, wrinkledVList, wrinkleAmpScalingRatio, isUseV2);
 
 
 	std::cout << "compute face vector fields:" << std::endl;
@@ -668,7 +702,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 {
 	editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-	editModel.initialization(initAmp, initOmega, numFrames - 2);
+	editModel.initialization(initZvals, initOmega, numFrames - 2);
 
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
@@ -732,7 +766,8 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 
 
 void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
-	const Eigen::MatrixXd& upPos, const Eigen::MatrixXi& upF, const double& shiftz, const double& ampMin,
+	const Eigen::MatrixXd& upPos, const Eigen::MatrixXd& wrinkledPos, const Eigen::MatrixXi& upF, 
+	const double& shiftz, const double& ampMin,
 	const double& ampMax,
 	const Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, const Eigen::MatrixXd& omegaVec,
 	const Eigen::VectorXd& refAmp, const Eigen::MatrixXd& refOmega, const Eigen::VectorXi& vertFlag,
@@ -760,11 +795,6 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 	{
 		ndataVerts += nupverts;
 		ndataFaces += nupfaces;
-		//        loopUpsampling(upPos, upF, smoothPos, smoothF, 2, &S);
-		//        igl::loop(upPos, upF, smoothPos, smoothF, 2);
-		//
-		//        ndataVerts += smoothPos.rows();
-		//        ndataFaces += smoothF.rows();
 	}
 	std::cout << "num of vertices: " << ndataVerts << ", num of faces: " << ndataFaces << std::endl;
 
@@ -881,19 +911,9 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
 		shiftV.col(0).setConstant(3 * shiftx);
 		Eigen::MatrixXd tmpV = upPos - shiftV;
 		Eigen::MatrixXd tmpN;
-		igl::per_vertex_normals(tmpV, upF, tmpN);
-
-		Eigen::MatrixXd wrinkledV = upPos;
-
-		Eigen::VectorXd ampCosVec(nupverts);
-
-		for (int i = 0; i < nupverts; i++)
-		{
-			wrinkledV.row(i) = upPos.row(i) + wrinkleAmpScalingRatio * ampVec(i) * std::cos(phaseVec(i)) * tmpN.row(i);
-			ampCosVec(i) = normoalizedAmpVec(i) * std::cos(phaseVec(i));
-		}
+		
         Eigen::MatrixXd wrinkledVNew;
-        laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledVNew, smoothingRatio, smoothingTimes);
+        laplacianSmoothing(wrinkledPos, upsampledTriF, wrinkledVNew, smoothingRatio, smoothingTimes);
         std::cout << "smoothing finished" << std::endl;
 
         for (int i = 0; i < nupverts; i++)
@@ -901,23 +921,16 @@ void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& b
             renderV.row(curVerts + i) = tmpV.row(i) + (wrinkledVNew.row(i) - upsampledTriV.row(i));
         }
 
-        igl::writeOBJ(workingFolder + "wrinkledMesh.obj", wrinkledV, upsampledTriF);
+        igl::writeOBJ(workingFolder + "wrinkledMesh.obj", wrinkledPos, upsampledTriF);
         igl::writeOBJ(workingFolder + "wrinkledMesh_smoothed.obj", wrinkledVNew, upsampledTriF);
 
 		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
-
-		mPaint.setNormalization(false);
-		Eigen::MatrixXd ampCosColor = mPaint.paintAmplitude(ampCosVec);
-
-		if (isShowWrinkleColorField)
-			renderColor.block(curVerts, 0, nupverts, 3) = ampCosColor;
-		else
+		
+		for (int i = 0; i < nupverts; i++)
 		{
-			for (int i = 0; i < nupverts; i++)
-			{
-				renderColor.row(i + curVerts) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
-			}
+			renderColor.row(i + curVerts) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
 		}
+		
 
 
 		curVerts += nupverts;
@@ -949,7 +962,7 @@ void registerMesh(int frameId)
 			selectedVids(i) = -1;
 	}
 
-	registerMeshByPart(triV, triF, upsampledTriV, upsampledTriF, 0, globalAmpMin, globalAmpMax,
+	registerMeshByPart(triV, triF, upsampledTriV, wrinkledVList[frameId], upsampledTriF, 0, globalAmpMin, globalAmpMax,
 		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], refAmpList[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
 
 	std::cout << "register mesh finished" << std::endl;
@@ -974,28 +987,6 @@ void updateFieldsInView(int frameId)
 		polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("face vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
 		polyscope::getSurfaceMesh("input mesh")->getQuantity("face vector field")->setEnabled(true);
 	}
-
-	/*double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-
-	polyscope::registerSurfaceMesh("init vector field mesh", triV, triF);
-
-	polyscope::getSurfaceMesh("init vector field mesh")->translate(glm::vec3(shiftx, 0, 0));
-	polyscope::getSurfaceMesh("init vector field mesh")->setEnabled(false);
-
-	if (isShowVectorFields)
-	{
-		polyscope::getSurfaceMesh("init vector field mesh")->addFaceVectorQuantity("vector field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-	}
-
-
-	polyscope::registerSurfaceMesh("vector field mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("vector field mesh")->setEnabled(false);
-
-	if (isShowVectorFields)
-	{
-		polyscope::getSurfaceMesh("vector field mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-	}*/
-
 }
 
 int getSelectedFaceId()
@@ -1104,16 +1095,39 @@ bool loadProblem()
 
 	std::string initAmpPath = jval["init_amp"];
 	std::string initOmegaPath = jval["init_omega"];
-
-	if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
+	std::string initZValsPath = "";
+	if (jval.contains(std::string_view{ "init_zvals" }))
 	{
-		std::cout << "missing init amp file: " << std::endl;
-		return false;
+		initZValsPath = jval["init_zvals"];
 	}
 
 	if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega)) {
 		std::cout << "missing init edge omega file." << std::endl;
 		return false;
+	}
+
+	if (!loadVertexZvals(workingFolder + initZValsPath, triV.rows(), initZvals))
+	{
+		std::cout << "missing init zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+		if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
+		{
+			std::cout << "missing init amp file: " << std::endl;
+			return false;
+		}
+
+		else
+		{
+			Eigen::VectorXd edgeArea, vertArea;
+			edgeArea = getEdgeArea(triV, triMesh);
+			vertArea = getVertArea(triV, triMesh);
+			IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, initOmega, initAmp, edgeArea, vertArea, triV.rows(), initZvals);
+		}
+	}
+	else
+	{
+		initAmp.setZero(triV.rows());
+		for (int i = 0; i < initZvals.size(); i++)
+			initAmp(i) = std::abs(initZvals[i]);
 	}
 
 
@@ -1144,15 +1158,6 @@ bool loadProblem()
 			isLoadRef = false;
 			break;
 		}
-	}
-
-	if (!isLoadRef)
-	{
-		editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
-
-		editModel.initialization(initAmp, initOmega, numFrames - 2);
-		refAmpList = editModel.getRefAmpList();
-		refOmegaList = editModel.getRefWList();
 	}
 
 
@@ -1187,7 +1192,7 @@ bool loadProblem()
 	{
 		editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-		editModel.initialization(initAmp, initOmega, numFrames - 2);
+		editModel.initialization(initZvals, initOmega, numFrames - 2);
 		refAmpList = editModel.getRefAmpList();
 		refOmegaList = editModel.getRefWList();
 
@@ -1233,6 +1238,7 @@ bool saveProblem()
 			{"upsampled_times",  upsampleTimes},
 			{"init_omega",        "omega.txt"},
 			{"init_amp",          "amp.txt"},
+			{"init_zvls",         "zvals.txt"},
 			{
 			 "region_details",    {
 										  {"select_all", isSelectAll},
@@ -1277,6 +1283,12 @@ bool saveProblem()
 
 	std::ofstream iafs(workingFolder + "amp.txt");
 	iafs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initAmp << std::endl;
+
+	std::ofstream izfs(workingFolder + "zvals.txt");
+	for (int i = 0; i < initZvals.size(); i++)
+	{
+		izfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initZvals[i].real() << " " << initZvals[i].imag() << std::endl;
+	}
 
 
 	igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
@@ -1370,7 +1382,7 @@ void callback() {
 	if (ImGui::Button("Load", ImVec2(ImVec2((w - p) / 2.f, 0))))
 	{
 		loadProblem();
-		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+		updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList, upZList);
 		updateFieldsInView(curFrame);
 	}
 	ImGui::SameLine(0, p);
@@ -1391,7 +1403,7 @@ void callback() {
 			initialization(triV, triF, upsampledTriV, upsampledTriF);
 			if (isForceOptimize)	//already solve for the interp states
 			{
-				updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList);
+				updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList, upZList);
 				updateFieldsInView(curFrame);
 			}
 		}
@@ -1406,7 +1418,7 @@ void callback() {
 		{
 			updateFieldsInView(curFrame);
 		}
-		if (ImGui::Checkbox("is show wrinkle color fields", &isShowWrinkleColorField))
+		if (ImGui::Checkbox("is use v2", &isUseV2))
 		{
 			updateFieldsInView(curFrame);
 		}

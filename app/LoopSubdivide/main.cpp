@@ -36,8 +36,9 @@
 #include "../../include/ComplexLoop.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
-Eigen::MatrixXd triV, loopTriV;
-Eigen::MatrixXi triF, loopTriF;
+Eigen::MatrixXd triV, loopTriV, NV, newN;
+Eigen::MatrixXi triF, loopTriF, NF;
+
 MeshConnectivity triMesh;
 Mesh secMesh, subSecMesh;
 std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -48,6 +49,7 @@ std::vector<std::complex<double>> initZvals;
 
 Eigen::VectorXd loopedAmp, loopedOmega, loopedPhase;
 std::vector<std::complex<double>> loopedZvals;
+std::vector<int> badfaces;
 
 Eigen::MatrixXd faceOmega;
 Eigen::MatrixXd loopedFaceOmega;
@@ -68,6 +70,7 @@ float vecratio = 0.001;
 float wrinkleAmpScalingRatio = 1;
 
 std::string workingFolder;
+double ampTol = 0.1, curlTol = 1e-4;
 
 
 std::map<std::pair<int, int>, int> he2Edge(const Eigen::MatrixXi& faces)
@@ -307,6 +310,14 @@ double sampling(double t, double offset, double A, double mu, double sigma)
 
 void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& upsampledPhase)
 {
+    NV = triV;
+    NF = triF;
+    Eigen::MatrixXd VN;
+    igl::per_vertex_normals(triV, triF, VN);
+
+    meshUpSampling(triV, triF, NV, NF, loopLevel, NULL, NULL, &bary);
+    curvedPNTriangleUpsampling(triV, triF, VN, bary, NV, newN);
+
     std::vector<Eigen::Vector3d> pos;
     std::vector<std::vector<int>> faces;
 
@@ -327,7 +338,8 @@ void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::c
 
     Eigen::VectorXd edgeVec = swapEdgeVec(triF, omega, 0);
 
-    Subdivide(secMesh, edgeVec, zvals, omegaNew, upZvals, loopLevel, subSecMesh);
+    Subdivide(secMesh, edgeVec, zvals, omegaNew, upZvals, loopLevel, subSecMesh, ampTol, curlTol, &badfaces);
+    
 
     subSecMesh.GetPos(loopTriV);
     loopTriF.resize(subSecMesh.GetFaceCount(), 3);
@@ -403,7 +415,7 @@ void updateFieldsInView()
 
     if (isShowVectorFields)
     {
-        polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("vector field", vecratio * faceOmega, polyscope::VectorType::AMBIENT);
+        polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("vector field", faceOmega);
     }
 
 
@@ -417,7 +429,7 @@ void updateFieldsInView()
 
     if (isShowVectorFields)
     {
-        polyscope::getSurfaceMesh("looped mesh")->addFaceVectorQuantity("upsampled vector field", vecratio * loopedFaceOmega, polyscope::VectorType::AMBIENT);
+        polyscope::getSurfaceMesh("looped mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmega);
     }
 
     polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
@@ -439,9 +451,26 @@ void updateFieldsInView()
         wrinkledTriV.row(i) += wrinkleAmpScalingRatio * loopedZvals[i].real() * normal.row(i);
     }
 
+    Eigen::MatrixXd faceColors(loopTriF.rows(), 3);
+    for (int i = 0; i < faceColors.rows(); i++)
+    {
+        if (badfaces[i])
+            faceColors.row(i) << 1, 1, 1;
+        else
+            faceColors.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
+    }
+
     polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledTriV, loopTriF);
+    polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("wrinkled mesh")->addFaceColorQuantity("wrinkled color", faceColors);
     polyscope::getSurfaceMesh("wrinkled mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
     polyscope::getSurfaceMesh("wrinkled mesh")->setEnabled(true);
+
+
+    polyscope::registerSurfaceMesh("curved PN mesh", NV, NF);
+    polyscope::getSurfaceMesh("curved PN mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("curved PN mesh")->translate(glm::vec3(4 * shiftx, 0, 0));
+    polyscope::getSurfaceMesh("curved PN mesh")->setEnabled(true);
 
 
 }
@@ -483,7 +512,12 @@ bool loadProblem()
 
     std::string initAmpPath = jval["init_amp"];
     std::string initOmegaPath = jval["init_omega"];
-    std::string initZvalPath = jval["init_zvals"];
+    std::string initZvalPath;
+    
+    if (jval.contains(std::string_view{ "init_zvals" }))
+    {
+        initZvalPath  = jval["init_zvals"];
+    }
 
     if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
     {
@@ -502,15 +536,8 @@ bool loadProblem()
     if (!loadVertexZvals(workingFolder + initZvalPath, nverts, initZvals))
     {
         std::cout << "missiing init zvals, round it based one amp and edge omega" << std::endl;
-        IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, edgeWeight, vertWeight, nverts, initZvals);
+        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, initOmega, initAmp, edgeWeight, vertWeight, nverts, initZvals);
     }
-    
-
-    for(int i = 0; i < nverts / 2; i++)
-        initZvals[i] = 1;
-    for (int i = nverts / 2; i < nverts; i++)
-        initZvals[i] = -1;
-
 
     updateMagnitudePhase(initOmega, initZvals, loopedOmega, loopedZvals, loopedAmp, loopedPhase);
 
@@ -543,10 +570,10 @@ void callback() {
             updateFieldsInView();
         }
 
-        if(ImGui::DragFloat("vector ratio", &vecratio, 0.00005, 0, 10))
+        /*if(ImGui::DragFloat("vector ratio", &vecratio, 0.00005, 0, 10))
         {
             updateFieldsInView();
-        }
+        }*/
 
         if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
         {
@@ -554,6 +581,12 @@ void callback() {
                 updateFieldsInView();
         }
 
+    }
+
+    if (ImGui::CollapsingHeader("Bad faces threshold", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::InputDouble("magnitude tol", &ampTol);
+        ImGui::InputDouble("curl free tol", &curlTol);
     }
 
     if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))

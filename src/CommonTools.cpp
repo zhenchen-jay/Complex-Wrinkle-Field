@@ -911,3 +911,126 @@ void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eige
 
 
 }
+
+
+void curvedPNTriangleUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& VN, const std::vector<std::pair<int, Eigen::Vector3d>>& baryList, Eigen::MatrixXd& NV, Eigen::MatrixXd& newVN)
+{
+	int nupverts = baryList.size();
+	NV.setZero(nupverts, 3);
+	newVN.setZero(nupverts, 3);
+
+	for (int i = 0; i < nupverts; i++)
+	{
+		int fid = baryList[i].first;
+
+		double w = baryList[i].second(0);
+		double u = baryList[i].second(1);
+		double v = baryList[i].second(2);
+
+		Eigen::Vector3d P1 = V.row(F(fid, 0));
+		Eigen::Vector3d P2 = V.row(F(fid, 1));
+		Eigen::Vector3d P3 = V.row(F(fid, 2));
+
+		Eigen::Vector3d N1 = VN.row(F(fid, 0));
+		Eigen::Vector3d N2 = VN.row(F(fid, 1));
+		Eigen::Vector3d N3 = VN.row(F(fid, 2));
+
+		N1 = N1 / N1.norm();
+		N2 = N2 / N2.norm();
+		N3 = N3 / N3.norm();
+
+		Eigen::Vector3d b300 = P1;
+		Eigen::Vector3d b030 = P2;
+		Eigen::Vector3d b003 = P3;
+
+		double w12 = (P2 - P1).dot(N1);
+		double w21 = (P1 - P2).dot(N2);
+		double w23 = (P3 - P2).dot(N2);
+		double w32 = (P2 - P3).dot(N3);
+		double w31 = (P1 - P3).dot(N3);
+		double w13 = (P3 - P1).dot(N1);
+
+		Eigen::Vector3d b210 = (2 * P1 + P2 - w12 * N1) / 3;
+		Eigen::Vector3d b120 = (2 * P2 + P1 - w21 * N2) / 3;
+		Eigen::Vector3d b021 = (2 * P2 + P3 - w23 * N2) / 3;
+		Eigen::Vector3d b012 = (2 * P3 + P2 - w32 * N3) / 3;
+		Eigen::Vector3d b102 = (2 * P3 + P1 - w31 * N3) / 3;
+		Eigen::Vector3d b201 = (2 * P1 + P3 - w12 * N1) / 3;
+
+		Eigen::Vector3d Ep = (b210 + b120 + b021 + b012 + b102 + b201) / 6;
+		Eigen::Vector3d Vp = (P1 + P2 + P3) / 3;
+		Eigen::Vector3d b111 = Ep + (Ep - Vp) / 2;
+
+		NV.row(i) = b300 * w * w * w + b030 * u * u * u + b003 * v * v * v
+			+ b210 * 3 * w * w * u + b120 * 3 * w * u * u + b201 * 3 * w * w * v
+			+ b021 * 3 * u * u * v + b102 * 3 * w * v * v + b012 * 3 * u * v * v
+			+ b111 * 6 * w * u * v;
+
+		Eigen::Vector3d n200 = N1;
+		Eigen::Vector3d n020 = N2;
+		Eigen::Vector3d n002 = N3;
+
+		double v12 = 2 * (P2 - P1).dot(N1 + N2) / (P2 - P1).dot(P2 - P1);
+		double v23 = 2 * (P3 - P2).dot(N2 + N3) / (P3 - P2).dot(P3 - P2);
+		double v31 = 2 * (P1 - P3).dot(N3 + N1) / (P1 - P3).dot(P1 - P3);
+
+		Eigen::Vector3d n110 = N1 + N2 - v12 * (P2 - P1);
+		Eigen::Vector3d n011 = N2 + N3 - v23 * (P3 - P2);
+		Eigen::Vector3d n101 = N3 + N1 - v31 * (P1 - P3);
+
+		n110 = n110 / n110.norm();
+		n011 = n011 / n011.norm();
+		n101 = n101 / n101.norm();
+
+		newVN.row(i) = n200 * w * w + n020 * u * u + n002 * v * v + n110 * w * u + n011 * u * v + n101 * w * v;
+	}
+}
+
+void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<std::complex<double>>& zvals, std::vector<std::vector<int>>* vertNeiFaces, Eigen::MatrixXd& wrinkledV, double scaleRatio, bool isTangentCorrection)
+{
+	int nverts = V.rows();
+	int nfaces = F.rows();
+
+	if(!vertNeiFaces)
+	{ 
+		std::vector<std::vector<int>> vertNeiEdges;
+		buildVertexNeighboringInfo(MeshConnectivity(F), nverts, vertNeiEdges, *vertNeiFaces);
+	}
+	
+	wrinkledV = V;
+	Eigen::MatrixXd VN;
+	igl::per_vertex_normals(V, F, VN);
+
+	for (int i = 0; i < nfaces; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = F(i, j);
+			Eigen::Matrix2d Ib;
+			Eigen::Matrix<double, 3, 2> drb;
+			drb.col(0) = (V.row(F(i, (j + 1) % 3)) - V.row(F(i, j))).transpose();
+			drb.col(1) = (V.row(F(i, (j + 2) % 3)) - V.row(F(i, j))).transpose();
+
+			Ib = drb.transpose() * drb;
+			
+			std::complex<double> dz0 = zvals[F(i, (j + 1) % 3)] - zvals[F(i, j)];
+			std::complex<double> dz1 = zvals[F(i, (j + 2) % 3)] - zvals[F(i, j)];
+
+			Eigen::Vector2d aSqdtheta;
+			aSqdtheta << (std::conj(zvals[vid]) * dz0).imag(), (std::conj(zvals[vid]) * dz1).imag();
+
+			Eigen::Vector3d extASqdtheta = drb * Ib.inverse() * aSqdtheta;
+
+			double theta = std::arg(zvals[vid]);
+
+			wrinkledV.row(vid) += scaleRatio / vertNeiFaces->at(vid).size() * (zvals[vid].real() * VN.row(vid).transpose());
+
+			if (isTangentCorrection)
+			{
+				wrinkledV.row(vid) += scaleRatio / vertNeiFaces->at(vid).size() * (1. / 8 * std::sin(2 * theta) * extASqdtheta);
+			}
+
+			
+		}
+	}
+}
