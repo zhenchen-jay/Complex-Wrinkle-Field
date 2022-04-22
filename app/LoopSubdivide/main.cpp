@@ -72,6 +72,10 @@ float wrinkleAmpScalingRatio = 1;
 std::string workingFolder;
 double ampTol = 0.1, curlTol = 1e-4;
 
+// smoothing
+int smoothingTimes = 3;
+double smoothingRatio = 0.95;
+
 
 std::map<std::pair<int, int>, int> he2Edge(const Eigen::MatrixXi& faces)
 {
@@ -302,12 +306,6 @@ bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::Vector
     }
     return true;
 }
-
-double sampling(double t, double offset, double A, double mu, double sigma)
-{
-    return offset + A * std::exp(-0.5 * (t - mu) * (t - mu) / sigma / sigma);
-}
-
 void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& upsampledPhase)
 {
     NV = triV;
@@ -421,7 +419,9 @@ void updateFieldsInView()
 
     polyscope::registerSurfaceMesh("looped mesh", loopTriV, loopTriF);
     double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-    polyscope::getSurfaceMesh("looped mesh")->translate(glm::vec3(shiftx, 0, 0));
+    double shiftz = 1.5 * (loopTriV.col(2).maxCoeff() - loopTriV.col(2).minCoeff());
+
+    polyscope::getSurfaceMesh("looped mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
     polyscope::getSurfaceMesh("looped mesh")->setEnabled(true);
 
     polyscope::getSurfaceMesh("looped mesh")->addVertexScalarQuantity("amp color", loopedAmp);
@@ -433,7 +433,7 @@ void updateFieldsInView()
     }
 
     polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
-    polyscope::getSurfaceMesh("looped phase mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
+    polyscope::getSurfaceMesh("looped phase mesh")->translate(glm::vec3(shiftx, 0, shiftz));
     polyscope::getSurfaceMesh("looped phase mesh")->setEnabled(true);
 
     mPaint.setNormalization(false);
@@ -463,14 +463,89 @@ void updateFieldsInView()
     polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledTriV, loopTriF);
     polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
     polyscope::getSurfaceMesh("wrinkled mesh")->addFaceColorQuantity("wrinkled color", faceColors);
-    polyscope::getSurfaceMesh("wrinkled mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
+    polyscope::getSurfaceMesh("wrinkled mesh")->translate(glm::vec3(shiftx, 0, 0));
     polyscope::getSurfaceMesh("wrinkled mesh")->setEnabled(true);
 
+    Eigen::VectorXd edgeVecSwapped;
+    std::vector<std::vector<int>> edge2verts;
+    for(int i = 0; i < subSecMesh.GetEdgeCount(); i++)
+    {
+        edge2verts.push_back(subSecMesh.GetEdgeVerts(i));
+    }
+    edgeVecSwapped = swapEdgeVec(edge2verts, loopedOmega, 1);
+    Eigen::VectorXd edgeArea = getEdgeArea(loopTriV, loopTriF);
+    Eigen::VectorXd vertArea = getVertArea(loopTriV, loopTriF);
 
-    polyscope::registerSurfaceMesh("curved PN mesh", NV, NF);
-    polyscope::getSurfaceMesh("curved PN mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-    polyscope::getSurfaceMesh("curved PN mesh")->translate(glm::vec3(4 * shiftx, 0, 0));
-    polyscope::getSurfaceMesh("curved PN mesh")->setEnabled(true);
+    std::vector<std::complex<double>> tmpZvals;
+//    IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(MeshConnectivity(loopTriF), edgeVecSwapped, loopedAmp, edgeArea, vertArea, loopTriV.rows(), tmpZvals);
+//
+//    Eigen::MatrixXd wrinkledTrivNew = loopTriV;
+//
+//    for(int i = 0; i < loopTriV.rows(); i++)
+//    {
+//        wrinkledTrivNew.row(i) += wrinkleAmpScalingRatio * tmpZvals[i].real() * normal.row(i);
+//        loopedPhase(i) = std::arg(tmpZvals[i]);
+//        loopedAmp(i) = std::abs(tmpZvals[i]);
+//    }
+//
+//    polyscope::registerSurfaceMesh("knoppel amp mesh", loopTriV, loopTriF);
+//    polyscope::getSurfaceMesh("knoppel amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
+//    polyscope::getSurfaceMesh("knoppel amp mesh")->setEnabled(true);
+//
+//    mPaint.setNormalization(false);
+//    phiColor = mPaint.paintPhi(loopedAmp);
+//    polyscope::getSurfaceMesh("knoppel amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
+//    polyscope::getSurfaceMesh("knoppel amp mesh")->getQuantity("amp color")->setEnabled(true);
+//
+//    polyscope::registerSurfaceMesh("knoppel phase mesh", loopTriV, loopTriF);
+//    polyscope::getSurfaceMesh("knoppel phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
+//    polyscope::getSurfaceMesh("knoppel phase mesh")->setEnabled(true);
+//
+//    mPaint.setNormalization(false);
+//    phiColor = mPaint.paintPhi(loopedPhase);
+//    polyscope::getSurfaceMesh("knoppel phase mesh")->addVertexColorQuantity("phase color", phiColor);
+//    polyscope::getSurfaceMesh("knoppel phase mesh")->getQuantity("phase color")->setEnabled(true);
+//
+//    polyscope::registerSurfaceMesh("knoppel mesh", wrinkledTrivNew, loopTriF);
+//    polyscope::getSurfaceMesh("knoppel mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+//    polyscope::getSurfaceMesh("knoppel mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
+//    polyscope::getSurfaceMesh("knoppel mesh")->setEnabled(true);
+
+    meshUpSampling(triV, triF, NV, NF, loopLevel, NULL, NULL, &bary);
+    tmpZvals = IntrinsicFormula::upsamplingZvals(triMesh, initZvals, initOmega, bary);
+
+    igl::per_vertex_normals(NV, NF, normal);
+
+    for(int i = 0; i < loopTriV.rows(); i++)
+    {
+        NV.row(i) += wrinkleAmpScalingRatio * tmpZvals[i].real() * normal.row(i);
+        loopedPhase(i) = std::arg(tmpZvals[i]);
+        loopedAmp(i) = std::abs(tmpZvals[i]);
+    }
+
+    polyscope::registerSurfaceMesh("Zuenko amp mesh", NV, NF);
+    polyscope::getSurfaceMesh("Zuenko amp mesh")->translate(glm::vec3(3 * shiftx, 0, 2 * shiftz));
+    polyscope::getSurfaceMesh("Zuenko amp mesh")->setEnabled(true);
+
+
+    polyscope::getSurfaceMesh("Zuenko amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
+    polyscope::getSurfaceMesh("Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
+
+    polyscope::registerSurfaceMesh("Zuenko phase mesh", NV, NF);
+    polyscope::getSurfaceMesh("Zuenko phase mesh")->translate(glm::vec3(3 * shiftx, 0, shiftz));
+    polyscope::getSurfaceMesh("Zuenko phase mesh")->setEnabled(true);
+
+    mPaint.setNormalization(false);
+    phiColor = mPaint.paintPhi(loopedPhase);
+    polyscope::getSurfaceMesh("Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
+    polyscope::getSurfaceMesh("Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
+
+
+    laplacianSmoothing(NV, NF, NV, smoothingRatio, smoothingTimes);
+    polyscope::registerSurfaceMesh("Zuenko mesh", NV, NF);
+    polyscope::getSurfaceMesh("Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
+    polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);
 
 
 }
@@ -512,17 +587,10 @@ bool loadProblem()
 
     std::string initAmpPath = jval["init_amp"];
     std::string initOmegaPath = jval["init_omega"];
-    std::string initZvalPath;
-    
+    std::string initZValsPath = "zvals.txt";
     if (jval.contains(std::string_view{ "init_zvals" }))
     {
-        initZvalPath  = jval["init_zvals"];
-    }
-
-    if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
-    {
-        std::cout << "missing init amp file: " << std::endl;
-        return false;
+        initZValsPath = jval["init_zvals"];
     }
 
     if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega)) {
@@ -530,13 +598,28 @@ bool loadProblem()
         return false;
     }
 
-    Eigen::VectorXd edgeWeight = getEdgeArea(triV, triF);
-    Eigen::VectorXd vertWeight = getVertArea(triV, triF);
-
-    if (!loadVertexZvals(workingFolder + initZvalPath, nverts, initZvals))
+    if (!loadVertexZvals(workingFolder + initZValsPath, triV.rows(), initZvals))
     {
-        std::cout << "missiing init zvals, round it based one amp and edge omega" << std::endl;
-        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, initOmega, initAmp, edgeWeight, vertWeight, nverts, initZvals);
+        std::cout << "missing init zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), initAmp))
+        {
+            std::cout << "missing init amp file: " << std::endl;
+            return false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, initOmega, initAmp, edgeArea, vertArea, triV.rows(), initZvals);
+        }
+    }
+    else
+    {
+        initAmp.setZero(triV.rows());
+        for (int i = 0; i < initZvals.size(); i++)
+            initAmp(i) = std::abs(initZvals[i]);
     }
 
     updateMagnitudePhase(initOmega, initZvals, loopedOmega, loopedZvals, loopedAmp, loopedPhase);
@@ -581,6 +664,18 @@ void callback() {
                 updateFieldsInView();
         }
 
+    }
+
+    if (ImGui::CollapsingHeader("smoothing Options", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        if(ImGui::InputInt("smoothing times", &smoothingTimes))
+        {
+            smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
+        }
+        if(ImGui::InputDouble("smoothing ratio", &smoothingRatio))
+        {
+            smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
+        }
     }
 
     if (ImGui::CollapsingHeader("Bad faces threshold", ImGuiTreeNodeFlags_DefaultOpen))
