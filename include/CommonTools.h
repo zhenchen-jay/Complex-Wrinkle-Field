@@ -4,6 +4,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
 #include "MeshLib/MeshConnectivity.h"
+#include "../dep/SecStencils/Mesh.h"
 
 #ifndef GRAIN_SIZE
 #define GRAIN_SIZE 10
@@ -74,10 +75,14 @@ Eigen::VectorXd getEdgeArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
 
 void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio = 0.95, int opTimes = 3);
-// smooth type: 0 for explicit, 1 for implicit
+
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio = 0.95, int opTimes = 3);
+
 
 void curvedPNTriangleUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& VN, const std::vector<std::pair<int, Eigen::Vector3d>>& baryList, Eigen::MatrixXd& NV, Eigen::MatrixXd& newVN);
 
 void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<std::complex<double>>& zvals, std::vector<std::vector<int>> *vertNeiFaces, Eigen::MatrixXd& wrinkledV, double scaleRatio, bool isTangentCorrection);
+
+void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& bary, Eigen::Matrix3d& baryGrad);
 
 void mkdir(const std::string& foldername);

@@ -879,39 +879,50 @@ void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eige
             newV.row(bnd[j]) = V.row(bnd[j]);
     }
 
-//    if(!isImplicit)     // explicit
-//    {
-//        Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
-//
-//        for(int i = 0; i < opTimes; i++)
-//        {
-//            for(int j = 0; j < 3; j++)
-//                newV.col(j) = smoothL * newV.col(j);
-//        }
-//
-//    }
-//
-//    else
-//    {
-//        Eigen::SparseMatrix<double> smoothL = idmat + smoothingRatio * L;
-//        Eigen::SparseMatrix<double> poweredL = idmat;
-//        for(int i=0; i<opTimes; i++)
-//        {
-//            poweredL = smoothL * poweredL;
-//        }
-//
-//        Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
-//        solver.compute(poweredL);
-//        for(int j = 0; j < 3; j++)
-//        {
-//            Eigen::VectorXd rhs = newV.col(j);
-//            newV.col(j) = solver.solve(rhs);
-//        }
-//    }
-
 
 }
 
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio, int opTimes)
+{
+	newData = oldData;
+	if (opTimes == 0)
+		return;
+
+	Eigen::SparseMatrix<double> L;
+	igl::cotmatrix(V, F, L);
+
+	Eigen::VectorXd sum;
+	sum.setZero(V.rows());
+
+	for (int k = 0; k < L.outerSize(); ++k)
+		for (Eigen::SparseMatrix<double>::InnerIterator it(L, k); it; ++it)
+		{
+			if (it.row() == it.col())
+				sum(it.row()) = it.value();
+		}
+
+	std::vector<Eigen::Triplet<double>> T;
+
+	for (int k = 0; k < L.outerSize(); ++k)
+		for (Eigen::SparseMatrix<double>::InnerIterator it(L, k); it; ++it)
+		{
+			if (sum(it.row()) != 0)
+				T.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value() / sum(it.row())));
+			else
+				T.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value() / (1e-6 + sum(it.row()))));
+		}
+
+	L.setFromTriplets(T.begin(), T.end());      // normalized laplacian
+	Eigen::SparseMatrix<double> idmat(V.rows(), V.rows());
+	idmat.setIdentity();
+
+	Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
+
+	for (int i = 0; i < opTimes; i++)
+	{
+		newData = smoothL * newData;
+	}
+}
 
 void curvedPNTriangleUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& VN, const std::vector<std::pair<int, Eigen::Vector3d>>& baryList, Eigen::MatrixXd& NV, Eigen::MatrixXd& newVN)
 {
@@ -1033,4 +1044,23 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 			
 		}
 	}
+}
+
+void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& bary, Eigen::Matrix3d& baryGrad)
+{
+	//P = bary(0) * P0 + bary(1) * P1 + bary(2) * P2;
+	Eigen::Matrix2d I, Iinv;
+
+	I << (P1 - P0).squaredNorm(), (P1 - P0).dot(P2 - P0), (P2 - P0).dot(P1 - P0), (P2 - P0).squaredNorm();
+	Iinv = I.inverse();
+
+	Eigen::Matrix<double, 3, 2> dr;
+	dr.col(0) = P1 - P0;
+	dr.col(1) = P2 - P0;
+
+	Eigen::Matrix<double, 2, 3> dbary12 = Iinv * dr.transpose();
+
+	baryGrad.row(0) = -dbary12.row(0) - dbary12.row(1);
+	baryGrad.row(1) = dbary12.row(0);
+	baryGrad.row(2) = dbary12.row(1);
 }
