@@ -461,7 +461,7 @@ void updateFieldsInView()
             faceColors.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
     }
 
-    igl::writeOBJ(workingFolder + "wrinkledMesh.obj", wrinkledTriV, loopTriF);
+    igl::writeOBJ(workingFolder + "wrinkledMesh_loop.obj", wrinkledTriV, loopTriF);
 
     polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledTriV, loopTriF);
     polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
@@ -493,12 +493,14 @@ void updateFieldsInView()
         loopedPhaseNew(i) = std::arg(tmpZvals[i]);
         loopedAmpNew(i) = std::abs(tmpZvals[i]);
     }
-    //laplacianSmoothing(wrinkledTrivNew, loopTriF, loopedAmpNew, loopedAmpNew, smoothingRatio, smoothingTimes);
 
     for (int i = 0; i < loopTriV.rows(); i++)
     {
        wrinkledTrivNew.row(i) += wrinkleAmpScalingRatio * loopedAmpNew(i) * std::cos(loopedPhaseNew(i)) * normal.row(i);
     }
+
+    laplacianSmoothing(wrinkledTrivNew, loopTriF, wrinkledTrivNew, smoothingRatio, smoothingTimes);
+    igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko.obj", wrinkledTrivNew, loopTriF);
 
     polyscope::registerSurfaceMesh("Loop-Zuenko amp mesh", loopTriV, loopTriF);
     polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
@@ -521,7 +523,7 @@ void updateFieldsInView()
     polyscope::getSurfaceMesh("Loop-Zuenko mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
     polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setEnabled(true);
 
-   /* meshUpSampling(triV, triF, NV, NF, loopLevel, NULL, NULL, &bary);
+    meshUpSampling(triV, triF, NV, NF, loopLevel, NULL, NULL, &bary);
     std::vector<std::complex<double>> zuenkoZvals = IntrinsicFormula::upsamplingZvals(triMesh, initZvals, initOmega, bary);
 
     Eigen::MatrixXd zuenkoNormal;
@@ -556,10 +558,13 @@ void updateFieldsInView()
 
 
     laplacianSmoothing(zuenkoNV, NF, zuenkoNV, smoothingRatio, smoothingTimes);
+
+    igl::writeOBJ(workingFolder + "wrinkledMesh_Zuenko.obj", zuenkoNV, NF);
+
     polyscope::registerSurfaceMesh("Zuenko mesh", zuenkoNV, NF);
     polyscope::getSurfaceMesh("Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
     polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
-    polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);*/
+    polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);
 
 
 }
