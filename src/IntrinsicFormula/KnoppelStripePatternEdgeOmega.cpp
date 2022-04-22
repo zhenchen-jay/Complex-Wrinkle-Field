@@ -285,7 +285,7 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 
 	Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
 	Eigen::SparseMatrix<double> I = A;
-	I.setIdentity();
+	/*I.setIdentity();
 	double eps = 1e-16;
     Eigen::SparseMatrix<double> tmpA = A + eps * I;
 	solver.compute(tmpA);
@@ -295,14 +295,15 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 		solver.compute(tmpA);
 		eps *= 2;
         tmpA = A + eps * I;
-	}
+	}*/
 
 	Eigen::SparseMatrix<double> B(2 * nverts, 2 * nverts);
 	B.setFromTriplets(BT.begin(), BT.end());
+	//B.setIdentity();
 
 	Spectra::SymShiftInvert<double> op(A, B);
 	Spectra::SparseSymMatProd<double> Bop(B);
-	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -2 * eps);
+	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -1e-6);
 	geigs.init();
 	int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
 
