@@ -1095,7 +1095,7 @@ bool loadProblem()
 
 	std::string initAmpPath = jval["init_amp"];
 	std::string initOmegaPath = jval["init_omega"];
-	std::string initZValsPath = "";
+	std::string initZValsPath = "zvals.txt";
 	if (jval.contains(std::string_view{ "init_zvals" }))
 	{
 		initZValsPath = jval["init_zvals"];
