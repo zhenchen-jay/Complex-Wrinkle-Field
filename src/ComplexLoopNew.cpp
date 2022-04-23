@@ -768,39 +768,79 @@ std::complex<double> interpZ(const std::vector<std::complex<double>>& zList, con
 		P += coords[i] * pList[i];
 	}
 	std::complex<double> z = 0;
-    Eigen::MatrixXd pseduInv;
-    if(gradZ)
-    {
-        gradZ->setZero();
-        Eigen::MatrixXd dalpha(n, 3);
-        for(int i = 0; i < n; i++)
-            dalpha.row(i) = pList[i];
+	
+	Eigen::MatrixXd dalphadp;
 
-        pseduInv = (dalpha.transpose() * dalpha).inverse() * dalpha.transpose();
-    }
+	if(gradZ)
+	{
+		gradZ->setZero();
+		dalphadp.setZero(n, 3);
+		if (n == 2)
+		{
+			dalphadp.row(0) = (pList[0] - pList[1]) / (pList[1] - pList[0]).squaredNorm();
+			dalphadp.row(1) = -dalphadp.row(0);
+		}
+		else if (n == 3)
+		{
+			Eigen::Matrix<double, 3, 2> dr;
+			dr.col(0) = pList[1] - pList[0];
+			dr.col(1) = pList[2] - pList[0];
 
+			Eigen::Matrix2d I = dr.transpose() * dr;
+			Eigen::Matrix2d Iinv = I.inverse();
 
-    Eigen::VectorXcd dzdalpha;
-    dzdalpha.setZero(n);
+			Eigen::Matrix<double, 2, 3> tmpMat = Iinv * dr.transpose();
 
-    std::complex<double> I = std::complex<double>(0, 1);
+			dalphadp.row(0) = -tmpMat.row(0) - tmpMat.row(1);
+			dalphadp.row(1) = tmpMat.row(0);
+			dalphadp.row(2) = tmpMat.row(1);
+		}
+		else // in this case, we find the optimal alphas with minimal norm => psudo inverse
+		{
+			Eigen::MatrixXd A(4, n);
+			for (int i = 0; i < n; i++)
+			{
+				A.col(i) << pList[i](0), pList[i](1), pList[i](2), 1;
+			}
+
+			Eigen::Matrix4d AAT = A * A.transpose();
+			Eigen::MatrixXd Ainv = A.transpose() * AAT.inverse();
+
+			dalphadp = Ainv.block(0, 0, n, 3);
+		}
+	}
+
+	std::complex<double> I = std::complex<double>(0, 1);
+
+	std::vector<double> deltaThetaList(n);
+	for (int i = 0; i < n; i++)
+	{
+		deltaThetaList[i] = (P - pList[i]).dot(gradThetaList[i]);
+	}
+
+	Eigen::VectorXcd dzdalpha;
+	dzdalpha.setZero(n);
 
 	for (int i = 0; i < n; i++)
 	{
-        double deltaTheta = (P - pList[i]).dot(gradThetaList[i]);
-		z += coords[i] * zList[i] * std::complex<double>(std::cos(deltaTheta), std::sin(deltaTheta)) ;
+		z += coords[i] * zList[i] * std::complex<double>(std::cos(deltaThetaList[i]), std::sin(deltaThetaList[i])) ;
 
-        if(gradZ)
-        {
-            for(int j = 0; j < n; j++)
-            {
-                double deltaThetaj = (P - pList[j]).dot(gradThetaList[j]);
-                dzdalpha(i) += coords[j] * zList[j] * std::complex<double>(std::cos(deltaThetaj), std::sin(deltaThetaj)) * I * gradThetaList[j].dot(pList[j]);
-            }
+		if(gradZ)
+		{
+			
+			for(int j = 0; j < n; j++)
+			{
+				dzdalpha(i) += coords[j] * zList[j] * std::complex<double>(std::cos(deltaThetaList[j]), std::sin(deltaThetaList[j])) * I * gradThetaList[j].dot(pList[i]);
+			}
 
-            dzdalpha(i) += zList[i] * std::complex<double>(std::cos(deltaTheta), std::sin(deltaTheta));
-        }
+			dzdalpha(i) += zList[i] * std::complex<double>(std::cos(deltaThetaList[i]), std::sin(deltaThetaList[i]));
+		}
 
+	}
+
+	if (gradZ)
+	{
+		(*gradZ) = dalphadp.transpose() * dzdalpha;
 	}
 	return z;
 }
@@ -850,12 +890,16 @@ std::complex<double> computeZandGradZ(const Mesh& mesh, const Eigen::VectorXd& o
 	return z;
 }
 
-void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, std::vector<std::complex<double>>& upZvals, std::vector<Eigen::Vector3d> *upOmega)
+void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, std::vector<std::complex<double>>& upZvals, std::vector<Eigen::Vector3cd> *upgradZvals)
 {
 	int V = mesh.GetVertCount();
 	int E = mesh.GetEdgeCount();
 	
 	upZvals.resize(V + E);
+
+	if (upgradZvals)
+		upgradZvals->resize(V + E);
+	
 
 	// Even verts
 	for (int vi = 0; vi < V; ++vi)
@@ -887,17 +931,17 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 				bary(viInface) = 3. / 4;
 				bary(vjInface) = 1. / 4;
 
-                Eigen::Vector3cd gradZ;
+				Eigen::Vector3cd gradZ;
 				zp[j] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
 
 				pList[j] = 3. / 4 * mesh.GetVertPos(vi) + 1. / 4 * mesh.GetVertPos(vj);
-                gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+				gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
 
-                if(std::abs(zp[j]))
-                    gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+				if(std::abs(zp[j]))
+					gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
 
 			}
-			upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
+			upZvals[vi] = interpZ(zp, gradthetap, coords, pList, upgradZvals ? &(upgradZvals->at(vi)) : NULL);
 		}
 		else
 		{
@@ -930,15 +974,15 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 				{
 					pList[k] += bary(i) * mesh.GetVertPos(mesh.GetFaceVerts(face)[i]);
 				}
-                Eigen::Vector3cd gradZ;
+				Eigen::Vector3cd gradZ;
 				zp[k] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
 
-                gradthetap[k] = (std::conj(zp[k]) * gradZ).imag();
+				gradthetap[k] = (std::conj(zp[k]) * gradZ).imag();
 
-                if(std::abs(zp[k]))
-                    gradthetap[k] = gradthetap[k] / (std::abs(zp[k]) * std::abs(zp[k]));
+				if(std::abs(zp[k]))
+					gradthetap[k] = gradthetap[k] / (std::abs(zp[k]) * std::abs(zp[k]));
 			}
-			upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
+			upZvals[vi] = interpZ(zp, gradthetap, coords, pList, upgradZvals ? &(upgradZvals->at(vi)) : NULL);
 		}
 	}
 
@@ -954,7 +998,8 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 			bary.setConstant(0.5);
 			bary((eindexFace + 2) % 3) = 0;
 
-			upZvals[row] = computeZandGradZ(mesh, omega, zvals, face, bary, NULL);
+			Eigen::Vector3cd gradZ;
+			upZvals[row] = computeZandGradZ(mesh, omega, zvals, face, bary, upgradZvals ? &(upgradZvals->at(row)) : NULL);
 		}
 		else
 		{
@@ -978,158 +1023,137 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 				{
 					pList[j] += bary(i) * mesh.GetVertPos(mesh.GetFaceVerts(face)[i]);
 				}
-                Eigen::Vector3cd gradZ;
-                zp[j] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
+				Eigen::Vector3cd gradZ;
+				zp[j] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
 
-                gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+				gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
 
-                if(std::abs(zp[j]))
-                    gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+				if(std::abs(zp[j]))
+					gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
 			}
 
-			upZvals[row] = interpZ(zp, gradthetap, coords, pList);
+			upZvals[row] = interpZ(zp, gradthetap, coords, pList, upgradZvals ? &(upgradZvals->at(row)) : NULL);
 		}
 	}
 }
 
 void updateLoopedZvalsNew(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, std::vector<std::complex<double>>& upZvals)
 {
-    int V = mesh.GetVertCount();
-    int E = mesh.GetEdgeCount();
+	int V = mesh.GetVertCount();
+	int E = mesh.GetEdgeCount();
 
-    upZvals.resize(V + E);
+	upZvals.resize(V + E);
 
-    // Even verts
-    for (int vi = 0; vi < V; ++vi)
-    {
-        if (mesh.IsVertBoundary(vi))
-        {
-            std::vector<int> boundary(2);
-            boundary[0] = mesh.GetVertEdges(vi).front();
-            boundary[1] = mesh.GetVertEdges(vi).back();
+	// Even verts
+	for (int vi = 0; vi < V; ++vi)
+	{
+		if (mesh.IsVertBoundary(vi))
+		{
+			std::vector<int> boundary(2);
+			boundary[0] = mesh.GetVertEdges(vi).front();
+			boundary[1] = mesh.GetVertEdges(vi).back();
 
-            std::vector<std::complex<double>> zp(3);
-            std::vector<Eigen::Vector3d> gradthetap(3);
-            std::vector<double> coords = { 1. / 4, 1. / 4, 3. / 4 };
-            std::vector<Eigen::Vector3d> pList(3);
+			upZvals[vi] = 3. / 4 * zvals[vi];
+			for (int j = 0; j < boundary.size(); ++j)
+			{
+				int edge = boundary[j];
+				assert(mesh.IsEdgeBoundary(edge));
 
-            pList[2] = mesh.GetVertPos(vi);
-            zp[2] = 0;
-            gradthetap[2].setZero();
+				double w01 = omega(edge);
 
+				int vj = mesh.GetEdgeVerts(edge)[0];
 
-            for (int j = 0; j < boundary.size(); ++j)
-            {
-                int edge = boundary[j];
-                assert(mesh.IsEdgeBoundary(edge));
-                int face = mesh.GetEdgeFaces(edge)[0];
-                int viInface = mesh.GetVertIndexInFace(face, vi);
+				if (mesh.GetEdgeVerts(edge)[0] == vi)
+				{
+					w01 *= -1;
+					vj = mesh.GetEdgeVerts(edge)[1];
+				}
 
-                int viInEdge = mesh.GetVertIndexInEdge(edge, vi);
-                int vj = mesh.GetEdgeVerts(edge)[(viInEdge + 1) % 2];
+				double theta = 3. / 4 * w01;
 
-                int vjInface = mesh.GetVertIndexInFace(face, vj);
+				upZvals[vi] += 1. / 4 * (zvals[vj] * std::complex<double>(std::cos(theta), std::sin(theta)));
+			}
+			
+		}
+		else
+		{
+			const std::vector<int>& vEdges = mesh.GetVertEdges(vi);
+			int nNei = vEdges.size();
 
-                Eigen::Vector3d bary = Eigen::Vector3d::Zero();
-                bary(vjInface)  = 1;
+			// Fig5 left [Wang et al. 2006]
+			Scalar alpha = 0.375;
+			if (nNei == 3) alpha /= 2;
+			else                    alpha /= nNei;
 
-                Eigen::Vector3cd gradZ;
-                zp[j] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
+			upZvals[vi] = (1 - nNei * alpha) * zvals[vi];
 
-                pList[j] = mesh.GetVertPos(vj);
-                gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+			for (int i = 0; i < nNei; i++)
+			{
+				int edge = vEdges[i];
+				double w = omega(edge);
+				
+				int vj = mesh.GetEdgeVerts(edge)[0];
 
-                if(std::abs(zp[j]))
-                    gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+				if (mesh.GetEdgeVerts(edge)[0] == vi)
+				{
+					w *= -1;
+					vj = mesh.GetEdgeVerts(edge)[1];
+				}
+					
+				double theta = (1 - alpha) * w;
+				upZvals[vi] += alpha * (zvals[vj] * std::complex<double>(std::cos(theta), std::sin(theta)));
 
-                bary.setZero();
-                bary(viInface) = 1;
+			}
 
-                std::complex<double> zi = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
-                zp[2] += zi / 2.0;
+		}
+	}
 
-                Eigen::Vector3d gradthetai = (std::conj(zi) * gradZ).imag();
-                if(std::abs(zi))
-                    gradthetai = gradthetai / (std::abs(zi) * std::abs(zi));
-                gradthetap[2] += gradthetai / 2;
+	// Odd verts
+	for (int edge = 0; edge < E; ++edge)
+	{
+		int row = edge + V;
+		if (mesh.IsEdgeBoundary(edge))
+		{
+			int face = mesh.GetEdgeFaces(edge)[0];
+			int eindexFace = mesh.GetEdgeIndexInFace(face, edge);
+			Eigen::Vector3d bary;
+			bary.setConstant(0.5);
+			bary((eindexFace + 2) % 3) = 0;
 
-            }
-            upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
-        }
-        else
-        {
-            const std::vector<int>& vFaces = mesh.GetVertFaces(vi);
-            int nNeiFaces = vFaces.size();
+			upZvals[row] = computeZandGradZ(mesh, omega, zvals, face, bary, NULL);
+		}
+		else
+		{
+			double w = omega(edge);
+			int v0 = mesh.GetEdgeVerts(edge)[0];
+			int v1 = mesh.GetEdgeVerts(edge)[1];
 
-            // Fig5 left [Wang et al. 2006]
-            Scalar alpha = 0.375;
-            if (nNeiFaces == 3) alpha /= 2;
-            else                    alpha /= nNeiFaces;
+			double theta = w / 2;
+			upZvals[row] = (zvals[v0] * std::complex<double>(std::cos(theta), std::sin(theta)) + zvals[v1] * std::complex<double>(std::cos(-theta), std::sin(-theta))) * 3. / 8.;
 
-            double beta = nNeiFaces / 2. * alpha;
+			for (int j = 0; j < 2; ++j)
+			{
+				int face = mesh.GetEdgeFaces(edge)[j];
+				int eidinface = mesh.GetEdgeIndexInFace(face, edge);
 
-            std::vector<std::complex<double>> zp(nNeiFaces + 1);
-            std::vector<Eigen::Vector3d> gradthetap(nNeiFaces + 1);
-            std::vector<double> coords;
-            coords.resize(nNeiFaces + 1, alpha);
-            std::vector<Eigen::Vector3d> pList(nNeiFaces + 1);
+				int e0 = mesh.GetFaceEdges(face)[(eidinface + 1) % 3];
+				int e1 = mesh.GetFaceEdges(face)[(eidinface + 2) % 3];
 
-            zp[nNeiFaces] = 0;
-            gradthetap[nNeiFaces].setZero();
-            coords[nNeiFaces] = 1 - nNeiFaces * alpha;
-            pList[nNeiFaces] = mesh.GetVertPos(vi);
+				int v = mesh.GetFaceVerts(face)[(eidinface + 2) % 3];
+				double w0 = omega(e0);
+				double w1 = omega(e1);
 
-        }
-    }
+				if (mesh.GetEdgeVerts(e0)[1] == v)
+					w0 *= -1;
+				if (mesh.GetEdgeVerts(e1)[1] == v)
+					w1 *= -1;
 
-    // Odd verts
-    for (int edge = 0; edge < E; ++edge)
-    {
-        int row = edge + V;
-        if (mesh.IsEdgeBoundary(edge))
-        {
-            int face = mesh.GetEdgeFaces(edge)[0];
-            int eindexFace = mesh.GetEdgeIndexInFace(face, edge);
-            Eigen::Vector3d bary;
-            bary.setConstant(0.5);
-            bary((eindexFace + 2) % 3) = 0;
+				double theta = (w0 + w1) / 2;
 
-            upZvals[row] = computeZandGradZ(mesh, omega, zvals, face, bary, NULL);
-        }
-        else
-        {
-
-            std::vector<std::complex<double>> zp(2);
-            std::vector<Eigen::Vector3d> gradthetap(2);
-            std::vector<double> coords = { 1. / 2, 1. / 2 };
-            std::vector<Eigen::Vector3d> pList(2);
-
-            for (int j = 0; j < 2; ++j)
-            {
-                int face = mesh.GetEdgeFaces(edge)[j];
-                int offset = mesh.GetEdgeIndexInFace(face, edge);
-
-                Eigen::Vector3d bary;
-                bary.setConstant(3. / 8.);
-                bary((offset + 2) % 3) = 0.25;
-
-                pList[j] = Eigen::Vector3d::Zero();
-                for (int i = 0; i < 3; i++)
-                {
-                    pList[j] += bary(i) * mesh.GetVertPos(mesh.GetFaceVerts(face)[i]);
-                }
-                Eigen::Vector3cd gradZ;
-                zp[j] = computeZandGradZ(mesh, omega, zvals, face, bary, &(gradZ));
-
-                gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
-
-                if(std::abs(zp[j]))
-                    gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
-            }
-
-            upZvals[row] = interpZ(zp, gradthetap, coords, pList);
-        }
-    }
+				upZvals[row] += 1. / 8. * zvals[v] * std::complex<double>(std::cos(theta), std::sin(theta));
+			}
+		}
+	}
 }
 
 void SubdivideNew(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, int level, Mesh& meshNew)
@@ -1146,7 +1170,6 @@ void SubdivideNew(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vec
 	mesh.GetPos(X);
 
 	meshNew = mesh;
-	omegaNew = omega;
 
 	Eigen::VectorXd amp(nverts);
 	
@@ -1165,9 +1188,12 @@ void SubdivideNew(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vec
 		X = tmpS0 * X;
 		amp = tmpS0 * amp;
 
-        std::vector<std::complex<double>> upZvalsNew;
+		std::vector<std::complex<double>> upZvalsNew;
+		//std::vector<Eigen::Vector3cd> upGradZvals;
 
-		updateLoopedZvals(meshNew, omegaNew, upZvals, upZvalsNew);
+		updateLoopedZvals(meshNew, omegaNew, upZvals, upZvalsNew, NULL);
+
+		//updateLoopedZvalsNew(meshNew, omegaNew, upZvals, upZvalsNew);
 		omegaNew = tmpS1 * omegaNew;
 
 		std::vector<Vector3> points;
@@ -1181,6 +1207,25 @@ void SubdivideNew(const Mesh& mesh, const Eigen::VectorXd& omega, const std::vec
 
 		meshNew.Populate(points, faceToVert, edgeToVert);
 
-        upZvals.swap(upZvalsNew);
+		upZvals.swap(upZvalsNew);
+
+		/*omegaNew.setZero(meshNew.GetEdgeCount());
+		for (int i = 0; i < meshNew.GetEdgeCount(); i++)
+		{
+			int v1 = meshNew.GetEdgeVerts(i)[0];
+			int v2 = meshNew.GetEdgeVerts(i)[1];
+			Eigen::Vector3d edge = meshNew.GetVertPos(v2) - meshNew.GetVertPos(v1);
+
+			Eigen::Vector3d gradtheta0 = (std::conj(upZvals[v1]) * upGradZvals[v1]).imag();
+			Eigen::Vector3d gradtheta1 = (std::conj(upZvals[v2]) * upGradZvals[v2]).imag();
+
+			if (std::abs(upZvals[v1]))
+				gradtheta0 = gradtheta0 / (std::abs(upZvals[v1]) * std::abs(upZvals[v1]));
+
+			if (std::abs(upZvals[v2]))
+				gradtheta1 = gradtheta1 / (std::abs(upZvals[v2]) * std::abs(upZvals[v2]));
+
+			omegaNew(i) = (gradtheta0.dot(edge) + gradtheta1.dot(edge)) / 2;
+		}*/
 	}
 }

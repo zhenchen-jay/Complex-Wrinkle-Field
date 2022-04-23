@@ -418,19 +418,19 @@ void updateFieldsInView()
     }
 
 
-    polyscope::registerSurfaceMesh("looped mesh", loopTriV, loopTriF);
+    polyscope::registerSurfaceMesh("looped amp mesh", loopTriV, loopTriF);
     double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
     double shiftz = 1.5 * (loopTriV.col(2).maxCoeff() - loopTriV.col(2).minCoeff());
 
-    polyscope::getSurfaceMesh("looped mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
-    polyscope::getSurfaceMesh("looped mesh")->setEnabled(false);
+    polyscope::getSurfaceMesh("looped amp mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
+    polyscope::getSurfaceMesh("looped amp mesh")->setEnabled(false);
 
-    polyscope::getSurfaceMesh("looped mesh")->addVertexScalarQuantity("amp color", loopedAmp);
-    polyscope::getSurfaceMesh("looped mesh")->getQuantity("amp color")->setEnabled(true);
+    polyscope::getSurfaceMesh("looped amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
+    polyscope::getSurfaceMesh("looped amp mesh")->getQuantity("amp color")->setEnabled(true);
 
     if (isShowVectorFields)
     {
-        polyscope::getSurfaceMesh("looped mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmega);
+        polyscope::getSurfaceMesh("looped amp mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmega);
     }
 
     polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
@@ -463,11 +463,11 @@ void updateFieldsInView()
 
     igl::writeOBJ(workingFolder + "wrinkledMesh_loop.obj", wrinkledTriV, loopTriF);
 
-    polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledTriV, loopTriF);
-    polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-    polyscope::getSurfaceMesh("wrinkled mesh")->addFaceColorQuantity("wrinkled color", faceColors);
-    polyscope::getSurfaceMesh("wrinkled mesh")->translate(glm::vec3(shiftx, 0, 0));
-    polyscope::getSurfaceMesh("wrinkled mesh")->setEnabled(true);
+    polyscope::registerSurfaceMesh("loop wrinkled mesh", wrinkledTriV, loopTriF);
+    polyscope::getSurfaceMesh("loop wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("loop wrinkled mesh")->addFaceColorQuantity("wrinkled color", faceColors);
+    polyscope::getSurfaceMesh("loop wrinkled mesh")->translate(glm::vec3(shiftx, 0, 0));
+    polyscope::getSurfaceMesh("loop wrinkled mesh")->setEnabled(true);
 
     Eigen::VectorXd edgeVecSwapped;
     std::vector<std::vector<int>> edge2verts;
@@ -508,6 +508,12 @@ void updateFieldsInView()
 
     polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->addVertexScalarQuantity("amp color", loopedAmpNew);
     polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
+
+    if (isShowVectorFields)
+    {
+        Eigen::MatrixXd loopedFaceOmegaNew = edgeVec2FaceVec(subSecMesh, loopedOmegaNew);
+        polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmegaNew);
+    }
 
     polyscope::registerSurfaceMesh("Loop-Zuenko phase mesh", loopTriV, loopTriF);
     polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
