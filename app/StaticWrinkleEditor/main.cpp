@@ -34,14 +34,82 @@
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
-#include "../../include/ComplexLoop.h"
+#include "../../include/ComplexLoopNew.h"
+#include "../../include/LoadSaveIO.h"
+#include "../../include/SecMeshParsing.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
-enum RegionOpType
+long long int selectFace(polyscope::SurfaceMesh* mesh) 
 {
-	Dilation = 0,
-	Erosion = 1
-};
+	using namespace polyscope;
+	// Make sure we can see edges
+	float oldEdgeWidth = mesh->getEdgeWidth();
+	mesh->setEdgeWidth(1.);
+	mesh->setEnabled(true);
+
+	long long int returnFaceInd = -1;
+
+	// Register the callback which creates the UI and does the hard work
+	auto focusedPopupUI = [&]() {
+		{ // Create a window with instruction and a close button.
+			static bool showWindow = true;
+			ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Once);
+			ImGui::Begin("Select face", &showWindow);
+
+			ImGui::PushItemWidth(300);
+			ImGui::TextUnformatted("Hold ctrl and left-click to select a face");
+			ImGui::Separator();
+
+			// Pick by number
+			ImGui::PushItemWidth(300);
+			static int iF = -1;
+			ImGui::InputInt("index", &iF);
+			if (ImGui::Button("Select by index"))
+			{
+				if (iF >= 0 && (size_t)iF < mesh->nFaces()) 
+				{
+					returnFaceInd = iF;
+					popContext();
+				}
+			}
+			ImGui::PopItemWidth();
+
+			ImGui::Separator();
+			if (ImGui::Button("Abort")) {
+				popContext();
+			}
+		}
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.KeyCtrl && !io.WantCaptureMouse && ImGui::IsMouseClicked(0)) {
+
+			ImGuiIO& io = ImGui::GetIO();
+
+			// API is a giant mess..
+			size_t pickInd;
+			ImVec2 p = ImGui::GetMousePos();
+			std::pair<Structure*, size_t> pickVal =
+				pick::evaluatePickQuery(io.DisplayFramebufferScale.x * p.x, io.DisplayFramebufferScale.y * p.y);
+
+			if (pickVal.first == mesh) {
+
+				if (pickVal.second >= mesh->nVertices() && pickVal.second < mesh->nVertices() + mesh->nFaces()) 
+				{
+					returnFaceInd = pickVal.second - mesh->nVertices();
+					popContext();
+				}
+			}
+		}
+	};
+
+
+	// Pass control to the context we just created
+	pushContext(focusedPopupUI);
+
+	mesh->setEdgeWidth(oldEdgeWidth); // restore edge setting
+
+	return returnFaceInd;
+}
 
 std::vector<VertexOpInfo> vertOpts;
 
@@ -49,16 +117,19 @@ Eigen::MatrixXd triV, upsampledTriV;
 Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
 Mesh secMesh, subSecMesh;
-std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
+// initial information
 Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
 std::vector<std::complex<double>> initZvals;
 
+// base mesh information list
 std::vector<Eigen::VectorXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
 
+
+// upsampled informations
 std::vector<Eigen::VectorXd> subOmegaList;
 std::vector<Eigen::MatrixXd> subFaceOmegaList;
 
@@ -71,10 +142,8 @@ std::vector<Eigen::MatrixXd> wrinkledVList;
 std::vector<Eigen::VectorXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
 
-Eigen::MatrixXd dataV;
-Eigen::MatrixXi dataF;
-Eigen::MatrixXd dataVec;
-Eigen::MatrixXd curColor;
+// region edition
+RegionEdition regEdt;
 
 int upsampleTimes = 2;
 
@@ -108,8 +177,43 @@ double spatialKnoppelRatio = 1;
 std::string workingFolder;
 
 IntrinsicFormula::WrinkleEditingStaticEdgeModel editModel;
-VecMotionType selectedMotion = Enlarge;
+
+struct PickedFace
+{
+	int fid = -1;
+	double ampChangeRatio = 1.;
+	int effectiveRadius = 5;
+	VecMotionType freqVecMotion = Enlarge;
+	double freqVecChangeValue = 1.;
+	bool isFreqAmpCoupled = false;
+
+	std::vector<int> effectiveFaces = {};
+
+	void buildEffectiveFaces(int nfaces)
+	{
+		if (fid == -1 || fid >= nfaces)
+		{
+			effectiveFaces = {};
+			return;
+		}
+		else
+		{
+			Eigen::VectorXi curFaceFlags = Eigen::VectorXi::Zero(triF.rows());
+			curFaceFlags(fid) = 1;
+			Eigen::VectorXi curFaceFlagsNew = curFaceFlags;
+			regEdt.faceDilation(curFaceFlagsNew, curFaceFlags, effectiveRadius);
+
+			for (int i = 0; i < curFaceFlags.rows(); i++)
+				if (curFaceFlags(i))
+					effectiveFaces.push_back(i);
+		}
+	}
+};
+
 bool isSelectAll = false;
+std::vector<PickedFace> pickFaces;
+VecMotionType selectedMotion = Enlarge;
+
 double selectedMotionValue = 2;
 double selectedMagValue = 1;
 bool isCoupled = false;
@@ -118,7 +222,6 @@ Eigen::VectorXi initSelectedFids;
 Eigen::VectorXi selectedFids;
 Eigen::VectorXi faceFlags;
 
-RegionOpType regOpType = Dilation;
 int optTimes = 5;
 
 bool isLoadOpt;
@@ -132,271 +235,6 @@ bool isWarmStart = false;
 // smoothing
 int smoothingTimes = 3;
 double smoothingRatio = 0.95;
-
-
-std::map<std::pair<int, int>, int> he2Edge(const Eigen::MatrixXi& faces)
-{
-	std::map< std::pair<int, int>, int > heToEdge;
-	std::vector< std::vector<int> > edgeToVert;
-	for (int face = 0; face < faces.rows(); ++face)
-	{
-		for (int i = 0; i < 3; ++i)
-		{
-			int vi = faces(face, i);
-			int vj = faces(face, (i + 1) % 3);
-			assert(vi != vj);
-
-			std::pair<int, int> he = std::make_pair(vi, vj);
-			if (he.first > he.second) std::swap(he.first, he.second);
-			if (heToEdge.find(he) != heToEdge.end()) continue;
-
-			heToEdge[he] = edgeToVert.size();
-			edgeToVert.push_back(std::vector<int>(2));
-			edgeToVert.back()[0] = he.first;
-			edgeToVert.back()[1] = he.second;
-		}
-	}
-	return heToEdge;
-}
-
-std::map<std::pair<int, int>, int> he2Edge(const std::vector< std::vector<int>>& edgeToVert)
-{
-	std::map< std::pair<int, int>, int > heToEdge;
-	for (int i = 0; i < edgeToVert.size(); i++)
-	{
-		std::pair<int, int> he = std::make_pair(edgeToVert[i][0], edgeToVert[i][1]);
-		heToEdge[he] = i;
-	}
-	return heToEdge;
-}
-
-Eigen::VectorXd swapEdgeVec(const std::vector< std::vector<int>>& edgeToVert, const Eigen::VectorXd& edgeVec, int flag)
-{
-	Eigen::VectorXd  edgeVecSwap = edgeVec;
-	std::map< std::pair<int, int>, int > heToEdge = he2Edge(edgeToVert);
-
-	int idx = 0;
-	for (auto it : heToEdge)
-	{
-		if (flag == 0)   // ours to secstencils
-			edgeVecSwap(it.second) = edgeVec(idx);
-		else
-			edgeVecSwap(idx) = edgeVec(it.second);
-		idx++;
-	}
-	return edgeVecSwap;
-}
-
-Eigen::VectorXd swapEdgeVec(const Eigen::MatrixXi& faces, const Eigen::VectorXd& edgeVec, int flag)
-{
-	Eigen::VectorXd  edgeVecSwap = edgeVec;
-	std::map< std::pair<int, int>, int > heToEdge = he2Edge(faces);
-
-	int idx = 0;
-	for (auto it : heToEdge)
-	{
-		if (flag == 0)   // ours to secstencils
-			edgeVecSwap(it.second) = edgeVec(idx);
-		else
-			edgeVecSwap(idx) = edgeVec(it.second);
-		idx++;
-	}
-	return edgeVecSwap;
-}
-
-std::vector<std::vector<int>> swapEdgeIndices(const Eigen::MatrixXi& faces, const std::vector<std::vector<int>>& edgeIndices, int flag)
-{
-	std::vector<std::vector<int>> edgeIndicesSwap = edgeIndices;
-	std::map< std::pair<int, int>, int > heToEdge = he2Edge(faces);
-
-	int idx = 0;
-	for (auto it : heToEdge)
-	{
-		if (flag == 0)   // ours to secstencils
-		{
-			edgeIndicesSwap[it.second] = edgeIndices[idx];
-		}
-		else
-		{
-			edgeIndicesSwap[idx] = edgeIndices[it.second];
-		}
-		idx++;
-	}
-
-	return edgeIndicesSwap;
-}
-
-Eigen::MatrixXd edgeVec2FaceVec(const Mesh& mesh, Eigen::VectorXd& edgeVec)
-{
-	int nfaces = mesh.GetFaceCount();
-	int nedges = mesh.GetEdgeCount();
-	Eigen::MatrixXd fVec(nfaces, 3);
-	fVec.setZero();
-
-	for (int f = 0; f < nfaces; f++)
-	{
-		std::vector<int> faceEdges = mesh.GetFaceEdges(f);
-		std::vector<int> faceVerts = mesh.GetFaceVerts(f);
-		for (int j = 0; j < 3; j++)
-		{
-			int vid = faceVerts[j];
-			int eid0 = faceEdges[j];
-			int eid1 = faceEdges[(j + 2) % 3];
-
-			Eigen::Vector3d e0 = mesh.GetVertPos(faceVerts[(j + 1) % 3]) - mesh.GetVertPos(vid);
-			Eigen::Vector3d e1 = mesh.GetVertPos(faceVerts[(j + 2) % 3]) - mesh.GetVertPos(vid);
-
-			int flag0 = 1, flag1 = 1;
-			Eigen::Vector2d rhs;
-
-			if (mesh.GetEdgeVerts(eid0)[0] == vid)
-			{
-				flag0 = 1;
-			}
-			else
-			{
-				flag0 = -1;
-			}
-
-
-			if (mesh.GetEdgeVerts(eid1)[0] == vid)
-			{
-				flag1 = 1;
-			}
-			else
-			{
-				flag1 = -1;
-			}
-			rhs(0) = flag0 * edgeVec(eid0);
-			rhs(1) = flag1 * edgeVec(eid1);
-
-			Eigen::Matrix2d I;
-			I << e0.dot(e0), e0.dot(e1), e1.dot(e0), e1.dot(e1);
-			Eigen::Vector2d sol = I.inverse() * rhs;
-
-			fVec.row(f) += (sol(0) * e0 + sol(1) * e1) / 3;
-		}
-	}
-	return fVec;
-}
-
-bool loadEdgeOmega(const std::string& filename, const int& nlines, Eigen::VectorXd& edgeOmega)
-{
-	std::ifstream infile(filename);
-	if (!infile)
-	{
-		std::cerr << "invalid edge omega file name" << std::endl;
-		return false;
-	}
-	else
-	{
-		Eigen::MatrixXd halfEdgeOmega(nlines, 2);
-		edgeOmega.setZero(nlines);
-		for (int i = 0; i < nlines; i++)
-		{
-			std::string line;
-			std::getline(infile, line);
-			std::stringstream ss(line);
-
-			std::string x, y;
-			ss >> x;
-			if (!ss)
-				return false;
-			ss >> y;
-			if (!ss)
-			{
-				halfEdgeOmega.row(i) << std::stod(x), -std::stod(x);
-			}
-			else
-				halfEdgeOmega.row(i) << std::stod(x), std::stod(y);
-		}
-		edgeOmega = (halfEdgeOmega.col(0) - halfEdgeOmega.col(1)) / 2;
-	}
-	return true;
-}
-
-bool loadVertexZvals(const std::string& filePath, const int& nlines, std::vector<std::complex<double>>& zvals)
-{
-	std::ifstream zfs(filePath);
-	if (!zfs)
-	{
-		std::cerr << "invalid zvals file name" << std::endl;
-		return false;
-	}
-
-	zvals.resize(nlines);
-
-	for (int j = 0; j < nlines; j++) {
-		std::string line;
-		std::getline(zfs, line);
-		std::stringstream ss(line);
-		std::string x, y;
-		ss >> x;
-		ss >> y;
-		zvals[j] = std::complex<double>(std::stod(x), std::stod(y));
-	}
-	return true;
-}
-
-bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::VectorXd& amp)
-{
-	std::ifstream afs(filePath);
-
-	if (!afs)
-	{
-		std::cerr << "invalid ref amp file name" << std::endl;
-		return false;
-	}
-
-	amp.setZero(nlines);
-
-	for (int j = 0; j < nlines; j++)
-	{
-		std::string line;
-		std::getline(afs, line);
-		std::stringstream ss(line);
-		std::string x;
-		ss >> x;
-		if (!ss)
-			return false;
-		amp(j) = std::stod(x);
-	}
-	return true;
-}
-
-void getSelecteFids()
-{
-	if (isSelectAll)
-	{
-		selectedFids.setOnes(triMesh.nFaces());
-		initSelectedFids = selectedFids;
-		return;
-	}
-
-	selectedFids.setZero();
-
-	if (clickedFid == -1)
-		return;
-	else
-	{
-		selectedFids(clickedFid) = 1;
-		initSelectedFids = selectedFids;
-
-		RegionEdition regEdt = RegionEdition(triMesh);
-
-		for (int i = 0; i < dilationTimes; i++)
-		{
-			regEdt.faceDilation(initSelectedFids, selectedFids);
-			initSelectedFids = selectedFids;
-		}
-	}
-	initSelectedFids = selectedFids;
-}
-
-double sampling(double t, double offset, double A, double mu, double sigma)
-{
-	return offset + A * std::exp(-0.5 * (t - mu) * (t - mu) / sigma / sigma);
-}
 
 void buildWrinkleMotions()
 {
@@ -422,6 +260,164 @@ void buildWrinkleMotions()
 
 }
 
+bool addSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags)
+{
+	for (auto& f : face.effectiveFaces)
+		if (curFaceFlags(f))
+			return false;
+
+	Eigen::VectorXi tmp = curFaceFlags;
+
+	for (auto& f : face.effectiveFaces)
+		curFaceFlags(f) = 1;
+
+
+	return true;
+}
+
+void deleteSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags)
+{
+	for (auto& f : face.effectiveFaces)
+	{
+		curFaceFlags(f) = 0;
+	}
+}
+
+void updateSelectedRegionSetViz()
+{
+	regEdt.faceDilation(initSelectedFids, selectedFids, optTimes);
+
+	int nfaces = triF.rows();
+	Eigen::MatrixXd renderColor(triF.rows(), 3);
+	renderColor.col(0).setConstant(1.0);
+	renderColor.col(1).setConstant(1.0);
+	renderColor.col(2).setConstant(1.0);
+
+	for (int i = 0; i < nfaces; i++)
+	{
+		if (initSelectedFids(i) == 1)
+			renderColor.row(i) << 1.0, 0, 0;
+		else if (selectedFids(i) == 1)
+			renderColor.row(i) << 0, 1.0, 0;
+	}
+	polyscope::getSurfaceMesh("base mesh")->addFaceColorQuantity("selected region", renderColor);
+}
+
+void addPickedFace(size_t ind)
+{
+	// Make sure not already used
+	for (PickedFace& s : pickFaces)
+	{
+		if (s.fid == ind)
+		{
+			std::stringstream ss;
+			ss << "Face " << ind;
+			std::string vStr = ss.str();
+			polyscope::warning("Face " + vStr + " is already picked");
+			return;
+		}
+	}
+
+	PickedFace newface;
+	newface.fid = ind;
+
+	newface.buildEffectiveFaces(triF.rows());
+	std::cout << "num of new effective faces: " << newface.effectiveFaces.size() << ", dilation radius: " << newface.effectiveRadius << std::endl;
+
+
+	if (addSelectedFaces(newface, initSelectedFids))
+		pickFaces.push_back(newface);
+	else
+	{
+		std::stringstream ss;
+		ss << "Face " << ind;
+		std::string vStr = ss.str();
+		polyscope::warning("Face " + vStr + " is inside the effective domain");
+		return;
+	}
+	updateSelectedRegionSetViz();
+}
+
+void buildFacesMenu()
+{
+	if (isSelectAll)
+		return;
+
+	bool anyChanged = false;
+
+	ImGui::PushItemWidth(200);
+
+	int id = 0;
+	int eraseInd = -1;
+	for (PickedFace& s : pickFaces)
+	{
+		std::stringstream ss;
+		ss << "Face " << s.fid;
+		std::string vStr = ss.str();
+		ImGui::PushID(vStr.c_str());
+
+		ImGui::TextUnformatted(vStr.c_str());
+
+		ImGui::SameLine();
+		if (ImGui::Button("delete"))
+		{
+			eraseInd = id;
+			anyChanged = true;
+		}
+		ImGui::Indent();
+
+		//int backupRadius = s.effectiveRadius;
+
+		if (ImGui::InputInt("effective radius", &s.effectiveRadius))
+		{
+			anyChanged = true;
+			/*deleteSelectedFaces(s, initSelectedFids);
+			s.buildEffectiveFaces(triF.rows());
+			if (!addSelectedFaces(s, initSelectedFids))
+			{
+				std::cout << "due to the overlap, failed to extend the effective radius, back to last effective one: " << backupRadius << std::endl;
+				s.effectiveRadius = backupRadius;
+				s.buildEffectiveFaces(triF.rows());
+				assert(addSelectedFaces(s, initSelectedFids));
+			}*/
+		}
+		ImGui::Combo("freq motion", (int*)&s.freqVecMotion, "Ratate\0Tilt\0Enlarge\0None\0");
+		if (ImGui::InputDouble("freq change", &s.freqVecChangeValue)) anyChanged = true;
+		if (ImGui::InputDouble("amp change", &s.ampChangeRatio)) anyChanged = true;
+		if (ImGui::Checkbox("amp freq coupled", &s.isFreqAmpCoupled)) anyChanged = true;
+
+		ImGui::Unindent();
+		ImGui::PopID();
+	}
+	ImGui::PopItemWidth();
+
+	// actually do erase, if requested
+	if (eraseInd != -1)
+	{
+		deleteSelectedFaces(pickFaces[eraseInd], initSelectedFids);
+		pickFaces.erase(pickFaces.begin() + eraseInd);
+	}
+
+	if (ImGui::Button("add face"))
+	{
+		long long int pickId = selectFace(polyscope::getSurfaceMesh("base mesh"));
+		//int nverts = polyscope::getSurfaceMesh("base mesh")->nVertices();
+		int nfaces = polyscope::getSurfaceMesh("base mesh")->nFaces();
+
+		if (id >= 0 && id < nfaces)
+		{
+			addPickedFace(pickId);
+			anyChanged = true;
+		}
+	}
+
+	if (anyChanged)
+	{
+		updateSelectedRegionSetViz();
+	}
+}
+
+
 void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			std::vector<std::vector<std::complex<double>>>& zFrames, 
 	std::vector<Eigen::VectorXd>& magList, 
 	std::vector<Eigen::VectorXd>& phaseList,
@@ -436,11 +432,17 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			s
 
 	MeshConnectivity mesh(triF);
 
+
 	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			upZFrames[i] = IntrinsicFormula::upsamplingZvals(mesh, zFrames[i], wFrames[i], bary);
+			Mesh tmpMesh;
+			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
+			SubdivideNew(secMesh, edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes, tmpMesh);
+
+			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
+
 			magList[i].setZero(upZFrames[i].size());
 			phaseList[i].setZero(upZFrames[i].size());
 
@@ -454,100 +456,6 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			s
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size(), GRAIN_SIZE);
 	tbb::parallel_for(rangex, computeMagPhase);
-
-	/*
-	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t> &range)
-	{
-		for (uint32_t i = range.begin(); i < range.end(); ++i)
-		{
-			Eigen::VectorXd edgeVec = wFrames[i];
-			edgeVec = swapEdgeVec(triF, edgeVec, 0);
-
-			Mesh tmpMesh;
-
-			Subdivide(secMesh, edgeVec, zFrames[i], subOmegaList[i], interpZList[i], loopLevel, tmpMesh);
-
-			std::vector<std::vector<int>> edge2Verts;
-
-			for (int e = 0; e < tmpMesh.GetEdgeCount(); e++)
-			{
-				edge2Verts.push_back({ tmpMesh.GetEdgeVerts(e)[0], tmpMesh.GetEdgeVerts(e)[1] });
-			}
-			edgeVec = swapEdgeVec(edge2Verts, subOmegaList[i], 1);
-
-			MeshConnectivity loopMesh = MeshConnectivity(loopTriF);
-
-			subFaceOmegaList[i] = intrinsicEdgeVec2FaceVec(edgeVec, loopTriV, loopMesh);
-
-			interpZList[i] = IntrinsicFormula::upsamplingZvals(loopMesh, interpZList[i], edgeVec, bary);
-
-
-
-			magList[i].setZero(interpZList[i].size());
-			phaseList[i].setZero(interpZList[i].size());
-
-			Eigen::MatrixXd faceVec = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
-
-			subFaceOmegaList[i] = faceVec;
-
-			for (int j = 0; j < magList[i].size(); j++)
-			{
-				magList[i](j) = std::abs(interpZList[i][j]);
-				phaseList[i](j) = std::arg(interpZList[i][j]);
-			}
-		}
-	};
-
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t) interpZList.size(), GRAIN_SIZE);
-	tbb::parallel_for(rangex, computeMagPhase);
-	*/
-
-	/*for (uint32_t i = 0; i < interpZList.size(); ++i)
-	{
-		Eigen::VectorXd edgeVec = wFrames[i];
-		edgeVec = swapEdgeVec(triF, edgeVec, 0);
-
-		Mesh tmpMesh;
-
-		if (loopLevel <= 1)
-			Subdivide(secMesh, edgeVec, zFrames[i], subOmegaList[i], interpZList[i], loopLevel, tmpMesh);
-
-		else
-		{
-			Subdivide(secMesh, edgeVec, zFrames[i], subOmegaList[i], interpZList[i], 1, tmpMesh);
-
-			std::vector<std::vector<int>> edge2Verts;
-
-			for (int e = 0; e < tmpMesh.GetEdgeCount(); e++)
-			{
-				edge2Verts.push_back({ tmpMesh.GetEdgeVerts(e)[0], tmpMesh.GetEdgeVerts(e)[1] });
-			}
-			edgeVec = swapEdgeVec(edge2Verts, subOmegaList[i], 1);
-
-			MeshConnectivity loopMesh = MeshConnectivity(loopTriF);
-
-			subFaceOmegaList[i] = intrinsicEdgeVec2FaceVec(edgeVec, loopTriV, loopMesh);
-
-			interpZList[i] = IntrinsicFormula::upsamplingZvals(loopMesh, interpZList[i], edgeVec, bary);
-
-		}
-
-
-
-		magList[i].setZero(interpZList[i].size());
-		phaseList[i].setZero(interpZList[i].size());
-
-		Eigen::MatrixXd faceVec = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
-
-		subFaceOmegaList[i] = faceVec;
-
-		for (int j = 0; j < magList[i].size(); j++)
-		{
-			magList[i](j) = std::abs(interpZList[i][j]);
-			phaseList[i](j) = std::arg(interpZList[i][j]);
-		}
-	}*/
-
 
 }
 
@@ -578,9 +486,6 @@ void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const st
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
-	Eigen::SparseMatrix<double> S;
-	std::vector<int> facemap;
-
 	triMesh = MeshConnectivity(triF);
 
 	std::vector<Eigen::Vector3d> pos;
@@ -601,19 +506,28 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	secMesh.Populate(pos, faces);
 	subSecMesh = secMesh;
 
-	meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
+	Subdivide(subSecMesh, upsampleTimes);
+	subSecMesh.GetPos(upsampledTriV);
+
+	upsampledTriF.resize(subSecMesh.GetFaceCount(), 3);
+	for (int i = 0; i < upsampledTriF.rows(); i++)
+	{
+		upsampledTriF.row(i) << subSecMesh.GetFaceVerts(i)[0], subSecMesh.GetFaceVerts(i)[1], subSecMesh.GetFaceVerts(i)[2];
+	}
+
+
+	//meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
 
 
 	selectedFids.setZero(triMesh.nFaces());
 	initSelectedFids = selectedFids;
+	regEdt = RegionEdition(triMesh, triV.rows());
 
 }
 
 
 void updateEditionDomain()
 {
-	getSelecteFids();
-	RegionEdition regOpt(triMesh);
 	selectedFids = initSelectedFids;
 
 	int nselected0 = 0;
@@ -629,12 +543,7 @@ void updateEditionDomain()
 	{
 		std::cout << "dilation option to get interface, step: " << i << std::endl;
 		Eigen::VectorXi selectedFidNew;
-		if (regOpType == Dilation)
-			regOpt.faceDilation(selectedFids, selectedFidNew);
-
-		else
-			regOpt.faceErosion(selectedFids, selectedFidNew);
-
+		regEdt.faceDilation(selectedFids, selectedFidNew);
 
 		selectedFids = selectedFidNew;
 	}
@@ -693,10 +602,6 @@ void updatePaintingItems()
 
 	std::cout << "start to update viewer." << std::endl;
 }
-
-
-
-
 
 void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
@@ -763,251 +668,44 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 	zFrames = editModel.getVertValsList();
 }
 
-
-
-void registerMeshByPart(const Eigen::MatrixXd& basePos, const Eigen::MatrixXi& baseF,
-	const Eigen::MatrixXd& upPos, const Eigen::MatrixXd& wrinkledPos, const Eigen::MatrixXi& upF, 
-	const double& shiftz, const double& ampMin,
-	const double& ampMax,
-	const Eigen::VectorXd ampVec, const Eigen::VectorXd& phaseVec, const Eigen::MatrixXd& omegaVec,
-	const Eigen::VectorXd& refAmp, const Eigen::MatrixXd& refOmega, const Eigen::VectorXi& vertFlag,
-	Eigen::MatrixXd& renderV, Eigen::MatrixXi& renderF, Eigen::MatrixXd& renderVec, Eigen::MatrixXd& renderColor)
-{
-	int nverts = basePos.rows();
-	int nfaces = baseF.rows();
-
-	int nupverts = upPos.rows();
-	int nupfaces = upF.rows();
-
-	int ndataVerts = 2 * nverts + 2 * nupverts;
-	int ndataFaces = 2 * nfaces + 2 * nupfaces;
-
-	Eigen::MatrixXd smoothPos;
-	Eigen::MatrixXi smoothF;
-	Eigen::SparseMatrix<double> S;
-
-	if (!isShowVectorFields)
-	{
-		ndataVerts = 2 * nupverts + nverts;
-		ndataFaces = 2 * nupfaces + nverts;
-	}
-	if (isShowWrinkels)
-	{
-		ndataVerts += nupverts;
-		ndataFaces += nupfaces;
-	}
-	std::cout << "num of vertices: " << ndataVerts << ", num of faces: " << ndataFaces << std::endl;
-
-	double shiftx = 1.5 * (basePos.col(0).maxCoeff() - basePos.col(0).minCoeff());
-
-	renderV.resize(ndataVerts, 3);
-	renderVec.setZero(ndataFaces, 3);
-	renderF.resize(ndataFaces, 3);
-	renderColor.setZero(ndataVerts, 3);
-
-	renderColor.col(0).setConstant(1.0);
-	renderColor.col(1).setConstant(1.0);
-	renderColor.col(2).setConstant(1.0);
-
-	int curVerts = 0;
-	int curFaces = 0;
-
-	Eigen::MatrixXd shiftV = basePos;
-	shiftV.col(0).setConstant(-shiftx);
-	shiftV.col(1).setConstant(0);
-	shiftV.col(2).setConstant(shiftz);
-
-	for (int i = 0; i < nverts; i++)
-	{
-		if (vertFlag(i) == 1)
-			renderColor.row(i) << 1.0, 0, 0;
-		else if (vertFlag(i) == -1)
-			renderColor.row(i) << 0, 1.0, 0;
-	}
-	renderV.block(curVerts, 0, nverts, 3) = basePos - shiftV;
-	renderF.block(curFaces, 0, nfaces, 3) = baseF;
-	if (isShowVectorFields)
-	{
-		for (int i = 0; i < nfaces; i++)
-			renderVec.row(i + curFaces) = omegaVec.row(i);
-	}
-
-	curVerts += nverts;
-	curFaces += nfaces;
-
-
-	Eigen::MatrixXi shiftF = baseF;
-	shiftF.setConstant(curVerts);
-	shiftV.col(0).setConstant(0);
-	shiftV.col(1).setConstant(0);
-	shiftV.col(2).setConstant(shiftz);
-	mPaint.setNormalization(false);
-	Eigen::VectorXd normoalizedRefAmpVec = refAmp;
-	for (int i = 0; i < normoalizedRefAmpVec.rows(); i++)
-	{
-		normoalizedRefAmpVec(i) = (refAmp(i) - ampMin) / (ampMax - ampMin);
-	}
-	std::cout << "ref amp (min, max): " << refAmp.minCoeff() << " " << refAmp.maxCoeff() << std::endl;
-	Eigen::MatrixXd refColor = mPaint.paintAmplitude(normoalizedRefAmpVec);
-	renderColor.block(curVerts, 0, nverts, 3) = refColor;
-	renderV.block(curVerts, 0, nverts, 3) = basePos - shiftV;
-	renderF.block(curFaces, 0, nfaces, 3) = baseF + shiftF;
-
-	if (isShowVectorFields)
-	{
-		for (int i = 0; i < nfaces; i++)
-			renderVec.row(i + curFaces) = refOmega.row(i);
-	}
-	curVerts += nverts;
-	curFaces += nfaces;
-
-
-
-	// interpolated amp
-	shiftV = upPos;
-	shiftV.col(0).setConstant(shiftx);
-	shiftV.col(1).setConstant(0);
-	shiftV.col(2).setConstant(shiftz);
-
-
-	shiftF = upF;
-	shiftF.setConstant(curVerts);
-
-	// interpolated phase
-	renderV.block(curVerts, 0, nupverts, 3) = upPos - shiftV;
-	renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
-
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd phiColor = mPaint.paintPhi(phaseVec);
-	renderColor.block(curVerts, 0, nupverts, 3) = phiColor;
-
-	curVerts += nupverts;
-	curFaces += nupfaces;
-
-	// interpolated amp
-	shiftF.setConstant(curVerts);
-	shiftV.col(0).setConstant(2 * shiftx);
-	renderV.block(curVerts, 0, nupverts, 3) = upPos - shiftV;
-	renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
-
-	mPaint.setNormalization(false);
-	Eigen::VectorXd normoalizedAmpVec = ampVec;
-	for (int i = 0; i < normoalizedAmpVec.rows(); i++)
-	{
-		normoalizedAmpVec(i) = (ampVec(i) - ampMin) / (ampMax - ampMin);
-	}
-	std::cout << "amp (min, max): " << ampVec.minCoeff() << " " << ampVec.maxCoeff() << std::endl;
-	Eigen::MatrixXd ampColor = mPaint.paintAmplitude(normoalizedAmpVec);
-	renderColor.block(curVerts, 0, nupverts, 3) = ampColor;
-
-	curVerts += nupverts;
-	curFaces += nupfaces;
-
-	// interpolated amp
-	if (isShowWrinkels)
-	{
-		std::cout << "show wrinkles, nupverts: " << upPos.rows() << std::endl;
-		shiftF.setConstant(curVerts);
-		shiftV.col(0).setConstant(3 * shiftx);
-		Eigen::MatrixXd tmpV = upPos - shiftV;
-		Eigen::MatrixXd tmpN;
-		
-        Eigen::MatrixXd wrinkledVNew;
-        laplacianSmoothing(wrinkledPos, upsampledTriF, wrinkledVNew, smoothingRatio, smoothingTimes);
-        std::cout << "smoothing finished" << std::endl;
-
-        for (int i = 0; i < nupverts; i++)
-        {
-            renderV.row(curVerts + i) = tmpV.row(i) + (wrinkledVNew.row(i) - upsampledTriV.row(i));
-        }
-
-        igl::writeOBJ(workingFolder + "wrinkledMesh.obj", wrinkledPos, upsampledTriF);
-        igl::writeOBJ(workingFolder + "wrinkledMesh_smoothed.obj", wrinkledVNew, upsampledTriF);
-
-		renderF.block(curFaces, 0, nupfaces, 3) = upF + shiftF;
-		
-		for (int i = 0; i < nupverts; i++)
-		{
-			renderColor.row(i + curVerts) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
-		}
-		
-
-
-		curVerts += nupverts;
-		curFaces += nupfaces;
-
-
-	}
-
-}
-
 void registerMesh(int frameId)
 {
-	Eigen::MatrixXd initP, interpP;
-	Eigen::MatrixXi initF, interpF;
-	Eigen::MatrixXd initVec, interpVec;
-	Eigen::MatrixXd initColor, interpColor;
+	int nverts = triV.rows();
+	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+	polyscope::registerSurfaceMesh("base mesh", triV, triF);
+	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", faceOmegaList[frameId]);
+	updateSelectedRegionSetViz();
 
-	double shiftz = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
-	int totalfames = ampFieldsList.size();
+
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
+	polyscope::registerSurfaceMesh("reference mesh", triV, triF);
+	polyscope::getSurfaceMesh("reference mesh")->translate({ shiftx, 0, 0 });
+	polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
+	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", refFaceOmega);
 
-	Eigen::VectorXi selectedVids, initSelectedVids;
-	faceFlags2VertFlags(triMesh, triV.rows(), selectedFids, selectedVids);
-	faceFlags2VertFlags(triMesh, triV.rows(), initSelectedFids, initSelectedVids);
+	// phase pattern
+	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
+	mPaint.setNormalization(false);
+	Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
+	polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
+	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 
-	for (int i = 0; i < selectedVids.rows(); i++)
-	{
-		if (selectedVids(i) && !initSelectedVids(i))
-			selectedVids(i) = -1;
-	}
+	// amp pattern
+	polyscope::registerSurfaceMesh("upsampled ampliude and frequency mesh", upsampledTriV, upsampledTriF);
+	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->translate({ 3 * shiftx, 0, 0 });
+	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("vertex amplitude", ampFieldsList[frameId]);
+	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", subFaceOmegaList[frameId]);
 
-	registerMeshByPart(triV, triF, upsampledTriV, wrinkledVList[frameId], upsampledTriF, 0, globalAmpMin, globalAmpMax,
-		ampFieldsList[frameId], phaseFieldsList[frameId], faceOmegaList[frameId], refAmpList[frameId], refFaceOmega, selectedVids, interpP, interpF, interpVec, interpColor);
-
-	std::cout << "register mesh finished" << std::endl;
-
-	dataV = interpP;
-	curColor = interpColor;
-	dataVec = interpVec;
-	dataF = interpF;
-
-	polyscope::registerSurfaceMesh("input mesh", dataV, dataF);
+	// wrinkle mesh
+	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledVList[frameId], upsampledTriF);
+	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
 }
 
 void updateFieldsInView(int frameId)
 {
 	std::cout << "update viewer. " << std::endl;
 	registerMesh(frameId);
-	polyscope::getSurfaceMesh("input mesh")->addVertexColorQuantity("VertexColor", curColor);
-	polyscope::getSurfaceMesh("input mesh")->getQuantity("VertexColor")->setEnabled(true);
-
-	if (isShowVectorFields)
-	{
-		polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("face vector field", dataVec * vecratio, polyscope::VectorType::AMBIENT);
-		polyscope::getSurfaceMesh("input mesh")->getQuantity("face vector field")->setEnabled(true);
-	}
-}
-
-int getSelectedFaceId()
-{
-	if (polyscope::pick::haveSelection())
-	{
-		unsigned long id = polyscope::pick::getSelection().second;
-		int nverts = polyscope::getSurfaceMesh("input mesh")->nVertices();
-
-
-		int nlocalFaces = triMesh.nFaces();
-
-		if (id >= nverts && id < nlocalFaces + nverts)
-		{
-			return id - nverts;
-		}
-		else
-			return -1;
-	}
-	else
-		return -1;
 }
 
 
@@ -1035,6 +733,13 @@ bool loadProblem()
 	std::string meshFile = jval["mesh_name"];
 	upsampleTimes = jval["upsampled_times"];
 
+
+	meshFile = workingFolder + meshFile;
+	igl::readOBJ(meshFile, triV, triF);
+	triMesh = MeshConnectivity(triF);
+	initialization(triV, triF, upsampledTriV, upsampledTriF);
+	
+
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
 
@@ -1056,6 +761,25 @@ bool loadProblem()
 	clickedFid = jval["region_details"]["selected_fid"];
 	dilationTimes = jval["region_details"]["selected_domain_dilation"];
 	optTimes = jval["region_details"]["interface_dilation"];
+
+	pickFaces.clear();
+	if (clickedFid != -1)
+	{
+		PickedFace pf;
+		pf.fid = clickedFid;
+		pf.effectiveRadius = dilationTimes;
+		pf.isFreqAmpCoupled = isCoupled;
+		pf.freqVecChangeValue = selectedMotionValue;
+		pf.freqVecMotion = selectedMotion;
+		pf.ampChangeRatio = selectedMagValue;
+
+		pf.buildEffectiveFaces(triF.rows());
+		pickFaces.push_back(pf);
+		addSelectedFaces(pf, initSelectedFids);
+	}
+	
+	updateEditionDomain();
+	
 
 	if (jval.contains(std::string_view{ "spatial_ratio" }))
 	{
@@ -1081,14 +805,6 @@ bool loadProblem()
 		spatialKnoppelRatio = 100;
 	}
 
-	meshFile = workingFolder + meshFile;
-
-
-	igl::readOBJ(meshFile, triV, triF);
-	triMesh = MeshConnectivity(triF);
-    
-	initialization(triV, triF, upsampledTriV, upsampledTriF);
-	updateEditionDomain();
 
 	int nedges = triMesh.nEdges();
 	int nverts = triV.rows();
@@ -1239,21 +955,12 @@ bool saveProblem()
 			{"init_omega",        "omega.txt"},
 			{"init_amp",          "amp.txt"},
 			{"init_zvls",         "zvals.txt"},
-			{
-			 "region_details",    {
-										  {"select_all", isSelectAll},
-										  {"selected_fid", clickedFid},
-										  {"selected_domain_dilation", dilationTimes},
-										  {"interface_dilation", optTimes}
-
-								  }
-			},
-			{
-			 "operation_details", {
-										  {"omega_operation_type", curOpt},
-										  {"omega_operation_value", selectedMotionValue},
-										  {"amp_omega_coupling", isCoupled},
-										  {"amp_operation_value", selectedMagValue}
+			{"region_global_details",	  {
+										{"select_all", isSelectAll},
+										{"omega_operation_motion", curOpt},
+										{"omega_operation_value", selectedMotionValue},
+										{"amp_omega_coupling", isCoupled},
+										{"amp_operation_value", selectedMagValue}
 								  }
 			},
 			{
@@ -1272,6 +979,25 @@ bool saveProblem()
 								  }
 			}
 	};
+
+	for (int i = 0; i < pickFaces.size(); i++)
+	{
+		curOpt = "None";
+		if (pickFaces[i].freqVecMotion == Enlarge)
+			curOpt = "Enlarge";
+		else if (pickFaces[i].freqVecMotion == Rotate)
+			curOpt = "Rotate";
+		json pfJval =
+		{
+			{"face_id", pickFaces[i].fid},
+			{"effective_radius", pickFaces[i].effectiveRadius},
+			{"omega_operation_motion", curOpt},
+			{"omega_opereation_value", pickFaces[i].freqVecChangeValue},
+			{"amp_operation_value", pickFaces[i].ampChangeRatio},
+			{"amp_omega_coupling", pickFaces[i].isFreqAmpCoupled}
+		};
+		jval["region_local_details"].push_back(pfJval);
+	}
 
 	std::string filePath = saveFileName;
 	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
@@ -1374,8 +1100,6 @@ bool saveProblem()
 }
 
 void callback() {
-	int newId = getSelectedFaceId();
-	clickedFid = newId > 0 && newId < triMesh.nFaces() ? newId : clickedFid;
 	ImGui::PushItemWidth(100);
 	float w = ImGui::GetContentRegionAvailWidth();
 	float p = ImGui::GetStyle().FramePadding.x;
@@ -1443,40 +1167,50 @@ void callback() {
         }
     }
 
-
-
-	if (ImGui::CollapsingHeader("Selected Region", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Checkbox("Select all", &isSelectAll);
-		ImGui::InputInt("clicked face id", &clickedFid);
+		ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+		if (ImGui::BeginTabBar("Selected Region", tab_bar_flags))
+		{
+			if (ImGui::BeginTabItem("Local"))
+			{
+				buildFacesMenu();
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("Global"))
+			{
+				ImGui::Checkbox("Select all", &isSelectAll);
+				ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
+				if (ImGui::InputDouble("motion value", &selectedMotionValue))
+				{
+					if (selectedMotionValue < 0 && selectedMotion == Enlarge)
+						selectedMotionValue = 0;
+				}
+				ImGui::Checkbox("vec mag coupled", &isCoupled);
+				if (ImGui::InputDouble("mag motion value", &selectedMagValue))
+				{
+					if (selectedMagValue < 0)
+						selectedMagValue = 1;
+				}
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
+			/*ImGui::Checkbox("Select all", &isSelectAll);
+			ImGui::InputInt("clicked face id", &clickedFid);
 
-		if (ImGui::InputInt("dilation times", &dilationTimes))
-		{
-			if (dilationTimes < 0)
-				dilationTimes = 3;
-		}
-		ImGui::Combo("reg opt func", (int*)&regOpType, "Dilation\0Erosion\0");
-		if (ImGui::InputInt("opt times", &optTimes))
-		{
-			if (optTimes < 0 || optTimes > 20)
-				optTimes = 0;
+			if (ImGui::InputInt("dilation times", &dilationTimes))
+			{
+				if (dilationTimes < 0)
+					dilationTimes = 3;
+			}
+			if (ImGui::InputInt("opt times", &optTimes))
+			{
+				if (optTimes < 0 || optTimes > 20)
+					optTimes = 0;
+			}*/
 		}
 	}
-	if (ImGui::CollapsingHeader("Wrinkle Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
-		if (ImGui::InputDouble("motion value", &selectedMotionValue))
-		{
-			if (selectedMotionValue < 0 && selectedMotion == Enlarge)
-				selectedMotionValue = 0;
-		}
-		ImGui::Checkbox("vec mag coupled", &isCoupled);
-		if (ImGui::InputDouble("mag motion value", &selectedMagValue))
-		{
-			if (selectedMagValue < 0)
-				selectedMagValue = 1;
-		}
-	}
+	
 
 	if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{

@@ -107,7 +107,7 @@ void buildMask(const MeshConnectivity& mesh, int nverts, std::vector<SourceVert>
 
 	faceFlags.setZero(nfaces);
 
-	RegionEdition regEd(mesh);
+	RegionEdition regEd(mesh, nverts);
 
 	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
 
@@ -167,7 +167,7 @@ void getSourceEffectedVids(const MeshConnectivity& mesh, int nverts, std::vector
 	if (selectedVids)
 		selectedVids->setZero(nverts);
 
-	RegionEdition regEd(mesh);
+	RegionEdition regEd(mesh, nverts);
 
 	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
 
