@@ -60,9 +60,9 @@ namespace IntrinsicFormula
 
         std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
         std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
-        Eigen::VectorXi getVertFlag() { return _vertFlag; }
-        Eigen::VectorXi getEdgeFlag() { return _edgeFlag; }
-        Eigen::VectorXi getFaceFlag() { return _faceFlag; }
+        Eigen::VectorXi getVertFlag() { return _interfaceVertFlags; }
+        Eigen::VectorXi getEdgeFlag() { return _interfaceEdgeFlags; }
+        Eigen::VectorXi getFaceFlag() { return _interfaceFaceFlags; }
 
 
     private:
@@ -101,9 +101,9 @@ namespace IntrinsicFormula
 
         // interface indicator
         std::vector<VertexOpInfo> _vertexOpts;
-        Eigen::VectorXi _faceFlag;
-        Eigen::VectorXi _vertFlag;
-        Eigen::VectorXi _edgeFlag;
+        Eigen::VectorXi _interfaceFaceFlags;
+        Eigen::VectorXi _interfaceVertFlags;
+        Eigen::VectorXi _interfaceEdgeFlags;
 
         std::vector<int> _effectiveFids;
         std::vector<int> _effectiveEids;

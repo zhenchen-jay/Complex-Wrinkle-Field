@@ -116,23 +116,6 @@ void RegionEdition::faceDilation(const Eigen::VectorXi& faceFlag, Eigen::VectorX
 		faceDilation(tmpFlag, faceFlagNew);
 		tmpFlag = faceFlagNew;
 	}
-
-	/*Eigen::VectorXi vertFlags;
-	faceFlags2VertFlags(_mesh, _nverts, tmpFlag, vertFlags);
-
-	for (int i = 0; i < _mesh.nFaces(); i++)
-	{
-		if (tmpFlag(i))
-			continue;
-		bool isAllSelected = true;
-		for (int j = 0; j < 3; j++)
-		{
-			if (vertFlags(_mesh.faceVertex(i, j)) == 0)
-				isAllSelected = false;
-		}
-		if (isAllSelected)
-			faceFlagNew(i) = 1;
-	}*/
 }
 
 void RegionEdition::faceErosion(const Eigen::VectorXi& faceFlag, Eigen::VectorXi& faceFlagNew, int times)

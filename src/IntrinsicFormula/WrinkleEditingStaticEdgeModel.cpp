@@ -14,7 +14,7 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 {
 	_pos = pos;
 	_mesh = mesh;
-	_faceFlag = faceFlag;
+	_interfaceFaceFlags = faceFlag;
 
 	_quadOrd = quadOrd;
 	_spatialAmpRatio = spatialAmpRatio;
@@ -27,11 +27,11 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	_vertFlag.resize(nverts);
-	_vertFlag.setConstant(-1);
+	_interfaceVertFlags.resize(nverts);
+	_interfaceVertFlags.setConstant(-1);
 
-	_edgeFlag.resize(nedges);
-	_edgeFlag.setConstant(-1);
+	_interfaceEdgeFlags.resize(nedges);
+	_interfaceEdgeFlags.setConstant(-1);
 
 	_edgeCotCoeffs.setZero(nedges);
 
@@ -70,8 +70,8 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 
 			if (faceFlag(i) != -1)
 			{
-				_vertFlag(vid) = faceFlag(i);
-				_edgeFlag(eid) = faceFlag(i);
+				_interfaceVertFlags(vid) = faceFlag(i);
+				_interfaceEdgeFlags(eid) = faceFlag(i);
 			}
 			else
 			{
@@ -154,10 +154,10 @@ void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::comple
 
 	std::vector<std::complex<double>> tarZvals;
 
-	Eigen::VectorXi bndVertsFlag = _vertFlag;
+	Eigen::VectorXi bndVertsFlag = _interfaceVertFlags;
 	for (int i = 0; i < bndVertsFlag.rows(); i++)
 	{
-		if (_vertFlag(i) != -1)
+		if (_interfaceVertFlags(i) != -1)
 			bndVertsFlag(i) = 1;
 		else
 			bndVertsFlag(i) = 0;
@@ -596,7 +596,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 	std::vector<int> freeVid;
 	for (int i = 0; i < nverts; i++)
 	{
-		if (_vertFlag(i) == -1)
+		if (_interfaceVertFlags(i) == -1)
 		{
 			freeVid.push_back(i);
 		}
@@ -617,7 +617,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 		Eigen::MatrixXd fullX = Eigen::VectorXd::Zero(nverts);
 		for (int i = 0; i < nverts; i++)
 		{
-			if (_vertFlag(i) != -1)
+			if (_interfaceVertFlags(i) != -1)
 			{
 				fullX(i) = refAmpList[frameId](i);
 			}
@@ -632,7 +632,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 
 		for (int i = 0; i < nverts; i++)
 		{
-			if (_vertFlag(i) != -1)
+			if (_interfaceVertFlags(i) != -1)
 			{
 				fullX(i) = refAmpList[frameId](i);
 			}
@@ -921,7 +921,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 	std::vector<int> freeEid;
 	for (int i = 0; i < nedges; i++)
 	{
-		if (_edgeFlag(i) == -1)
+		if (_interfaceEdgeFlags(i) == -1)
 		{
 			freeEid.push_back(i);
 		}
@@ -942,7 +942,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 		Eigen::MatrixXd fullX = Eigen::VectorXd::Zero(nedges);
 		for (int i = 0; i < nedges; i++)
 		{
-			if (_edgeFlag(i) != -1)
+			if (_interfaceEdgeFlags(i) != -1)
 			{
 				fullX(i) = refOmegaList[frameId](i);
 			}
@@ -957,7 +957,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 
 		for (int i = 0; i < nedges; i++)
 		{
-			if (_edgeFlag(i) != -1)
+			if (_interfaceEdgeFlags(i) != -1)
 			{
 				fullX(i) = refOmegaList[frameId](i);
 			}
