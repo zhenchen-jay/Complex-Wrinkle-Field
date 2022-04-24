@@ -106,3 +106,40 @@ void RegionEdition::vertexDilation(const Eigen::VectorXi &vertFlag, Eigen::Vecto
 
 	}
 }
+
+void RegionEdition::faceDilation(const Eigen::VectorXi& faceFlag, Eigen::VectorXi& faceFlagNew, int times)
+{
+	Eigen::VectorXi tmpFlag = faceFlag;
+	faceFlagNew = faceFlag;
+	for (int i = 0; i < times; i++)
+	{
+		faceDilation(tmpFlag, faceFlagNew);
+		tmpFlag = faceFlagNew;
+	}
+
+	/*Eigen::VectorXi vertFlags;
+	faceFlags2VertFlags(_mesh, _nverts, tmpFlag, vertFlags);
+
+	for (int i = 0; i < _mesh.nFaces(); i++)
+	{
+		if (tmpFlag(i))
+			continue;
+		bool isAllSelected = true;
+		for (int j = 0; j < 3; j++)
+		{
+			if (vertFlags(_mesh.faceVertex(i, j)) == 0)
+				isAllSelected = false;
+		}
+		if (isAllSelected)
+			faceFlagNew(i) = 1;
+	}*/
+}
+
+void RegionEdition::faceErosion(const Eigen::VectorXi& faceFlag, Eigen::VectorXi& faceFlagNew, int times)
+{
+	int nfaces = _mesh.nFaces();
+	Eigen::VectorXi oneVec = Eigen::VectorXi::Ones(nfaces);
+	Eigen::VectorXi oppFaceFlags = oneVec - faceFlag;
+	faceDilation(oppFaceFlags, oppFaceFlags, times);
+	faceFlagNew = oneVec - oppFaceFlags;
+}
