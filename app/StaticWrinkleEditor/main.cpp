@@ -183,29 +183,54 @@ struct PickedFace
 	int fid = -1;
 	double ampChangeRatio = 1.;
 	int effectiveRadius = 5;
+	int interfaceDilation = 5;
 	VecMotionType freqVecMotion = Enlarge;
 	double freqVecChangeValue = 1.;
 	bool isFreqAmpCoupled = false;
 
 	std::vector<int> effectiveFaces = {};
+	std::vector<int> interFaces = {};
+	std::vector<int> effectiveVerts = {};
+	std::vector<int> interVerts = {};
 
 	void buildEffectiveFaces(int nfaces)
 	{
+		effectiveFaces.clear();
+		effectiveVerts.clear();
+		interFaces.clear();
+		interVerts.clear();
+
 		if (fid == -1 || fid >= nfaces)
-		{
-			effectiveFaces = {};
 			return;
-		}
 		else
 		{
 			Eigen::VectorXi curFaceFlags = Eigen::VectorXi::Zero(triF.rows());
 			curFaceFlags(fid) = 1;
 			Eigen::VectorXi curFaceFlagsNew = curFaceFlags;
 			regEdt.faceDilation(curFaceFlagsNew, curFaceFlags, effectiveRadius);
+			regEdt.faceDilation(curFaceFlags, curFaceFlagsNew, interfaceDilation);
+
+			Eigen::VectorXi vertFlags, vertFlagsNew;
+
+			faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlags, vertFlags);
+			faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlagsNew, vertFlagsNew);
 
 			for (int i = 0; i < curFaceFlags.rows(); i++)
+			{
 				if (curFaceFlags(i))
 					effectiveFaces.push_back(i);
+				else if (curFaceFlagsNew(i))
+					interFaces.push_back(i);
+			}
+				
+
+			for (int i = 0; i < vertFlags.rows(); i++)
+			{
+				if (vertFlags(i))
+					effectiveVerts.push_back(i);
+				else if (vertFlagsNew(i))
+					interVerts.push_back(i);
+			}
 		}
 	}
 };
@@ -218,9 +243,10 @@ double selectedMotionValue = 2;
 double selectedMagValue = 1;
 bool isCoupled = false;
 
-Eigen::VectorXi initSelectedFids;
 Eigen::VectorXi selectedFids;
-Eigen::VectorXi faceFlags;
+Eigen::VectorXi interfaceFids;
+Eigen::VectorXi faceFlags;	// -1 for interfaces, 0 otherwise
+Eigen::VectorXi selectedVertices;
 
 int optTimes = 5;
 
@@ -236,57 +262,115 @@ bool isWarmStart = false;
 int smoothingTimes = 3;
 double smoothingRatio = 0.95;
 
-void buildWrinkleMotions()
+void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
 {
 	int nverts = triV.rows();
-	Eigen::VectorXi initSelectedVids;
+	vertOpInfo.clear();
+	vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
 
-	faceFlags2VertFlags(triMesh, nverts, initSelectedFids, initSelectedVids);
-
-	int nselectedV = 0;
-	for (int i = 0; i < nverts; i++)
-		if (initSelectedVids(i))
-			nselectedV++;
-	std::cout << "num of selected vertices: " << nselectedV << std::endl;
-
-	vertOpts.clear();
-	vertOpts.resize(nverts, { None, isCoupled, 0, 1 });
-
-	for (int i = 0; i < nverts; i++)
+	if (isSelectAll)
 	{
-		if (initSelectedVids(i))
+		for (int i = 0; i < nverts; i++)
+		{
 			vertOpts[i] = { selectedMotion, isCoupled, selectedMotionValue, selectedMagValue };
+		}
 	}
+	else
+	{
+		Eigen::VectorXi tmpFlags;
+		tmpFlags.setZero(nverts);
+		int nselectedV = 0;
+
+		// make sure there is no overlap
+		for (auto& pf : faceList)
+		{
+			for (auto& v : pf.effectiveVerts)
+			{
+				if (tmpFlags(v))
+				{
+					std::cerr << "overlap happens on the effective vertices. " << std::endl;
+					exit(EXIT_FAILURE);
+				}
+				tmpFlags(v) = 1;
+				nselectedV++;
+			}
+		}
+
+		std::cout << "num of selected vertices: " << nselectedV << std::endl;
+
+		vertOpInfo.clear();
+		vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
+
+		for (auto& pf : faceList)
+		{
+			for (auto& v : pf.effectiveVerts)
+			{
+				vertOpInfo[v] = { pf.freqVecMotion, pf.isFreqAmpCoupled, pf.freqVecChangeValue, pf.ampChangeRatio };
+			}
+		}
+	}	
 
 }
 
-bool addSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags)
+bool addSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags, Eigen::VectorXi& curVertFlags)
 {
 	for (auto& f : face.effectiveFaces)
 		if (curFaceFlags(f))
 			return false;
 
-	Eigen::VectorXi tmp = curFaceFlags;
+	for (auto& v : face.effectiveVerts)
+		if (curVertFlags(v))
+			return false;
 
 	for (auto& f : face.effectiveFaces)
 		curFaceFlags(f) = 1;
-
+	for (auto& v : face.effectiveVerts)
+		curVertFlags(v) = 1;
 
 	return true;
 }
 
-void deleteSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags)
+void deleteSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags, Eigen::VectorXi& curVertFlags)
 {
 	for (auto& f : face.effectiveFaces)
-	{
 		curFaceFlags(f) = 0;
+	for (auto v : face.effectiveVerts)
+		curVertFlags(v) = 0;
+}
+
+void updateInterfaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& interFaceFlags)
+{
+	int nfaces = triMesh.nFaces();
+	interFaceFlags.setZero(nfaces);
+
+	for (auto& f : faces)
+	{
+		for (auto& interf : f.interFaces)
+			interFaceFlags(interf) = 1;
+	}
+}
+
+void updateSelectedFaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& selectedFaceFlags)
+{
+	int nfaces = triMesh.nFaces();
+	selectedFaceFlags.setZero(nfaces);
+
+	for (auto& f : faces)
+	{
+		for (auto& ef : f.effectiveFaces)
+			if (selectedFaceFlags(ef))
+			{
+				std::cerr << "face overlap." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			else
+				selectedFaceFlags(ef) = 1;
 	}
 }
 
 void updateSelectedRegionSetViz()
 {
-	regEdt.faceDilation(initSelectedFids, selectedFids, optTimes);
-
+	updateInterfaces(pickFaces, interfaceFids);
 	int nfaces = triF.rows();
 	Eigen::MatrixXd renderColor(triF.rows(), 3);
 	renderColor.col(0).setConstant(1.0);
@@ -295,9 +379,9 @@ void updateSelectedRegionSetViz()
 
 	for (int i = 0; i < nfaces; i++)
 	{
-		if (initSelectedFids(i) == 1)
+		if (selectedFids(i) == 1)
 			renderColor.row(i) << 1.0, 0, 0;
-		else if (selectedFids(i) == 1)
+		else if (interfaceFids(i) == 1)
 			renderColor.row(i) << 0, 1.0, 0;
 	}
 	polyscope::getSurfaceMesh("base mesh")->addFaceColorQuantity("selected region", renderColor);
@@ -325,7 +409,7 @@ void addPickedFace(size_t ind)
 	std::cout << "num of new effective faces: " << newface.effectiveFaces.size() << ", dilation radius: " << newface.effectiveRadius << std::endl;
 
 
-	if (addSelectedFaces(newface, initSelectedFids))
+	if (addSelectedFaces(newface, selectedFids, selectedVertices))
 		pickFaces.push_back(newface);
 	else
 	{
@@ -366,20 +450,26 @@ void buildFacesMenu()
 		}
 		ImGui::Indent();
 
-		//int backupRadius = s.effectiveRadius;
+		int backupRadius = s.effectiveRadius;
 
 		if (ImGui::InputInt("effective radius", &s.effectiveRadius))
 		{
 			anyChanged = true;
-			/*deleteSelectedFaces(s, initSelectedFids);
+			deleteSelectedFaces(s, selectedFids, selectedVertices);
 			s.buildEffectiveFaces(triF.rows());
-			if (!addSelectedFaces(s, initSelectedFids))
+			if (!addSelectedFaces(s, selectedFids, selectedVertices))
 			{
 				std::cout << "due to the overlap, failed to extend the effective radius, back to last effective one: " << backupRadius << std::endl;
 				s.effectiveRadius = backupRadius;
 				s.buildEffectiveFaces(triF.rows());
-				assert(addSelectedFaces(s, initSelectedFids));
-			}*/
+				std::cout << "effective face size: " << s.effectiveFaces.size() << std::endl;
+				addSelectedFaces(s, selectedFids, selectedVertices);
+			}
+		}
+		if (ImGui::InputInt("interface dilation", &s.interfaceDilation))
+		{
+			anyChanged = true;
+			s.buildEffectiveFaces(triF.rows());
 		}
 		ImGui::Combo("freq motion", (int*)&s.freqVecMotion, "Ratate\0Tilt\0Enlarge\0None\0");
 		if (ImGui::InputDouble("freq change", &s.freqVecChangeValue)) anyChanged = true;
@@ -394,7 +484,7 @@ void buildFacesMenu()
 	// actually do erase, if requested
 	if (eraseInd != -1)
 	{
-		deleteSelectedFaces(pickFaces[eraseInd], initSelectedFids);
+		deleteSelectedFaces(pickFaces[eraseInd], selectedFids, selectedVertices);
 		pickFaces.erase(pickFaces.begin() + eraseInd);
 	}
 
@@ -484,7 +574,7 @@ void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const st
 
 }
 
-void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
+void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
 	triMesh = MeshConnectivity(triF);
 
@@ -514,41 +604,21 @@ void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Ei
 	{
 		upsampledTriF.row(i) << subSecMesh.GetFaceVerts(i)[0], subSecMesh.GetFaceVerts(i)[1], subSecMesh.GetFaceVerts(i)[2];
 	}
+}
 
-
-	//meshUpSampling(triV, triF, upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
-
-
+void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
+{
+	
+	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 	selectedFids.setZero(triMesh.nFaces());
-	initSelectedFids = selectedFids;
+	interfaceFids = selectedFids;
 	regEdt = RegionEdition(triMesh, triV.rows());
-
+	selectedVertices.setZero(triV.rows());
 }
 
 
 void updateEditionDomain()
 {
-	selectedFids = initSelectedFids;
-
-	int nselected0 = 0;
-	for (int i = 0; i < initSelectedFids.rows(); i++)
-	{
-		if (initSelectedFids(i) == 1)
-		{
-			nselected0++;
-		}
-	}
-
-	for (int i = 0; i < optTimes; i++)
-	{
-		std::cout << "dilation option to get interface, step: " << i << std::endl;
-		Eigen::VectorXi selectedFidNew;
-		regEdt.faceDilation(selectedFids, selectedFidNew);
-
-		selectedFids = selectedFidNew;
-	}
-	faceFlags = initSelectedFids - selectedFids;
-
 	int nselected = 0;
 	for (int i = 0; i < selectedFids.rows(); i++)
 	{
@@ -558,16 +628,30 @@ void updateEditionDomain()
 		}
 	}
 
+	Eigen::VectorXi interfaces;
+	updateInterfaces(pickFaces, interfaces);
+
+	faceFlags.setZero(interfaces.rows());
 	int ninterfaces = 0;
+	for (int i = 0; i < selectedFids.rows(); i++)
+	{
+		if (selectedFids(i) == 0 && interfaces(i) == 1)
+		{
+			ninterfaces++;
+			faceFlags(i) = -1;
+		}
+			
+	}
+
 	for (int i = 0; i < faceFlags.rows(); i++)
 	{
 		if (faceFlags(i) == -1)
 			ninterfaces++;
 	}
-	std::cout << "initial selected faces: " << nselected0 << ", selected faces: " << nselected << ", num of interfaces: " << nselected - nselected0 << " " << ninterfaces << std::endl;
+	std::cout << "selected effective faces: " << nselected << ", num of interfaces: " << ninterfaces << std::endl;
 
 	std::cout << "build wrinkle motions. " << std::endl;
-	buildWrinkleMotions();
+	buildWrinkleMotions(pickFaces, vertOpts);
 
 }
 
@@ -772,10 +856,11 @@ bool loadProblem()
 		pf.freqVecChangeValue = selectedMotionValue;
 		pf.freqVecMotion = selectedMotion;
 		pf.ampChangeRatio = selectedMagValue;
+		pf.interfaceDilation = optTimes;
 
 		pf.buildEffectiveFaces(triF.rows());
 		pickFaces.push_back(pf);
-		addSelectedFaces(pf, initSelectedFids);
+		addSelectedFaces(pf, selectedFids, selectedVertices);
 	}
 	
 	updateEditionDomain();
@@ -991,6 +1076,7 @@ bool saveProblem()
 		{
 			{"face_id", pickFaces[i].fid},
 			{"effective_radius", pickFaces[i].effectiveRadius},
+			{"interface_dilation", pickFaces[i].interfaceDilation},
 			{"omega_operation_motion", curOpt},
 			{"omega_opereation_value", pickFaces[i].freqVecChangeValue},
 			{"amp_operation_value", pickFaces[i].ampChangeRatio},
@@ -1124,12 +1210,9 @@ void callback() {
 	{
 		if (upsampleTimes >= 0)
 		{
-			initialization(triV, triF, upsampledTriV, upsampledTriF);
-			if (isForceOptimize)	//already solve for the interp states
-			{
-				updateMagnitudePhase(omegaList, zList, ampFieldsList, phaseFieldsList, upZList);
-				updateFieldsInView(curFrame);
-			}
+			getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+			updatePaintingItems();
+			updateFieldsInView(curFrame);
 		}
 	}
 	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1195,19 +1278,6 @@ void callback() {
 				ImGui::EndTabItem();
 			}
 			ImGui::EndTabBar();
-			/*ImGui::Checkbox("Select all", &isSelectAll);
-			ImGui::InputInt("clicked face id", &clickedFid);
-
-			if (ImGui::InputInt("dilation times", &dilationTimes))
-			{
-				if (dilationTimes < 0)
-					dilationTimes = 3;
-			}
-			if (ImGui::InputInt("opt times", &optTimes))
-			{
-				if (optTimes < 0 || optTimes > 20)
-					optTimes = 0;
-			}*/
 		}
 	}
 	
