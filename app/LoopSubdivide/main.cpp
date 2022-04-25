@@ -260,7 +260,7 @@ void updateFieldsInView()
 
     Eigen::VectorXd loopedOmegaNew = loopedOmega, loopedAmpNew = loopedAmp, loopedPhaseNew = loopedPhase;
 
-    SubdivideNew(secMesh, edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel, subSecMesh);
+    complexLoopSubdivision(secMesh, edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel, subSecMesh);
 
     Eigen::MatrixXd wrinkledTrivNew = loopTriV;
 

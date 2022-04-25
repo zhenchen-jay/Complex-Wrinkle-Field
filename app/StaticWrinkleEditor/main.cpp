@@ -529,7 +529,7 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			s
 		{
 			Mesh tmpMesh;
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
-			SubdivideNew(secMesh, edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes, tmpMesh);
+			complexLoopSubdivision(secMesh, edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes, tmpMesh);
 
 			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
 
@@ -576,34 +576,11 @@ void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const st
 
 void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
-	triMesh = MeshConnectivity(triF);
-
-	std::vector<Eigen::Vector3d> pos;
-	std::vector<std::vector<int>> faces;
-
-	pos.resize(triV.rows());
-	for (int i = 0; i < triV.rows(); i++)
-	{
-		pos[i] = triV.row(i);
-	}
-
-	faces.resize(triF.rows());
-	for (int i = 0; i < triF.rows(); i++)
-	{
-		faces[i] = { triF(i, 0), triF(i, 1), triF(i, 2) };
-	}
-
-	secMesh.Populate(pos, faces);
+	secMesh = convert2SecMesh(triV, triF);
 	subSecMesh = secMesh;
 
 	Subdivide(subSecMesh, upsampleTimes);
-	subSecMesh.GetPos(upsampledTriV);
-
-	upsampledTriF.resize(subSecMesh.GetFaceCount(), 3);
-	for (int i = 0; i < upsampledTriF.rows(); i++)
-	{
-		upsampledTriF.row(i) << subSecMesh.GetFaceVerts(i)[0], subSecMesh.GetFaceVerts(i)[1], subSecMesh.GetFaceVerts(i)[2];
-	}
+	parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
 }
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)

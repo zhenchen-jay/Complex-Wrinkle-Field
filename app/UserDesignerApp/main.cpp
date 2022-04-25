@@ -10,6 +10,10 @@
 #include "polyscope/polyscope.h"
 #include "polyscope/surface_mesh.h"
 
+#include "../../dep/SecStencils/Mesh.h"
+#include "../../include/ComplexLoopNew.h"
+#include "../../include/SecMeshParsing.h"
+
 #include "imgui.h"
 #include "../../include/MeshLib/RegionEdition.h"
 #include "../../include/CommonTools.h"
@@ -46,6 +50,7 @@ struct SourceVert {
 // smoothing
 int smoothingTimes = 3;
 double smoothingRatio = 0.95;
+bool isUseLoop = false;
 
 std::unique_ptr<VectorHeatMethodSolver> solver;
 
@@ -504,17 +509,10 @@ void save()
 			{"init_amp",          "amp.txt"},
 			{"init_zvls",         "zvals.txt"},
 			{
-			 "region_details",    {
+			 "region_global_details", 
+								  {
 										  {"select_all", false},
-										  {"selected_fid", -1},
-										  {"selected_domain_dilation", 10},
-										  {"interface_dilation", 5}
-
-								  }
-			},
-			{
-			 "operation_details", {
-										  {"omega_operation_type", "None"},
+										  {"omega_operation_motion", "None"},
 										  {"omega_operation_value", 1},
 										  {"amp_omega_coupling", false},
 										  {"amp_operation_value", 1}
@@ -725,11 +723,23 @@ void wrinkleExtraction()
 
 	Eigen::MatrixXd upsampledTriV, wrinkledV;
 	Eigen::MatrixXi upsampledTriF;
-	std::vector<std::pair<int, Eigen::Vector3d>> bary;
 	
-	meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
+	if (isUseLoop)
+	{
+		Mesh secMesh = convert2SecMesh(triV, triMesh.faces());
+		Mesh subSecMesh = secMesh;
+		Eigen::VectorXd secEdgeVec = swapEdgeVec(triMesh.faces(), edgeVec, 0);
+		Eigen::VectorXd subEdgeVec;
 
-	upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, vertZvals, edgeVec, bary);
+		complexLoopSubdivision(secMesh, secEdgeVec, vertZvals, subEdgeVec, upsampledZvals, upsampleTimes, subSecMesh);
+		parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
+	}
+	else
+	{
+		std::vector<std::pair<int, Eigen::Vector3d>> bary;
+		meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
+		upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, vertZvals, edgeVec, bary);
+	}
 
 	Eigen::VectorXd mag(upsampledTriV.rows()), phase(upsampledTriV.rows());
 	wrinkledV = upsampledTriV;
@@ -747,7 +757,8 @@ void wrinkleExtraction()
 		phase(i) = std::arg(upsampledZvals[i]);
 		//wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
 	}
-	laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
+	if(!isUseLoop)
+		laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
 
 	PaintGeometry mpaint;
 	mpaint.setNormalization(true);
@@ -878,6 +889,7 @@ void myCallback() {
 		}
 		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
 		{
+			ImGui::Checkbox("use loop", &isUseLoop);
 			if (ImGui::InputInt("upsampled level", &upsampleTimes))
 			{
 				if (upsampleTimes < 0)
