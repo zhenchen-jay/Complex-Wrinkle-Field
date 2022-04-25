@@ -145,3 +145,38 @@ Eigen::MatrixXd edgeVec2FaceVec(const Mesh& mesh, Eigen::VectorXd& edgeVec)
 	}
 	return fVec;
 }
+
+Mesh convert2SecMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
+{
+	std::vector<Eigen::Vector3d> pos;
+	std::vector<std::vector<int>> faces;
+
+	pos.resize(V.rows());
+	for (int i = 0; i < V.rows(); i++)
+	{
+		pos[i] = V.row(i);
+	}
+
+	faces.resize(F.rows());
+	for (int i = 0; i < F.rows(); i++)
+	{
+		faces[i] = { F(i, 0), F(i, 1), F(i, 2) };
+	}
+
+	Mesh mesh;
+
+	mesh.Populate(pos, faces);
+	return mesh;
+}
+
+void parseSecMesh(const Mesh& mesh, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
+{
+	mesh.GetPos(V);
+	int nfaces = mesh.GetFaceCount();
+	F.resize(nfaces, 3);
+
+	for (int i = 0; i < nfaces; i++)
+	{
+		F.row(i) << mesh.GetFaceVerts(i)[0], mesh.GetFaceVerts(i)[1], mesh.GetFaceVerts(i)[2];
+	}
+}
