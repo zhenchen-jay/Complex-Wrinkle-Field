@@ -781,7 +781,9 @@ void registerMesh(int frameId)
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", subFaceOmegaList[frameId]);
 
 	// wrinkle mesh
-	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledVList[frameId], upsampledTriF);
+	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
+	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
+	polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
 	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
 }
@@ -827,11 +829,17 @@ bool loadProblem()
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
 
-	isCoupled = jval["operation_details"]["amp_omega_coupling"];
+	isSelectAll = jval["region_global_details"]["select_all"];
+	isCoupled = jval["region_global_details"]["amp_omega_coupling"];
+	selectedMagValue = jval["region_global_details"]["amp_operation_value"];
+	selectedMotionValue = jval["region_global_details"]["omega_operation_value"];
+	std::string optype = jval["region_global_details"]["omega_operation_motion"];
+
+	/*isCoupled = jval["operation_details"]["amp_omega_coupling"];
 	selectedMagValue = jval["operation_details"]["amp_operation_value"];
 	selectedMotionValue = jval["operation_details"]["omega_operation_value"];
 
-	std::string optype = jval["operation_details"]["omega_operation_type"];
+	std::string optype = jval["operation_details"]["omega_operation_type"];*/
 	if (optype == "None")
 		selectedMotion = None;
 	else if (optype == "Enlarge")
@@ -841,10 +849,49 @@ bool loadProblem()
 	else
 		selectedMotion = None;
 
-	isSelectAll = jval["region_details"]["select_all"];
+	/*isSelectAll = jval["region_details"]["select_all"];
 	clickedFid = jval["region_details"]["selected_fid"];
 	dilationTimes = jval["region_details"]["selected_domain_dilation"];
-	optTimes = jval["region_details"]["interface_dilation"];
+	optTimes = jval["region_details"]["interface_dilation"];*/
+
+	pickFaces.clear();
+
+	if (jval.contains(std::string_view{ "region_local_details" }))
+	{
+		int npicked = jval["region_local_details"].size();
+		for (int i = 0; i < npicked; i++)
+		{
+			PickedFace pf;
+			pf.fid = jval["region_local_details"][i]["face_id"];
+			pf.effectiveRadius = jval["region_local_details"][i]["effective_radius"];
+			pf.interfaceDilation = jval["region_local_details"][i]["interface_dilation"];
+
+			optype = jval["region_local_details"][i]["omega_operation_motion"];
+			if (optype == "None")
+				pf.freqVecMotion = None;
+			else if (optype == "Enlarge")
+				pf.freqVecMotion = Enlarge;
+			else if (optype == "Rotate")
+				pf.freqVecMotion = Rotate;
+			else
+				pf.freqVecMotion = None;
+
+			pf.isFreqAmpCoupled = jval["region_local_details"][i]["amp_omega_coupling"];
+			pf.freqVecChangeValue = jval["region_local_details"][i]["omega_opereation_value"];
+			pf.ampChangeRatio = jval["region_local_details"][i]["amp_operation_value"];
+			
+
+			pf.buildEffectiveFaces(triF.rows());
+			if (!addSelectedFaces(pf, selectedFids, selectedVertices))
+			{
+				std::cerr << "something wrong happened in the store setup file!" << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			pickFaces.push_back(pf);
+		}
+	}
+	/*if (isSelectAll)
+		clickedFid = -1;
 
 	pickFaces.clear();
 	if (clickedFid != -1)
@@ -861,7 +908,7 @@ bool loadProblem()
 		pf.buildEffectiveFaces(triF.rows());
 		pickFaces.push_back(pf);
 		addSelectedFaces(pf, selectedFids, selectedVertices);
-	}
+	}*/
 	
 	updateEditionDomain();
 	
