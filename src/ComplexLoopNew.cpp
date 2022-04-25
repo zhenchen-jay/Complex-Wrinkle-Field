@@ -767,6 +767,12 @@ std::complex<double> interpZ(const std::vector<std::complex<double>>& zList, con
 	{
 		P += coords[i] * pList[i];
 	}
+	Eigen::Vector3d gradThetaAve = Eigen::Vector3d::Zero();
+	for (int i = 0; i < n; i++)
+	{
+		gradThetaAve += coords[i] * gradThetaList[i];
+	}
+
 	std::complex<double> z = 0;
 	
 	Eigen::MatrixXd dalphadp;
@@ -815,7 +821,8 @@ std::complex<double> interpZ(const std::vector<std::complex<double>>& zList, con
 	std::vector<double> deltaThetaList(n);
 	for (int i = 0; i < n; i++)
 	{
-		deltaThetaList[i] = (P - pList[i]).dot(gradThetaList[i]);
+		//deltaThetaList[i] = (P - pList[i]).dot(gradThetaList[i]);
+		deltaThetaList[i] = (P - pList[i]).dot(gradThetaAve);
 	}
 
 	Eigen::VectorXcd dzdalpha;
@@ -823,7 +830,7 @@ std::complex<double> interpZ(const std::vector<std::complex<double>>& zList, con
 
 	for (int i = 0; i < n; i++)
 	{
-		z += coords[i] * zList[i] * std::complex<double>(std::cos(deltaThetaList[i]), std::sin(deltaThetaList[i])) ;
+		z += coords[i] * zList[i] * std::complex<double>(std::cos(deltaThetaList[i]), std::sin(deltaThetaList[i]));
 
 		if(gradZ)
 		{

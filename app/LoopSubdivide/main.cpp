@@ -66,6 +66,7 @@ int loopLevel = 1;
 
 bool isShowVectorFields = true;
 bool isShowWrinkels = true;
+bool isJustAmp = false;
 
 PaintGeometry mPaint;
 
@@ -182,7 +183,7 @@ void updateFieldsInView()
 
     polyscope::registerSurfaceMesh("input mesh", triV, triF);
     polyscope::getSurfaceMesh("input mesh")->addVertexScalarQuantity("amp color", initAmp);
-    polyscope::getSurfaceMesh("input mesh")->getQuantity("amp color")->setEnabled(false);
+    //polyscope::getSurfaceMesh("input mesh")->getQuantity("amp color")->setEnabled(false);
 
     if (isShowVectorFields)
     {
@@ -195,10 +196,10 @@ void updateFieldsInView()
     double shiftz = 1.5 * (loopTriV.col(2).maxCoeff() - loopTriV.col(2).minCoeff());
 
     polyscope::getSurfaceMesh("looped amp mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
-    polyscope::getSurfaceMesh("looped amp mesh")->setEnabled(false);
+    //polyscope::getSurfaceMesh("looped amp mesh")->setEnabled(false);
 
     polyscope::getSurfaceMesh("looped amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
-    polyscope::getSurfaceMesh("looped amp mesh")->getQuantity("amp color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("looped amp mesh")->getQuantity("amp color")->setEnabled(true);
 
     if (isShowVectorFields)
     {
@@ -207,12 +208,12 @@ void updateFieldsInView()
 
     polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
     polyscope::getSurfaceMesh("looped phase mesh")->translate(glm::vec3(shiftx, 0, shiftz));
-    polyscope::getSurfaceMesh("looped phase mesh")->setEnabled(true);
+    //polyscope::getSurfaceMesh("looped phase mesh")->setEnabled(true);
 
     mPaint.setNormalization(false);
     Eigen::MatrixXd phiColor = mPaint.paintPhi(loopedPhase);
     polyscope::getSurfaceMesh("looped phase mesh")->addVertexColorQuantity("phase color", phiColor);
-    polyscope::getSurfaceMesh("looped phase mesh")->getQuantity("phase color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("looped phase mesh")->getQuantity("phase color")->setEnabled(true);
 
 
     Eigen::MatrixXd wrinkledTriV = loopTriV;
@@ -221,7 +222,10 @@ void updateFieldsInView()
 
     for(int i = 0; i < loopTriV.rows(); i++)
     {
-        wrinkledTriV.row(i) += wrinkleAmpScalingRatio * loopedZvals[i].real() * normal.row(i);
+        if(isJustAmp)
+            wrinkledTriV.row(i) += wrinkleAmpScalingRatio * loopedAmp[i] * normal.row(i);
+        else
+            wrinkledTriV.row(i) += wrinkleAmpScalingRatio * loopedZvals[i].real() * normal.row(i);
     }
 
     Eigen::MatrixXd faceColors(loopTriF.rows(), 3);
@@ -260,15 +264,21 @@ void updateFieldsInView()
 
     Eigen::MatrixXd wrinkledTrivNew = loopTriV;
 
+    Eigen::VectorXd loopedReal = loopedAmp;
+
     for(int i = 0; i < loopTriV.rows(); i++)
     {
         loopedPhaseNew(i) = std::arg(tmpZvals[i]);
         loopedAmpNew(i) = std::abs(tmpZvals[i]);
+        loopedReal(i) = tmpZvals[i].real();
     }
 
     for (int i = 0; i < loopTriV.rows(); i++)
     {
-       wrinkledTrivNew.row(i) += wrinkleAmpScalingRatio * tmpZvals[i].real() * normal.row(i);
+       if(isJustAmp)
+           wrinkledTrivNew.row(i) += wrinkleAmpScalingRatio * loopedAmpNew(i) * normal.row(i);
+       else
+           wrinkledTrivNew.row(i) += wrinkleAmpScalingRatio * tmpZvals[i].real() * normal.row(i);
     }
 
     laplacianSmoothing(wrinkledTrivNew, loopTriF, wrinkledTrivNew, smoothingRatio, smoothingTimes);
@@ -276,10 +286,10 @@ void updateFieldsInView()
 
     polyscope::registerSurfaceMesh("Loop-Zuenko amp mesh", loopTriV, loopTriF);
     polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
-    polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->setEnabled(false);
+    //polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->setEnabled(false);
 
     polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->addVertexScalarQuantity("amp color", loopedAmpNew);
-    polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
 
     if (isShowVectorFields)
     {
@@ -289,12 +299,13 @@ void updateFieldsInView()
 
     polyscope::registerSurfaceMesh("Loop-Zuenko phase mesh", loopTriV, loopTriF);
     polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
-    polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->setEnabled(true);
 
     mPaint.setNormalization(false);
     phiColor = mPaint.paintPhi(loopedPhaseNew);
     polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
-    polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
+    polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexScalarQuantity("real-z color", loopedReal);
 
     polyscope::registerSurfaceMesh("Loop-Zuenko mesh", wrinkledTrivNew, loopTriF);
     polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
@@ -312,27 +323,30 @@ void updateFieldsInView()
 
     for(int i = 0; i < loopTriV.rows(); i++)
     {
-        zuenkoNV.row(i) += wrinkleAmpScalingRatio * zuenkoZvals[i].real() * zuenkoNormal.row(i);
         zuenkoPhase(i) = std::arg(zuenkoZvals[i]);
         zuenkoAmp(i) = std::abs(zuenkoZvals[i]);
+        if(isJustAmp)
+            zuenkoNV.row(i) += wrinkleAmpScalingRatio * zuenkoAmp(i) * zuenkoNormal.row(i);
+        else
+            zuenkoNV.row(i) += wrinkleAmpScalingRatio * zuenkoZvals[i].real() * zuenkoNormal.row(i);
     }
 
     polyscope::registerSurfaceMesh("Zuenko amp mesh", NV, NF);
     polyscope::getSurfaceMesh("Zuenko amp mesh")->translate(glm::vec3(3 * shiftx, 0, 2 * shiftz));
-    polyscope::getSurfaceMesh("Zuenko amp mesh")->setEnabled(false);
+    //polyscope::getSurfaceMesh("Zuenko amp mesh")->setEnabled(false);
 
 
     polyscope::getSurfaceMesh("Zuenko amp mesh")->addVertexScalarQuantity("amp color", zuenkoAmp);
-    polyscope::getSurfaceMesh("Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
 
     polyscope::registerSurfaceMesh("Zuenko phase mesh", NV, NF);
     polyscope::getSurfaceMesh("Zuenko phase mesh")->translate(glm::vec3(3 * shiftx, 0, shiftz));
-    polyscope::getSurfaceMesh("Zuenko phase mesh")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Zuenko phase mesh")->setEnabled(true);
 
     mPaint.setNormalization(false);
     phiColor = mPaint.paintPhi(zuenkoPhase);
     polyscope::getSurfaceMesh("Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
-    polyscope::getSurfaceMesh("Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
+    //polyscope::getSurfaceMesh("Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
 
 
     laplacianSmoothing(zuenkoNV, NF, zuenkoNV, smoothingRatio, smoothingTimes);
@@ -344,6 +358,78 @@ void updateFieldsInView()
     polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
     polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);
 
+
+    std::vector<std::complex<double>> combinedZvals;
+    Eigen::VectorXi badVerts(subSecMesh.GetVertCount());
+    badVerts.setZero();
+
+    for (int i = 0; i < subSecMesh.GetFaceCount(); i++)
+    {
+        if (badfaces[i])
+        {
+            for (int j = 0; j < 3; j++)
+                badVerts(subSecMesh.GetFaceVerts(i)[j]) = 1;
+        }
+    }
+    for (int i = 0; i < subSecMesh.GetVertCount(); i++)
+    {
+        if (badVerts(i))
+            combinedZvals.push_back(tmpZvals[i]);
+        else
+            combinedZvals.push_back(loopedZvals[i]);
+    }
+
+    Eigen::VectorXd loopedOmegaCombined = loopedOmega, loopedAmpCombined = loopedAmp, loopedPhaseCombined = loopedPhase;
+
+    Eigen::MatrixXd wrinkledTrivCombined = loopTriV;
+
+    Eigen::VectorXd loopedRealCombined = loopedAmp;
+
+    for (int i = 0; i < loopTriV.rows(); i++)
+    {
+        loopedPhaseCombined(i) = std::arg(combinedZvals[i]);
+        loopedAmpCombined(i) = std::abs(combinedZvals[i]);
+        loopedRealCombined(i) = combinedZvals[i].real();
+    }
+
+    for (int i = 0; i < loopTriV.rows(); i++)
+    {
+        if (isJustAmp)
+            wrinkledTrivCombined.row(i) += wrinkleAmpScalingRatio * loopedAmpCombined(i) * normal.row(i);
+        else
+            wrinkledTrivCombined.row(i) += wrinkleAmpScalingRatio * combinedZvals[i].real() * normal.row(i);
+    }
+
+    laplacianSmoothing(wrinkledTrivCombined, loopTriF, wrinkledTrivCombined, smoothingRatio, smoothingTimes);
+    igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko_combined.obj", wrinkledTrivCombined, loopTriF);
+
+    polyscope::registerSurfaceMesh("Loop-Zuenko-combined amp mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined amp mesh")->translate(glm::vec3(4 * shiftx, 0, 2 * shiftz));
+    //polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->setEnabled(false);
+
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined amp mesh")->addVertexScalarQuantity("amp color", loopedAmpCombined);
+    //polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
+
+    if (isShowVectorFields)
+    {
+        Eigen::MatrixXd loopedFaceOmegaCombined = edgeVec2FaceVec(subSecMesh, loopedOmegaCombined);
+        polyscope::getSurfaceMesh("Loop-Zuenko-combined amp mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmegaCombined);
+    }
+
+    polyscope::registerSurfaceMesh("Loop-Zuenko-combined phase mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined phase mesh")->translate(glm::vec3(4 * shiftx, 0, shiftz));
+    //polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->setEnabled(true);
+
+    mPaint.setNormalization(false);
+    phiColor = mPaint.paintPhi(loopedPhaseCombined);
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined phase mesh")->addVertexColorQuantity("phase color", phiColor);
+    //polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined phase mesh")->addVertexScalarQuantity("real-z color", loopedPhaseCombined);
+
+    polyscope::registerSurfaceMesh("Loop-Zuenko-combined mesh", wrinkledTrivCombined, loopTriF);
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined mesh")->translate(glm::vec3(4 * shiftx, 0, 0));
+    polyscope::getSurfaceMesh("Loop-Zuenko-combined mesh")->setEnabled(true);
 
 }
 
@@ -450,10 +536,10 @@ void callback() {
             updateFieldsInView();
         }
 
-        /*if(ImGui::DragFloat("vector ratio", &vecratio, 0.00005, 0, 10))
+        if (ImGui::Checkbox("is only amp", &isJustAmp))
         {
             updateFieldsInView();
-        }*/
+        }
 
         if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
         {
