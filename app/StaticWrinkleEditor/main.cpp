@@ -670,7 +670,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 	editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
 	editModel.initialization(initZvals, initOmega, numFrames - 2);
-
+	
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
 	std::cout << "convert list to variable." << std::endl;
@@ -718,6 +718,10 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 			OptSolver::testFuncGradHessian(funVal, x);
 
 			auto x0 = x;
+			Eigen::VectorXd grad;
+			Eigen::SparseMatrix<double> hess;
+			double f0 = funVal(x0, &grad, &hess, false);
+			std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
 			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder);
 			std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 		}
@@ -735,7 +739,7 @@ void registerMesh(int frameId)
 	int nverts = triV.rows();
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	polyscope::registerSurfaceMesh("base mesh", triV, triF);
-	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", faceOmegaList[frameId]);
+	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 	updateSelectedRegionSetViz();
 
 
@@ -743,7 +747,7 @@ void registerMesh(int frameId)
 	polyscope::registerSurfaceMesh("reference mesh", triV, triF);
 	polyscope::getSurfaceMesh("reference mesh")->translate({ shiftx, 0, 0 });
 	polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
-	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", refFaceOmega);
+	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
 
 	// phase pattern
 	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
@@ -756,7 +760,7 @@ void registerMesh(int frameId)
 	polyscope::registerSurfaceMesh("upsampled ampliude and frequency mesh", upsampledTriV, upsampledTriF);
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->translate({ 3 * shiftx, 0, 0 });
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("vertex amplitude", ampFieldsList[frameId]);
-	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", subFaceOmegaList[frameId]);
+	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
 	// wrinkle mesh
 	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];

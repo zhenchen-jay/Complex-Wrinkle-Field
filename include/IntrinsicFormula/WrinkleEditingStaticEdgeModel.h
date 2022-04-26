@@ -34,24 +34,25 @@ namespace IntrinsicFormula
 
 		void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
 		{
-			int nverts = _zvalsList[0].size();
-			int nedges = _edgeOmegaList[0].rows();
+			int nFreeVerts = _freeVids.size();
+			int nFreeEdges = _freeEids.size();
 
 			int numFrames = _zvalsList.size() - 2;
+			int nDOFs = 2 * nFreeVerts + nFreeEdges;
 
 			znorm = 0;
 			wnorm = 0;
 
 			for (int i = 0; i < numFrames; i++)
 			{
-				for (int j = 0; j < nverts; j++)
+				for (int j = 0; j < nFreeVerts; j++)
 				{
-					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + nedges) + 2 * j)));
-					znorm = std::max(znorm, std::abs(x(i * (2 * nverts + nedges) + 2 * j + 1)));
+					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j)));
+					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j + 1)));
 				}
-				for (int j = 0; j < nedges; j++)
+				for (int j = 0; j < nFreeEdges; j++)
 				{
-					wnorm = std::max(wnorm, std::abs(x(i * (2 * nverts + nedges) + 2 * nverts + j)));
+					wnorm = std::max(wnorm, std::abs(x(i * nDOFs + 2 * nFreeVerts + j)));
 				}
 			}
 		}
@@ -91,6 +92,7 @@ namespace IntrinsicFormula
 		double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 		double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 		double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+		double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
 
 
 	public:
@@ -131,6 +133,9 @@ namespace IntrinsicFormula
 		Eigen::VectorXi _actualEid2Free;	// a vector indicates the map from the i-th edge to its corresponding index in the _freeVids, -1 indicate the fixed vids
 
 		std::vector<double> _refAmpAveList;
+
+		Eigen::VectorXi _interfaceVertFlags;
+		Eigen::VectorXi _interfaceEdgeFlags;
 
 
 		std::vector<Eigen::VectorXd> _combinedRefAmpList;
