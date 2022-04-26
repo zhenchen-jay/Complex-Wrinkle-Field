@@ -609,7 +609,7 @@ void updateEditionDomain()
 	Eigen::VectorXi interfaces;
 	updateInterfaces(pickFaces, interfaces);
 
-	faceFlags.setZero(interfaces.rows());
+	faceFlags = selectedFids;
 	int ninterfaces = 0;
 	for (int i = 0; i < selectedFids.rows(); i++)
 	{
