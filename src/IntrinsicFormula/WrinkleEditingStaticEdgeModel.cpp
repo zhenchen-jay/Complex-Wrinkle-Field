@@ -14,7 +14,6 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 {
 	_pos = pos;
 	_mesh = mesh;
-	_interfaceFaceFlags = faceFlag;
 
 	_quadOrd = quadOrd;
 	_spatialAmpRatio = spatialAmpRatio;
@@ -27,12 +26,6 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	int nfaces = mesh.nFaces();
 	int nedges = mesh.nEdges();
 
-	_interfaceVertFlags.resize(nverts);
-	_interfaceVertFlags.setConstant(-1);
-
-	_interfaceEdgeFlags.resize(nedges);
-	_interfaceEdgeFlags.setConstant(-1);
-
 	_edgeCotCoeffs.setZero(nedges);
 
 	
@@ -43,16 +36,9 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	_faceArea = getFaceArea(_pos, _mesh);
 	
 
-	_effectiveVids.clear();
-	_effectiveEids.clear();
-	_effectiveVids.clear();
-
 	std::vector<int> bnds;
 	igl::boundary_loop(_mesh.faces(), bnds);
 
-	std::set<int> edgeset;
-	std::set<int> vertset;
-	std::set<int> faceset;
 	_nInterfaces = 0;
 
 	Eigen::MatrixXd cotMatrixEntries;
@@ -63,34 +49,10 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			int vid = _mesh.faceVertex(i, j);
 			int eid = _mesh.faceEdge(i, j);
-
 			_edgeCotCoeffs(eid) += cotMatrixEntries(i, j);
-
-			if (faceFlag(i) != -1)
-			{
-				_interfaceVertFlags(vid) = faceFlag(i);
-				_interfaceEdgeFlags(eid) = faceFlag(i);
-			}
-			else
-			{
-				if (faceset.count(i) == 0)
-				{
-					faceset.insert(i);
-					_nInterfaces++;
-				}
-
-				if (vertset.count(vid) == 0)
-					vertset.insert(vid);
-				if (edgeset.count(eid) == 0)
-					edgeset.insert(eid);
-			}
 		}
 	}
-	std::copy(vertset.begin(), vertset.end(), std::back_inserter(_effectiveVids));
-	std::copy(edgeset.begin(), edgeset.end(), std::back_inserter(_effectiveEids));
-	std::copy(faceset.begin(), faceset.end(), std::back_inserter(_effectiveFids));
 
 	_faceVertMetrics.resize(nfaces);
 	for (int i = 0; i < nfaces; i++)
@@ -110,10 +72,123 @@ WrinkleEditingStaticEdgeModel::WrinkleEditingStaticEdgeModel(const Eigen::Matrix
 			_faceVertMetrics[i][j] = I.inverse();
 		}
 	}
+	buildDOFs(faceFlag);
+	_nInterfaces = _interfaceFids.size();
+
 	std::cout << "number of interfaces: " << _nInterfaces << std::endl;
 	std::cout << "min edge area: " << _edgeArea.minCoeff() << ", min vertex area: " << _vertArea.minCoeff() << std::endl;
 	std::cout << "max edge area: " << _edgeArea.maxCoeff() << ", max vertex area: " << _vertArea.maxCoeff() << std::endl;
 
+}
+
+void WrinkleEditingStaticEdgeModel::buildDOFs(const Eigen::VectorXi& faceFlags)
+{
+	int nfaces = _mesh.nFaces();
+	for (int i = 0; i < nfaces; i++)
+	{
+		if (faceFlags(i) == 1)
+		{
+			_selectedFids.push_back(i);
+			_freeFids.push_back(i);
+		}
+		else if (faceFlags(i) == -1)
+		{
+			_interfaceFids.push_back(i);
+			_freeFids.push_back(i);
+		}
+		else
+			_unselectedFids.push_back(i);
+	}
+	// selected edges and verts
+	Eigen::VectorXi selectedEdgeFlags, selectedVertFlags;
+	getVertIdinGivenDomain(_selectedFids, selectedVertFlags);
+	getEdgeIdinGivenDomain(_selectedFids, selectedEdgeFlags);
+
+	// interface edges and verts
+	Eigen::VectorXi interfaceEdgeFlags, interfaceVertFlags;
+	getVertIdinGivenDomain(_interfaceFids, interfaceVertFlags);
+	getEdgeIdinGivenDomain(_interfaceFids, interfaceEdgeFlags);
+
+	// build the list
+	int nverts = _pos.rows();
+	int nedges = _mesh.nEdges();
+	
+	for (int i = 0; i < nverts; i++)
+	{
+		if (interfaceVertFlags(i))
+		{
+			_interfaceVids.push_back(i);
+			_freeVids.push_back(i);
+		}
+		else if (selectedVertFlags(i))
+		{
+			_selectedVids.push_back(i);
+			_freeVids.push_back(i);
+		}
+		else
+			_unselectedVids.push_back(i);
+	}
+
+	for (int i = 0; i < nedges; i++)
+	{
+		if (interfaceEdgeFlags(i))
+		{
+			_interfaceEids.push_back(i);
+			_freeEids.push_back(i);
+		}
+		else if (selectedEdgeFlags(i))
+		{
+			_selectedEids.push_back(i);
+			_freeEids.push_back(i);
+		}
+		else
+			_unselectedEids.push_back(i);
+	}
+
+	// building the map
+	_actualVid2Free.resize(nverts);
+	_actualVid2Free.setConstant(-1);
+
+	for (int i = 0; i < _freeVids.size(); i++)
+		_actualVid2Free[_freeVids[i]] = i;
+
+	_actualEid2Free.resize(nedges);
+	_actualEid2Free.setConstant(-1);
+	
+	for (int j = 0; j < _freeEids.size(); j++)
+		_actualEid2Free[_freeEids[j]] = j;
+
+}
+
+
+void WrinkleEditingStaticEdgeModel::getVertIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& vertFlags)
+{
+	int nverts = _pos.rows();
+	vertFlags.setZero(nverts);
+
+	for (auto& fid : faceList)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			int vid = _mesh.faceVertex(fid, i);
+			vertFlags(vid) = 1;
+		}
+	}
+}
+
+void WrinkleEditingStaticEdgeModel::getEdgeIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& edgeFlags)
+{
+	int nedges = _mesh.nEdges();
+	edgeFlags.setZero(nedges);
+
+	for (auto& fid : faceList)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			int eid = _mesh.faceEdge(fid, i);
+			edgeFlags(eid) = 1;
+		}
+	}
 }
 
 void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega,
@@ -154,22 +229,15 @@ void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::comple
 
 	std::vector<std::complex<double>> tarZvals;
 
-	Eigen::VectorXi bndVertsFlag = _interfaceVertFlags;
-	for (int i = 0; i < bndVertsFlag.rows(); i++)
-	{
-		if (_interfaceVertFlags(i) != -1)
-			bndVertsFlag(i) = 1;
-		else
-			bndVertsFlag(i) = 0;
-	}
+	Eigen::VectorXi fixedVertsFlag, fixedVertsFlagsStep2;
+	fixedVertsFlag.setZero(_pos.rows());
 
-	Eigen::VectorXi firstStepFlags = bndVertsFlag;
+	for (auto& vid : _unselectedVids)
+		fixedVertsFlag(vid) = 1;
 
-	for (int i = 0; i < _vertexOpts.size(); i++)
-	{
-		if (_vertexOpts[i].vecOptType != None)
-			firstStepFlags(i) = 0;
-	}
+	fixedVertsFlagsStep2 = fixedVertsFlag;
+	for (auto& vid : _selectedVids)
+		fixedVertsFlagsStep2(vid) = 1;
 
 	std::cout << "initialize bnd zvals." << std::endl;
 
@@ -188,11 +256,11 @@ void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::comple
 		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
 		tarZvals = initZvals;
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], firstStepFlags, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
-			if (firstStepFlags[i] == 0)
+			if (fixedVertsFlag[i] == 0)
 			{
 				double arg = std::arg(tarZvals[i]);
 				tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
@@ -200,11 +268,11 @@ void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::comple
 
 		}
 
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], bndVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlagsStep2, _edgeArea, _vertArea, _pos.rows(), tarZvals);
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
-			if (bndVertsFlag[i] == 0)
+			if (fixedVertsFlagsStep2[i] == 0)
 			{
 				double arg = std::arg(tarZvals[i]);
 				tarZvals[i] = refAmpList[numFrames + 1][i] * std::complex<double>(std::cos(arg), std::sin(arg));
@@ -235,6 +303,18 @@ void WrinkleEditingStaticEdgeModel::initialization(const std::vector<std::comple
 	}
 
 	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
+	_refAmpAveList.resize(numFrames + 2);
+
+	for (int i = 0; i < _refAmpAveList.size(); i++)
+	{
+		double ave = 0;
+		for (int j = 0; j < _pos.rows(); j++)
+		{
+			ave += _combinedRefAmpList[i][j];
+		}
+		ave /= _pos.rows();
+		_refAmpAveList[i] = ave;
+	}
 }
 
 void WrinkleEditingStaticEdgeModel::warmstart()
@@ -529,7 +609,7 @@ double WrinkleEditingStaticEdgeModel::amplitudeEnergyWithGivenOmega(const Eigen:
 	double energy = 0;
 
 	int nverts = _pos.rows();
-	int nEffectiveFaces = _effectiveFids.size();
+	int nEffectiveFaces = _interfaceFids.size();
 
 	std::vector<double> energyList(nEffectiveFaces);
 	std::vector<Eigen::Vector3d> derivList(nEffectiveFaces);
@@ -538,7 +618,7 @@ double WrinkleEditingStaticEdgeModel::amplitudeEnergyWithGivenOmega(const Eigen:
 	auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			int fid = _effectiveFids[i];
+			int fid = _interfaceFids[i];
 			energyList[i] = amplitudeEnergyWithGivenOmegaPerface(amp, w, fid, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
 		}
 	};
@@ -554,7 +634,7 @@ double WrinkleEditingStaticEdgeModel::amplitudeEnergyWithGivenOmega(const Eigen:
 	for (int efid = 0; efid < nEffectiveFaces; efid++)
 	{
 		energy += energyList[efid];
-		int fid = _effectiveFids[efid];
+		int fid = _interfaceFids[efid];
 
 		if (deriv)
 		{
@@ -593,18 +673,13 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 
 	std::vector<Eigen::Triplet<double>> T;
 	// projection matrix
-	std::vector<int> freeVid;
-	for (int i = 0; i < nverts; i++)
-	{
-		if (_interfaceVertFlags(i) == -1)
-		{
-			freeVid.push_back(i);
-		}
-	}
+	std::vector<int> freeVid = _interfaceVids;
+	Eigen::VectorXi fixedFlags = Eigen::VectorXi::Ones(nverts);
 
 	for (int i = 0; i < freeVid.size(); i++)
 	{
 		T.push_back(Eigen::Triplet<double>(i, freeVid[i], 1.0));
+		fixedFlags(i) = 0;
 	}
 
 	Eigen::SparseMatrix<double> projM(freeVid.size(), nverts);
@@ -614,14 +689,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 
 	auto projVar = [&](const int frameId)
 	{
-		Eigen::MatrixXd fullX = Eigen::VectorXd::Zero(nverts);
-		for (int i = 0; i < nverts; i++)
-		{
-			if (_interfaceVertFlags(i) != -1)
-			{
-				fullX(i) = refAmpList[frameId](i);
-			}
-		}
+		Eigen::MatrixXd fullX = refAmpList[frameId];
 		Eigen::VectorXd x0 = projM * fullX;
 		return x0;
 	};
@@ -632,7 +700,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefAmpList(const std::vector<
 
 		for (int i = 0; i < nverts; i++)
 		{
-			if (_interfaceVertFlags(i) != -1)
+			if (fixedFlags(i))
 			{
 				fullX(i) = refAmpList[frameId](i);
 			}
@@ -755,7 +823,7 @@ double WrinkleEditingStaticEdgeModel::curlFreeEnergy(const Eigen::MatrixXd& w, E
 {
 	double E = 0;
 	int nedges = _mesh.nEdges();
-	int nEffectiveFaces = _effectiveFids.size();
+	int nEffectiveFaces = _interfaceFids.size();
 
 	std::vector<double> energyList(nEffectiveFaces);
 	std::vector<Eigen::Matrix<double, 3, 1>> derivList(nEffectiveFaces);
@@ -764,7 +832,7 @@ double WrinkleEditingStaticEdgeModel::curlFreeEnergy(const Eigen::MatrixXd& w, E
 	auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			int fid = _effectiveFids[i];
+			int fid = _interfaceFids[i];
 			energyList[i] = curlFreeEnergyPerface(w, fid, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
 		}
 	};
@@ -780,7 +848,7 @@ double WrinkleEditingStaticEdgeModel::curlFreeEnergy(const Eigen::MatrixXd& w, E
 	for (int efid = 0; efid < nEffectiveFaces; efid++)
 	{
 		E += energyList[efid];
-		int fid = _effectiveFids[efid];
+		int fid = _interfaceFids[efid];
 
 		if (deriv)
 		{
@@ -809,8 +877,7 @@ double WrinkleEditingStaticEdgeModel::curlFreeEnergy(const Eigen::MatrixXd& w, E
 }
 
 
-double WrinkleEditingStaticEdgeModel::divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd* deriv,
-	Eigen::MatrixXd* hess)
+double WrinkleEditingStaticEdgeModel::divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd* deriv, Eigen::MatrixXd* hess)
 {
 	double energy = 0;
 	int neiEdges = _vertNeiEdges[vertId].size();
@@ -856,7 +923,7 @@ double WrinkleEditingStaticEdgeModel::divFreeEnergy(const Eigen::MatrixXd& w, Ei
 {
 	double energy = 0;
 	int nedges = _mesh.nEdges();
-	int nEffectiveVerts = _effectiveVids.size();
+	int nEffectiveVerts = _interfaceVids.size();
 
 	std::vector<double> energyList(nEffectiveVerts);
 	std::vector<Eigen::VectorXd> derivList(nEffectiveVerts);
@@ -865,7 +932,7 @@ double WrinkleEditingStaticEdgeModel::divFreeEnergy(const Eigen::MatrixXd& w, Ei
 	auto computeEnergy = [&](const tbb::blocked_range<uint32_t>& range) {
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			int vid = _effectiveVids[i];
+			int vid = _interfaceVids[i];
 			energyList[i] = divFreeEnergyPervertex(w, vid, deriv ? &derivList[i] : NULL, hessT ? &hessList[i] : NULL);
 		}
 	};
@@ -880,7 +947,7 @@ double WrinkleEditingStaticEdgeModel::divFreeEnergy(const Eigen::MatrixXd& w, Ei
 
 	for (int efid = 0; efid < nEffectiveVerts; efid++)
 	{
-		int vid = _effectiveVids[efid];
+		int vid = _interfaceVids[efid];
 		energy += energyList[efid];
 
 		if (deriv)
@@ -918,18 +985,13 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 
 	std::vector<Eigen::Triplet<double>> T;
 	// projection matrix
-	std::vector<int> freeEid;
-	for (int i = 0; i < nedges; i++)
-	{
-		if (_interfaceEdgeFlags(i) == -1)
-		{
-			freeEid.push_back(i);
-		}
-	}
+	std::vector<int> freeEid = _interfaceEids;
+	Eigen::VectorXi fixedFlags = Eigen::VectorXi::Ones(nedges);
 
 	for (int i = 0; i < freeEid.size(); i++)
 	{
 		T.push_back(Eigen::Triplet<double>(i, freeEid[i], 1.0));
+		fixedFlags(i) = 0;
 	}
 
 	Eigen::SparseMatrix<double> projM(freeEid.size(), nedges);
@@ -939,14 +1001,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 
 	auto projVar = [&](const int frameId)
 	{
-		Eigen::MatrixXd fullX = Eigen::VectorXd::Zero(nedges);
-		for (int i = 0; i < nedges; i++)
-		{
-			if (_interfaceEdgeFlags(i) != -1)
-			{
-				fullX(i) = refOmegaList[frameId](i);
-			}
-		}
+		Eigen::MatrixXd fullX = refOmegaList[frameId];
 		Eigen::VectorXd x0 = projM * fullX;
 		return x0;
 	};
@@ -957,7 +1012,7 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 
 		for (int i = 0; i < nedges; i++)
 		{
-			if (_interfaceEdgeFlags(i) != -1)
+			if (fixedFlags(i))
 			{
 				fullX(i) = refOmegaList[frameId](i);
 			}
@@ -1029,6 +1084,156 @@ void WrinkleEditingStaticEdgeModel::computeCombinedRefOmegaList(const std::vecto
 	}
 }
 
+
+double WrinkleEditingStaticEdgeModel::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+{
+	int nFreeVerts = _freeVids.size();
+	double energy = 0;
+
+	if (deriv)
+		deriv->setZero(2 * nFreeVerts);
+	if (hessT)
+		hessT->clear();
+
+	for (int i = 0; i < nFreeVerts; i++)
+	{
+		int vid = _freeVids[i];
+		double ampSq = _zvalsList[frameId][vid].real() * _zvalsList[frameId][vid].real() +
+			_zvalsList[frameId][vid].imag() * _zvalsList[frameId][vid].imag();
+		double refAmpSq = _combinedRefAmpList[frameId][vid] * _combinedRefAmpList[frameId][vid];
+		double ca = _spatialAmpRatio * _vertArea(vid) / (_refAmpAveList[vid] * _refAmpAveList[vid]);
+
+		energy += ca * (ampSq - refAmpSq) * (ampSq - refAmpSq);
+
+		if (deriv)
+		{
+			(*deriv)(2 * i) += 2.0 * ca * (ampSq - refAmpSq) * (2.0 * _zvalsList[frameId][vid].real());
+			(*deriv)(2 * i + 1) += 2.0 * ca * (ampSq - refAmpSq) * (2.0 * _zvalsList[frameId][vid].imag());
+		}
+
+		if (hessT)
+		{
+			Eigen::Matrix2d tmpHess;
+			tmpHess << 
+				2.0 * _zvalsList[frameId][vid].real() * 2.0 * _zvalsList[frameId][vid].real(),
+				2.0 * _zvalsList[frameId][vid].real() * 2.0 * _zvalsList[frameId][vid].imag(),
+				2.0 * _zvalsList[frameId][vid].real() * 2.0 * _zvalsList[frameId][vid].imag(),
+				2.0 * _zvalsList[frameId][vid].imag() * 2.0 * _zvalsList[frameId][vid].imag();
+
+			tmpHess *= 2.0 * ca;
+			tmpHess += 2.0 * ca * (ampSq - refAmpSq) * (2.0 * Eigen::Matrix2d::Identity());
+
+
+			if (isProj)
+				tmpHess = SPDProjection(tmpHess);
+
+			for (int k = 0; k < 2; k++)
+				for (int l = 0; l < 2; l++)
+					hessT->push_back({ 2 * i + k, 2 * i + l, tmpHess(k, l) });
+		}
+	}
+	return energy;
+}
+
+double WrinkleEditingStaticEdgeModel::temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+{
+	int nFreeEdges = _freeEids.size();
+	double energy = 0;
+
+	for (int i = 0; i < nFreeEdges; i++)
+	{
+		int eid = _freeEids[i];
+		double ce = _spatialEdgeRatio * _edgeArea(eid) * (_refAmpAveList[frameId] * _refAmpAveList[frameId]);
+
+		energy += ce * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid)) * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid));
+
+		if (deriv) 
+		{
+			(*deriv)(i) += 2 * ce * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid));
+		}
+
+		if (hessT) 
+		{
+			hessT->push_back(Eigen::Triplet<double>(i, i, 2 * ce));
+		}
+	}
+
+	return energy;
+}
+
+double WrinkleEditingStaticEdgeModel::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+{
+	double energy = 0;
+	int nFreeEdges = _freeEids.size();
+	int nFreeVerts = _freeVids.size();
+	double aveAmp = _refAmpAveList[frameId];
+
+	for (int fe = 0; fe < nFreeEdges; fe++)
+	{
+		int eid = _freeEids[fe];
+		int vid0 = _mesh.edgeVertex(eid, 0);
+		int vid1 = _mesh.edgeVertex(eid, 1);
+
+		double r0 = _combinedRefAmpList[frameId](vid0) / aveAmp;
+		double r1 = _combinedRefAmpList[frameId](vid1) / aveAmp;
+
+		std::complex<double> expw0 = std::complex<double>(std::cos(_combinedRefOmegaList[frameId](eid)), std::sin(_combinedRefOmegaList[frameId](eid)));
+
+		std::complex<double> z0 = _zvalsList[frameId][vid0];
+		std::complex<double> z1 = _zvalsList[frameId][vid1];
+
+		double ce = _spatialKnoppelRatio * _edgeArea(eid);
+
+		energy += 0.5 * norm((r1 * z0 * expw0 - r0 * z1)) * ce;
+
+		if (deriv || hessT)
+		{
+			int freeV0 = _actualVid2Free[vid0];
+			int freeV1 = _actualVid2Free[vid1];
+
+			hessT->push_back({ 2 * freeV0, 2 * freeV0, r1 * r1 * ce });
+			hessT->push_back({ 2 * freeV0 + 1, 2 * freeV0 + 1, r1 * r1 * ce });
+
+			hessT->push_back({ 2 * vid1, 2 * freeV1, r0 * r0 * ce });
+			hessT->push_back({ 2 * vid1 + 1, 2 * freeV1 + 1, r0 * r0 * ce });
+
+
+			hessT->push_back({ 2 * freeV0, 2 * freeV1, -ce * (expw0.real()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV0 + 1, 2 * freeV1, -ce * (-expw0.imag()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV0, 2 * freeV1 + 1, -ce * (expw0.imag()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV0 + 1, 2 * freeV1 + 1, -ce * (expw0.real()) * r0 * r1 });
+
+			hessT->push_back({ 2 * freeV1, 2 * freeV0, -ce * (expw0.real()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV1, 2 * freeV0 + 1, -ce * (-expw0.imag()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV1 + 1, 2 * freeV0, -ce * (expw0.imag()) * r0 * r1 });
+			hessT->push_back({ 2 * freeV1 + 1, 2 * freeV0 + 1, -ce * (expw0.real()) * r0 * r1 });
+		}
+	}
+
+	if (deriv || hessT)
+	{
+		Eigen::SparseMatrix<double> A;
+
+		A.resize(2 * nFreeVerts, 2 * nFreeVerts);
+		A.setFromTriplets(hessT->begin(), hessT->end());
+
+		// check whether A is PD
+
+
+		if (deriv)
+		{
+			Eigen::VectorXd fvals(2 * nFreeVerts);
+			for (int i = 0; i < nFreeVerts; i++)
+			{
+				fvals(2 * i) = _zvalsList[frameId][_freeVids[i]].real();
+				fvals(2 * i + 1) = _zvalsList[frameId][_freeVids[i]].imag();
+			}
+			(*deriv) = A * fvals;
+		}
+	}
+
+	return energy;
+}
 
 double WrinkleEditingStaticEdgeModel::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
