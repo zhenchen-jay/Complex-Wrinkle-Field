@@ -475,6 +475,7 @@ void buildFacesMenu()
 		if (ImGui::InputDouble("freq change", &s.freqVecChangeValue)) anyChanged = true;
 		if (ImGui::InputDouble("amp change", &s.ampChangeRatio)) anyChanged = true;
 		if (ImGui::Checkbox("amp freq coupled", &s.isFreqAmpCoupled)) anyChanged = true;
+		id++;
 
 		ImGui::Unindent();
 		ImGui::PopID();
@@ -867,25 +868,7 @@ bool loadProblem()
 			pickFaces.push_back(pf);
 		}
 	}
-	/*if (isSelectAll)
-		clickedFid = -1;
-
-	pickFaces.clear();
-	if (clickedFid != -1)
-	{
-		PickedFace pf;
-		pf.fid = clickedFid;
-		pf.effectiveRadius = dilationTimes;
-		pf.isFreqAmpCoupled = isCoupled;
-		pf.freqVecChangeValue = selectedMotionValue;
-		pf.freqVecMotion = selectedMotion;
-		pf.ampChangeRatio = selectedMagValue;
-		pf.interfaceDilation = optTimes;
-
-		pf.buildEffectiveFaces(triF.rows());
-		pickFaces.push_back(pf);
-		addSelectedFaces(pf, selectedFids, selectedVertices);
-	}*/
+	std::cout << "num of picked faces: " << pickFaces.size() << std::endl;
 	
 	updateEditionDomain();
 	
