@@ -1012,6 +1012,11 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 	Eigen::MatrixXd VN;
 	igl::per_vertex_normals(V, F, VN);
 
+	for (int vid = 0; vid < nverts; vid++)
+	{
+		wrinkledV.row(vid) += scaleRatio * (zvals[vid].real() * VN.row(vid));
+	}
+
 	for (int i = 0; i < nfaces; i++)
 	{
 		for (int j = 0; j < 3; j++)
@@ -1033,8 +1038,6 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 			Eigen::Vector3d extASqdtheta = drb * Ib.inverse() * aSqdtheta;
 
 			double theta = std::arg(zvals[vid]);
-
-			wrinkledV.row(vid) += scaleRatio / vertNeiFaces->at(vid).size() * (zvals[vid].real() * VN.row(vid).transpose());
 
 			if (isTangentCorrection)
 			{
