@@ -25,7 +25,9 @@
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingStaticEdgeModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingLocalModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingGlobalModel.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../include/SpherigonSmoothing.h"
@@ -176,7 +178,9 @@ double spatialKnoppelRatio = 1;
 
 std::string workingFolder;
 
-IntrinsicFormula::WrinkleEditingStaticEdgeModel editModel;
+std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
+
+//IntrinsicFormula::WrinkleEditingLocalModel editModel;
 
 struct PickedFace
 {
@@ -258,9 +262,13 @@ int dilationTimes = 10;
 bool isUseV2 = false;
 bool isWarmStart = false;
 
-// smoothing
-int smoothingTimes = 3;
-double smoothingRatio = 0.95;
+enum ModelType
+{
+	GlobalModel = 0,
+	LocalModel = 1
+};
+
+ModelType editModelType = GlobalModel;
 
 void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
 {
@@ -667,23 +675,26 @@ void updatePaintingItems()
 
 void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
-	editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+	if(editModelType == GlobalModel)
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+	else
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-	editModel.initialization(initZvals, initOmega, numFrames - 2);
+	editModel->initialization(initZvals, initOmega, numFrames - 2);
 	
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
 	std::cout << "convert list to variable." << std::endl;
-	editModel.convertList2Variable(x);
+	editModel->convertList2Variable(x);
 
-	refOmegaList = editModel.getRefWList();
-	refAmpList = editModel.getRefAmpList();
+	refOmegaList = editModel->getRefWList();
+	refAmpList = editModel->getRefAmpList();
 
 
 	if (isForceOptimize)
 	{
 		if (isWarmStart)
-			editModel.warmstart();
+			editModel->warmstart();
 
 		else
 		{
@@ -691,7 +702,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 			auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 				Eigen::VectorXd deriv;
 				Eigen::SparseMatrix<double> H;
-				double E = editModel.computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+				double E = editModel->computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
 
 				if (grad)
 				{
@@ -710,7 +721,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 			};
 
 			auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-				editModel.getComponentNorm(x, znorm, wnorm);
+				editModel->getComponentNorm(x, znorm, wnorm);
 			};
 
 
@@ -727,11 +738,11 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 		}
 	}
 	std::cout << "convert variable to list." << std::endl;
-	editModel.convertVariable2List(x);
+	editModel->convertVariable2List(x);
 	std::cout << "get w list" << std::endl;
-	wFrames = editModel.getWList();
+	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
-	zFrames = editModel.getVertValsList();
+	zFrames = editModel->getVertValsList();
 }
 
 void registerMesh(int frameId)
@@ -764,7 +775,6 @@ void registerMesh(int frameId)
 
 	// wrinkle mesh
 	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
-	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
 	polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
 	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
@@ -1002,16 +1012,16 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
-		editModel = IntrinsicFormula::WrinkleEditingStaticEdgeModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-		editModel.initialization(initZvals, initOmega, numFrames - 2);
-		refAmpList = editModel.getRefAmpList();
-		refOmegaList = editModel.getRefWList();
+		editModel->initialization(initZvals, initOmega, numFrames - 2);
+		refAmpList = editModel->getRefAmpList();
+		refOmegaList = editModel->getRefWList();
 
 		if (!isLoadOpt)
 		{
-			zList = editModel.getVertValsList();
-			omegaList = editModel.getWList();
+			zList = editModel->getVertValsList();
+			omegaList = editModel->getWList();
 		}
 		
 	}
@@ -1158,7 +1168,6 @@ bool saveProblem()
 		}
 
 		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
-        laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
         igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
 
 		/*Eigen::MatrixXd upWrinkledV;
@@ -1247,20 +1256,6 @@ void callback() {
         }
 	}
 
-    if (ImGui::CollapsingHeader("smoothing Options", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        if(ImGui::InputInt("smoothing times", &smoothingTimes))
-        {
-            smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
-            updateFieldsInView(curFrame);
-        }
-        if(ImGui::InputDouble("smoothing ratio", &smoothingRatio))
-        {
-            smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
-            updateFieldsInView(curFrame);
-        }
-    }
-
 	if (ImGui::CollapsingHeader("Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
@@ -1308,6 +1303,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		ImGui::Combo("model yype", (int*)&editModelType, "Global\0Local\0");
 		if (ImGui::InputInt("num of frames", &numFrames))
 		{
 			if (numFrames <= 0)
