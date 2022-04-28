@@ -78,6 +78,8 @@ double ampTol = 0.1, curlTol = 1e-4;
 int smoothingTimes = 0;
 double smoothingRatio = 0.95;
 
+bool isUseTangentCorrection = false;
+
 void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& upsampledPhase)
 {
 	NV = triV;
@@ -218,7 +220,7 @@ void updateFieldsInView()
 	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
 	buildVertexNeighboringInfo(MeshConnectivity(loopTriF), loopTriV.rows(), vertNeiEdges, vertNeiFaces);
 
-	getWrinkledMesh(loopTriV, loopTriF, loopedZvals, &vertNeiFaces, wrinkledTriV, wrinkleAmpScalingRatio, true);
+	getWrinkledMesh(loopTriV, loopTriF, loopedZvals, &vertNeiFaces, wrinkledTriV, wrinkleAmpScalingRatio, isUseTangentCorrection);
 
 	Eigen::MatrixXd faceColors(loopTriF.rows(), 3);
 	for (int i = 0; i < faceColors.rows(); i++)
@@ -265,7 +267,7 @@ void updateFieldsInView()
 		loopedReal(i) = tmpZvals[i].real();
 	}
 
-	getWrinkledMesh(loopTriV, loopTriF, tmpZvals, &vertNeiFaces, wrinkledTrivNew, wrinkleAmpScalingRatio, true);
+	getWrinkledMesh(loopTriV, loopTriF, tmpZvals, &vertNeiFaces, wrinkledTrivNew, wrinkleAmpScalingRatio, isUseTangentCorrection);
 
 	igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko.obj", wrinkledTrivNew, loopTriF);
 
@@ -303,14 +305,17 @@ void updateFieldsInView()
 	Eigen::MatrixXd zuenkoNV;
 	buildVertexNeighboringInfo(MeshConnectivity(NF), NV.rows(), vertNeiEdges, vertNeiFaces);
 
-	getWrinkledMesh(NV, NF, zuenkoZvals, &vertNeiFaces, zuenkoNV, wrinkleAmpScalingRatio, true);
+	getWrinkledMesh(NV, NF, zuenkoZvals, &vertNeiFaces, zuenkoNV, wrinkleAmpScalingRatio, isUseTangentCorrection);
 
 	Eigen::VectorXd zuenkoAmp = loopedAmp, zuenkoPhase = loopedPhase;
+	Eigen::MatrixXd zuenkoNormal;
+	//igl::per_vertex_normals(NV, NF, zuenkoNormal);
 
 	for(int i = 0; i < loopTriV.rows(); i++)
 	{
 		zuenkoPhase(i) = std::arg(zuenkoZvals[i]);
 		zuenkoAmp(i) = std::abs(zuenkoZvals[i]);
+		//zuenkoNV.row(i) = NV.row(i) + zuenkoZvals[i].real() * zuenkoNormal.row(i);
 	}
 
 	polyscope::registerSurfaceMesh("Zuenko amp mesh", NV, NF);
@@ -440,6 +445,10 @@ void callback() {
 	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::Checkbox("is show vector fields", &isShowVectorFields))
+		{
+			updateFieldsInView();
+		}
+		if (ImGui::Checkbox("is use tangent correction", &isUseTangentCorrection))
 		{
 			updateFieldsInView();
 		}
