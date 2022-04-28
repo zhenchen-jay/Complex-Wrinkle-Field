@@ -8,23 +8,25 @@
 
 namespace IntrinsicFormula
 {
-	class WrinkleEditingStaticEdgeModel
+	class WrinkleEditingModel
 	{
 	public:
-		WrinkleEditingStaticEdgeModel()
+		WrinkleEditingModel()
 		{}
+		virtual ~WrinkleEditingModel() = default;
 
-		WrinkleEditingStaticEdgeModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio);
+		WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio);
 		// faceFlag: 0 for unselected faces, 1 for selected faces, -1 for the interface faces
 
-		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames);
-		void warmstart();
+		void faceFlagsSetup(const Eigen::VectorXi& faceFlags);
 
-		void convertVariable2List(const Eigen::VectorXd& x);
-		void convertList2Variable(Eigen::VectorXd& x);
+		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames);
 
 		std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
 		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
+
+		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
+		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
 
 		void setwzLists(std::vector<std::vector<std::complex<double>>>& zList, std::vector<Eigen::VectorXd>& wList)
 		{
@@ -32,43 +34,26 @@ namespace IntrinsicFormula
 			_edgeOmegaList = wList;
 		}
 
-		void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm)
-		{
-			int nFreeVerts = _freeVids.size();
-			int nFreeEdges = _freeEids.size();
-
-			int numFrames = _zvalsList.size() - 2;
-			int nDOFs = 2 * nFreeVerts + nFreeEdges;
-
-			znorm = 0;
-			wnorm = 0;
-
-			for (int i = 0; i < numFrames; i++)
-			{
-				for (int j = 0; j < nFreeVerts; j++)
-				{
-					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j)));
-					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j + 1)));
-				}
-				for (int j = 0; j < nFreeEdges; j++)
-				{
-					wnorm = std::max(wnorm, std::abs(x(i * nDOFs + 2 * nFreeVerts + j)));
-				}
-			}
-		}
-
-		double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false);
-		void testEnergy(Eigen::VectorXd x);
-
-		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
-		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
-
 		void getVertIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& vertFlags);
 		void getEdgeIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& edgeFlags);
 
-		void buildDOFs(const Eigen::VectorXi& faceFlags);
+		virtual void warmstart() = 0;
+		virtual void convertVariable2List(const Eigen::VectorXd& x) = 0;
+		virtual void convertList2Variable(Eigen::VectorXd& x) = 0;
 
-	private:
+		virtual void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm) = 0;
+
+		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) = 0;
+
+	protected:
+		// spatial-temporal energies
+		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
+		virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
+		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
+		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
+		virtual double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
+
+	protected:
 		void computeCombinedRefAmpList(const std::vector<Eigen::VectorXd>& refAmpList, std::vector<Eigen::VectorXd>* combinedOmegaList = NULL);
 
 		void computeCombinedRefOmegaList(const std::vector<Eigen::VectorXd>& refOmegaList);
@@ -86,17 +71,12 @@ namespace IntrinsicFormula
 		double divFreeEnergy(const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
 		double divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd* deriv = NULL, Eigen::MatrixXd* hess = NULL);
 
-
-		// spatial-temporal energies
-		double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-		double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-		double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-		double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
-		double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+		
 
 
 	public:
 		// testing functions
+		void testEnergy(Eigen::VectorXd x);
 		void testCurlFreeEnergy(const Eigen::VectorXd& w);
 		void testCurlFreeEnergyPerface(const Eigen::VectorXd& w, int faceId);
 
@@ -106,7 +86,7 @@ namespace IntrinsicFormula
 		void testAmpEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::VectorXd& w);
 		void testAmpEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, int faceId);
 
-	private:
+	protected:
 		Eigen::MatrixXd _pos;
 		MeshConnectivity _mesh;
 
@@ -125,18 +105,7 @@ namespace IntrinsicFormula
 		std::vector<int> _unselectedEids;
 		std::vector<int> _interfaceEids;
 
-		std::vector<int> _freeVids;		// the vertices inside the selected and interface faces
-		std::vector<int> _freeEids;		// the edges inside the selected and interface faces 
-		std::vector<int> _freeFids;		// selected faces + interface faces
-
-		Eigen::VectorXi _actualVid2Free;	// a vector indicates the map from the i-th vertex to its corresponding index in the _freeVids, -1 indicate the fixed vids
-		Eigen::VectorXi _actualEid2Free;	// a vector indicates the map from the i-th edge to its corresponding index in the _freeVids, -1 indicate the fixed vids
-
 		std::vector<double> _refAmpAveList;
-
-		Eigen::VectorXi _interfaceVertFlags;
-		Eigen::VectorXi _interfaceEdgeFlags;
-
 
 		std::vector<Eigen::VectorXd> _combinedRefAmpList;
 		std::vector<Eigen::VectorXd> _combinedRefOmegaList;
