@@ -61,7 +61,7 @@ void ComplexLoopAmpPhaseEdgeJump::_AssembleVertEvenInterior(int vi, TripletInser
 void ComplexLoopAmpPhaseEdgeJump::_AssembleVertEvenBoundary(int vi, TripletInserter outV, TripletInserter outE) const
 {
 	int row = _GetVertVertIndex(vi);
-	if (_isFixBnd)
+	if (!_isFixBnd)
 	{
 		std::vector<int> boundary(2);
 		boundary[0] = _mesh.GetVertEdges(vi).front();
