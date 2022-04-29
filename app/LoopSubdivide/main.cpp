@@ -98,7 +98,7 @@ void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::c
 
 	std::shared_ptr<ComplexLoop> loopOpt1 = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
 	loopOpt1->SetMesh(secMesh);
-	loopOpt1->setBndFixFlag(false);
+	loopOpt1->setBndFixFlag(isFixBnd);
 	loopOpt1->Subdivide(edgeVec, zvals, omegaNew, upZvals, loopLevel);
 	subSecMesh = (loopOpt1->GetMesh());
 	parseSecMesh(subSecMesh, loopTriV, loopTriF);
@@ -170,7 +170,7 @@ void updateFieldsInView()
 	Eigen::VectorXd edgeVec = swapEdgeVec(triF, initOmega, 0);
 	std::shared_ptr<ComplexLoop> loopOpt1 = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
 	loopOpt1->SetMesh(secMesh);
-	loopOpt1->setBndFixFlag(false);
+	loopOpt1->setBndFixFlag(isFixBnd);
 	loopOpt1->Subdivide(edgeVec, initZvals, loopedOmega, loopedZvals, loopLevel);
 	subSecMesh = loopOpt1->GetMesh();
 	parseSecMesh(subSecMesh, loopTriV, loopTriF);
@@ -458,6 +458,88 @@ void callback() {
 		updatePaintingItems();
 		updateFieldsInView();
 	}
+
+    if (ImGui::Button("test loop", ImVec2(-1, 0)))
+    {
+        std::shared_ptr<ComplexLoop> opt1, opt2;
+        opt1 = std::make_shared<ComplexLoopAmpPhase>();
+//        opt2 = std::make_shared<ComplexLoopZuenko>();
+        opt2 = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
+
+        opt1->SetMesh(secMesh);
+        opt2->SetMesh(secMesh);
+        opt1->setBndFixFlag(isFixBnd);
+        opt2->setBndFixFlag(isFixBnd);
+
+        Eigen::SparseMatrix<double> S0, S1;
+        opt2->BuildS0(S0);
+        opt2->BuildS1(S1);
+
+        int nverts = secMesh.GetVertCount();
+        int nedges = secMesh.GetEdgeCount();
+        Eigen::VectorXd testTheta = 4 * M_PI * Eigen::VectorXd::Random(nverts);
+        Eigen::VectorXd testAmp = Eigen::VectorXd::Random(nverts);
+        testAmp = testAmp.cwiseAbs();
+
+        std::vector<std::complex<double>> testZvals;
+        for(int i = 0; i < nverts; i++)
+        {
+            testZvals.push_back(testAmp(i) * std::complex<double>(std::cos(testTheta(i)), std::sin(testTheta(i))));
+        }
+
+        Eigen::VectorXd testOmega(nedges), testUpOmega;
+
+        for(int i = 0; i < nedges; i++)
+        {
+            int v0 = secMesh.GetEdgeVerts(i)[0];
+            int v1 = secMesh.GetEdgeVerts(i)[1];
+
+            testOmega(i) = testTheta(v1) - testTheta(v0);
+        }
+
+        std::vector<std::complex<double>> testUpZvals, testUpStandZvals;
+        opt2->Subdivide(testOmega, testZvals, testUpOmega, testUpZvals, 1);
+        opt1->Subdivide(testOmega, testZvals, testUpOmega, testUpStandZvals, 1);
+
+
+        Eigen::VectorXd testStandLoopAmp = S0 * testAmp;
+        Eigen::VectorXd testStandLoopTheta = S0 * testTheta;
+
+        Mesh testUpMesh = opt2->GetMesh();
+        int nupedges = testUpMesh.GetEdgeCount();
+        Eigen::VectorXd standLoopDTheta(nupedges), zuenkoloopDTheta(nupedges);
+
+        Eigen::VectorXd testZuenkoLoopAmp(testUpZvals.size()), testZuenkoLoopTheta(testUpZvals.size());
+
+        double sinDiff = 0;
+        for(int i = 0; i < testUpZvals.size(); i++)
+        {
+            testZuenkoLoopAmp(i)= std::abs(testUpZvals[i]);
+            testZuenkoLoopTheta(i) = std::arg(testUpZvals[i]);
+            sinDiff += std::pow(std::sin(testZuenkoLoopTheta(i)) - std::sin(testStandLoopTheta(i)), 2);
+        }
+
+        for(int i = 0; i < nupedges; i++)
+        {
+            int v0 = testUpMesh.GetEdgeVerts(i)[0];
+            int v1 = testUpMesh.GetEdgeVerts(i)[1];
+            standLoopDTheta(i) = testStandLoopTheta(v1) - testStandLoopTheta(v0);
+            zuenkoloopDTheta(i) = testZuenkoLoopTheta(v1) - testStandLoopTheta(v0);
+        }
+
+        std::cout << "amp error: " << (testZuenkoLoopAmp - testStandLoopAmp).norm() << std::endl;
+        std::cout << "theta error: " << (testZuenkoLoopTheta - testStandLoopTheta).norm() << ", sin theta error: " << sinDiff << std::endl;
+        std::cout << "rule check: " << (S1 * testOmega - testUpOmega).norm() << " " << (standLoopDTheta - testUpOmega).norm() << " " << (zuenkoloopDTheta - testUpOmega).norm() << std::endl;
+
+//        std::cout << "stand result, our result: " << std::endl;
+//        for(int i = 0; i < testUpZvals.size(); i++)
+//        {
+//            std::cout << "amp: " << i << " " << testStandLoopAmp(i) << " " << testZuenkoLoopAmp(i) << std::endl;
+//            std::cout << "theta: " << i << " " << testStandLoopTheta(i) << " " << testZuenkoLoopTheta(i) << std::endl;
+//            std::cout << "zvals: " << i << " " << testUpStandZvals[i] << " " << testUpZvals[i] << std::endl << std::endl;
+//        }
+
+    }
 
 	if (ImGui::Button("display informations", ImVec2(-1, 0)))
 	{
