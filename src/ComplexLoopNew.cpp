@@ -237,7 +237,7 @@ ComplexLoopNew::_AssembleVertEvenBoundary(int vi, TripletInserter out) const
 	boundary[1] = _meshPtr->GetVertEdges(vi).back();
 
 	int row = _GetVertVertIndex(vi);
-	for (int j = 0; j < boundary.size(); ++j)
+	/*for (int j = 0; j < boundary.size(); ++j)
 	{
 		int edge = boundary[j];
 		assert(_meshPtr->IsEdgeBoundary(edge));
@@ -245,7 +245,9 @@ ComplexLoopNew::_AssembleVertEvenBoundary(int vi, TripletInserter out) const
 		int vj = _meshPtr->GetEdgeVerts(edge)[(viInEdge + 1) % 2];
 		*out++ = TripletX(row, vj, 0.125);
 	}
-	*out++ = TripletX(row, vi, 0.75);
+	*out++ = TripletX(row, vi, 0.75);*/
+
+	*out++ = TripletX(row, vi, 1.0);
 }
 
 void
@@ -422,14 +424,18 @@ ComplexLoopNew::_AssembleEdgeEvenBoundary(int edge, int vertInEdge, TripletInser
 	if (edge == nEdge)
 	{
 		// Symmetric case of Fig8 right in [Wang et al. 2006]
-		*out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.375 : 0.375);
-		*out++ = TripletX(row, pEdge, (pSign == rSign) ? 0.125 : -0.125);
+		//*out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.375 : 0.375);
+		//*out++ = TripletX(row, pEdge, (pSign == rSign) ? 0.125 : -0.125);
+
+		*out++ = TripletX(row, nEdge, (nSign == rSign) ? -0.5 : 0.5);
 	}
 	else
 	{
 		// Fig8 right in [Wang et al. 2006]
-		*out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.375 : 0.375);
-		*out++ = TripletX(row, nEdge, (nSign == rSign) ? 0.125 : -0.125);
+		//*out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.375 : 0.375);
+		//*out++ = TripletX(row, nEdge, (nSign == rSign) ? 0.125 : -0.125);
+
+		*out++ = TripletX(row, pEdge, (pSign == rSign) ? -0.5 : 0.5);
 	}
 }
 
@@ -478,9 +484,13 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	if (faceCount == 2)
 	{
 		// Case not covered in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[1], 0.8125 / 3));
+		//eValues.push_back(std::make_pair(vEdges[2], 0.15625 / 3));
+
+		eValues.push_back(std::make_pair(vEdges[0], 0.53125 / 3));
 		eValues.push_back(std::make_pair(vEdges[1], 0.8125 / 3));
-		eValues.push_back(std::make_pair(vEdges[2], 0.15625 / 3));
+		eValues.push_back(std::make_pair(vEdges[2], 0.53125 / 3));
 
 		fValues.push_back(std::make_pair(vFaces[0], 0.15625 / 3));
 		fValues.push_back(std::make_pair(vFaces[1], -0.15625 / 3));
@@ -488,10 +498,15 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (faceCount == 3 && edgeInVert == 1)
 	{
 		// Fig10 mid-left in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
+		/*eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
 		eValues.push_back(std::make_pair(vEdges[1], 0.3125));
 		eValues.push_back(std::make_pair(vEdges[2], 0.09375));
-		eValues.push_back(std::make_pair(vEdges[3], -0.25 / 3));
+		eValues.push_back(std::make_pair(vEdges[3], -0.25 / 3));*/
+
+		eValues.push_back(std::make_pair(vEdges[0], 0.53125 / 3));
+		eValues.push_back(std::make_pair(vEdges[1], 0.3125));
+		eValues.push_back(std::make_pair(vEdges[2], 0.09375));
+		eValues.push_back(std::make_pair(vEdges[3], 0.125 / 3));
 
 		fValues.push_back(std::make_pair(vFaces[0], 0.15625 / 3));
 		fValues.push_back(std::make_pair(vFaces[1], -0.03125 / 3));
@@ -500,10 +515,15 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (faceCount == 3 && edgeInVert == 2)
 	{
 		// Symmetric case of Fig10 mid-left in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[3], 0.15625 / 3));
+		/*eValues.push_back(std::make_pair(vEdges[3], 0.15625 / 3));
 		eValues.push_back(std::make_pair(vEdges[2], 0.3125));
 		eValues.push_back(std::make_pair(vEdges[1], 0.09375));
-		eValues.push_back(std::make_pair(vEdges[0], -0.25 / 3));
+		eValues.push_back(std::make_pair(vEdges[0], -0.25 / 3));*/
+
+		eValues.push_back(std::make_pair(vEdges[3], 0.53125 / 3));
+		eValues.push_back(std::make_pair(vEdges[2], 0.3125));
+		eValues.push_back(std::make_pair(vEdges[1], 0.09375));
+		eValues.push_back(std::make_pair(vEdges[0], 0.125 / 3));
 
 		fValues.push_back(std::make_pair(vFaces[2], -0.15625 / 3));
 		fValues.push_back(std::make_pair(vFaces[1], 0.03125 / 3));
@@ -512,11 +532,17 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (faceCount == 4 && edgeInVert == 2)
 	{
 		// Fig10 mid-right in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[0], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[0], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[1], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[2], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[3], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[4], -0.09375));
+
+		eValues.push_back(std::make_pair(vEdges[0], 0.03125));
 		eValues.push_back(std::make_pair(vEdges[1], 0.125));
 		eValues.push_back(std::make_pair(vEdges[2], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[3], 0.125));
-		eValues.push_back(std::make_pair(vEdges[4], -0.09375));
+		eValues.push_back(std::make_pair(vEdges[4], 0.03125));
 
 		fValues.push_back(std::make_pair(vFaces[0], 0.03125));
 		fValues.push_back(std::make_pair(vFaces[1], 0.03125));
@@ -526,11 +552,16 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (edgeInVert == 1)
 	{
 		// Fig.10 mid-mid in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[0], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[1], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[2], 0.09375));
+		//eValues.push_back(std::make_pair(vEdges[3], 0.125 / 3));
+		//eValues.push_back(std::make_pair(vEdges.back(), -0.125));
+
+		eValues.push_back(std::make_pair(vEdges[0], 0.53125 / 3));
 		eValues.push_back(std::make_pair(vEdges[1], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[2], 0.09375));
 		eValues.push_back(std::make_pair(vEdges[3], 0.125 / 3));
-		eValues.push_back(std::make_pair(vEdges.back(), -0.125));
 
 		fValues.push_back(std::make_pair(vFaces[0], 0.15625 / 3));
 		fValues.push_back(std::make_pair(vFaces[1], -0.03125 / 3));
@@ -539,11 +570,16 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (edgeInVert == edgeCount - 2)
 	{
 		// Symmetric case of Fig.10 mid-mid in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[edgeCount - 1], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 1], 0.15625 / 3));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 2], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 3], 0.09375));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 4], 0.125 / 3));
+		//eValues.push_back(std::make_pair(vEdges.front(), -0.125));
+
+		eValues.push_back(std::make_pair(vEdges[edgeCount - 1], 0.53125 / 3));
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 2], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 3], 0.09375));
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 4], 0.125 / 3));
-		eValues.push_back(std::make_pair(vEdges.front(), -0.125));
 
 		fValues.push_back(std::make_pair(vFaces[faceCount - 1], -0.15625 / 3));
 		fValues.push_back(std::make_pair(vFaces[faceCount - 2], 0.03125 / 3));
@@ -552,12 +588,18 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (edgeInVert == 2)
 	{
 		// Fig10 bot-left in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[0], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[0], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[1], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[2], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[3], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[4], 0.03125));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 1], -0.125));
+
+		eValues.push_back(std::make_pair(vEdges[0], 0.03125));
 		eValues.push_back(std::make_pair(vEdges[1], 0.125));
 		eValues.push_back(std::make_pair(vEdges[2], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[3], 0.125));
 		eValues.push_back(std::make_pair(vEdges[4], 0.03125));
-		eValues.push_back(std::make_pair(vEdges[edgeCount - 1], -0.125));
 
 		fValues.push_back(std::make_pair(vFaces[0], 0.03125));
 		fValues.push_back(std::make_pair(vFaces[1], 0.03125));
@@ -567,12 +609,18 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else if (edgeInVert == edgeCount - 3)
 	{
 		// Symmetric case of Fig10 bot-left in [Wang et al. 2006]
-		eValues.push_back(std::make_pair(vEdges[edgeCount - 1], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 1], -0.09375));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 2], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 3], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 4], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[edgeCount - 5], 0.03125));
+		//eValues.push_back(std::make_pair(vEdges[0], -0.125));
+
+		eValues.push_back(std::make_pair(vEdges[edgeCount - 1], 0.03125));
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 2], 0.125));
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 3], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 4], 0.125));
 		eValues.push_back(std::make_pair(vEdges[edgeCount - 5], 0.03125));
-		eValues.push_back(std::make_pair(vEdges[0], -0.125));
 
 		fValues.push_back(std::make_pair(vFaces[faceCount - 1], -0.03125));
 		fValues.push_back(std::make_pair(vFaces[faceCount - 2], -0.03125));
@@ -582,13 +630,19 @@ ComplexLoopNew::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, Tripl
 	else
 	{
 		// Fig10 bot-mid in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[edgeInVert - 2], 0.03125));
+		//eValues.push_back(std::make_pair(vEdges[edgeInVert - 1], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[edgeInVert], 0.3125)); // typo in [Wang et al. 2006]
+		//eValues.push_back(std::make_pair(vEdges[edgeInVert + 1], 0.125));
+		//eValues.push_back(std::make_pair(vEdges[edgeInVert + 2], 0.03125));
+		//eValues.push_back(std::make_pair(vEdges.front(), -0.125));
+		//eValues.push_back(std::make_pair(vEdges.back(), -0.125));
+
 		eValues.push_back(std::make_pair(vEdges[edgeInVert - 2], 0.03125));
 		eValues.push_back(std::make_pair(vEdges[edgeInVert - 1], 0.125));
 		eValues.push_back(std::make_pair(vEdges[edgeInVert], 0.3125)); // typo in [Wang et al. 2006]
 		eValues.push_back(std::make_pair(vEdges[edgeInVert + 1], 0.125));
 		eValues.push_back(std::make_pair(vEdges[edgeInVert + 2], 0.03125));
-		eValues.push_back(std::make_pair(vEdges.front(), -0.125));
-		eValues.push_back(std::make_pair(vEdges.back(), -0.125));
 
 		fValues.push_back(std::make_pair(vFaces[edgeInVert - 2], 0.03125));
 		fValues.push_back(std::make_pair(vFaces[edgeInVert - 1], 0.03125));
@@ -851,7 +905,7 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 	{
 		if (mesh.IsVertBoundary(vi))
 		{
-			std::vector<int> boundary(2);
+			/*std::vector<int> boundary(2);
 			boundary[0] = mesh.GetVertEdges(vi).front();
 			boundary[1] = mesh.GetVertEdges(vi).back();
 
@@ -886,7 +940,8 @@ void updateLoopedZvals(const Mesh& mesh, const Eigen::VectorXd& omega, const std
 					gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
 
 			}
-			upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
+			upZvals[vi] = interpZ(zp, gradthetap, coords, pList);*/
+			upZvals[vi] = zvals[vi];
 		}
 		else
 		{
