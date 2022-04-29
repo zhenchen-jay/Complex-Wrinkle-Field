@@ -11,7 +11,11 @@
 #include "polyscope/surface_mesh.h"
 
 #include "../../dep/SecStencils/Mesh.h"
-#include "../../include/ComplexLoopNew.h"
+#include "../../include/ComplexLoop/ComplexLoop.h"
+#include "../../include/ComplexLoop/ComplexLoopAmpPhase.h"
+#include "../../include/ComplexLoop/ComplexLoopAmpPhaseEdgeJump.h"
+#include "../../include/ComplexLoop/ComplexLoopReIm.h"
+#include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/SecMeshParsing.h"
 
 #include "imgui.h"
@@ -731,7 +735,11 @@ void wrinkleExtraction()
 		Eigen::VectorXd secEdgeVec = swapEdgeVec(triMesh.faces(), edgeVec, 0);
 		Eigen::VectorXd subEdgeVec;
 
-		complexLoopSubdivision(secMesh, secEdgeVec, vertZvals, subEdgeVec, upsampledZvals, upsampleTimes, subSecMesh);
+		std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+		complexLoopOpt->setBndFixFlag(true);
+		complexLoopOpt->SetMesh(secMesh);
+		complexLoopOpt->Subdivide(secEdgeVec, vertZvals, subEdgeVec, upsampledZvals, upsampleTimes);
+		subSecMesh = complexLoopOpt->GetMesh();
 		parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
 	}
 	else
