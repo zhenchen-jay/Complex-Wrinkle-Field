@@ -254,24 +254,28 @@ void updateFieldsInView()
 
 	Eigen::VectorXd loopedOmegaNew = loopedOmega, loopedAmpNew = loopedAmp, loopedPhaseNew = loopedPhase;
 
-	complexLoopSubdivision(secMesh, edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel, subSecMesh);
+	Eigen::MatrixXd loopTriVNew;
+	Eigen::MatrixXi loopTriFNew;
 
-	Eigen::MatrixXd wrinkledTrivNew = loopTriV;
+	complexLoopSubdivision(secMesh, edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel, subSecMesh);
+	parseSecMesh(subSecMesh, loopTriVNew, loopTriFNew);
+
+	Eigen::MatrixXd wrinkledTrivNew = loopTriVNew;
 
 	Eigen::VectorXd loopedReal = loopedAmp;
 
-	for (int i = 0; i < loopTriV.rows(); i++)
+	for (int i = 0; i < loopTriVNew.rows(); i++)
 	{
 		loopedPhaseNew(i) = std::arg(tmpZvals[i]);
 		loopedAmpNew(i) = std::abs(tmpZvals[i]);
 		loopedReal(i) = tmpZvals[i].real();
 	}
 
-	getWrinkledMesh(loopTriV, loopTriF, tmpZvals, &vertNeiFaces, wrinkledTrivNew, wrinkleAmpScalingRatio, isUseTangentCorrection);
+	getWrinkledMesh(loopTriVNew, loopTriFNew, tmpZvals, &vertNeiFaces, wrinkledTrivNew, wrinkleAmpScalingRatio, isUseTangentCorrection);
 
-	igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko.obj", wrinkledTrivNew, loopTriF);
+	igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko.obj", wrinkledTrivNew, loopTriFNew);
 
-	polyscope::registerSurfaceMesh("Loop-Zuenko amp mesh", loopTriV, loopTriF);
+	polyscope::registerSurfaceMesh("Loop-Zuenko amp mesh", loopTriVNew, loopTriFNew);
 	polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
 	//polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->setEnabled(false);
 
@@ -284,7 +288,7 @@ void updateFieldsInView()
 		polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmegaNew);
 	}
 
-	polyscope::registerSurfaceMesh("Loop-Zuenko phase mesh", loopTriV, loopTriF);
+	polyscope::registerSurfaceMesh("Loop-Zuenko phase mesh", loopTriVNew, loopTriFNew);
 	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
 	//polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->setEnabled(true);
 
@@ -294,7 +298,7 @@ void updateFieldsInView()
 	//polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
 	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexScalarQuantity("real-z color", loopedReal);
 
-	polyscope::registerSurfaceMesh("Loop-Zuenko mesh", wrinkledTrivNew, loopTriF);
+	polyscope::registerSurfaceMesh("Loop-Zuenko mesh", wrinkledTrivNew, loopTriFNew);
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setEnabled(true);
@@ -508,21 +512,33 @@ void callback() {
 
 		std::cout << "\nloop level: " << loopLevel << std::endl;
 		std::cout << "\nvertex info: " << std::endl;
-		for(int i = 0; i < loopTriV.rows(); i++)
+
+		Eigen::VectorXd loopedOmegaNew = loopedOmega, loopedAmpNew = loopedAmp, loopedPhaseNew = loopedPhase;
+
+		Eigen::MatrixXd loopTriVNew;
+		Eigen::MatrixXi loopTriFNew;
+
+		Eigen::VectorXd edgeVec = swapEdgeVec(triF, initOmega, 0);
+		std::vector<std::complex<double>> tmpZvals;
+
+		complexLoopSubdivision(secMesh, edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel, subSecMesh);
+		parseSecMesh(subSecMesh, loopTriVNew, loopTriFNew);
+
+		for(int i = 0; i < loopTriVNew.rows(); i++)
 		{
-			std::cout << "v_" << i << ": " << loopTriV.row(i) << ", theta: " << loopedPhase(i) << ", amp: " << loopedAmp(i) << ", zvals: (" << loopedZvals[i].real() << ", " << loopedZvals[i].imag() << ")" << std::endl;
+			std::cout << "v_" << i << ": " << loopTriVNew.row(i) << ", theta: " << std::arg(tmpZvals[i]) << ", amp: " << std::abs(tmpZvals[i]) << ", zvals: (" << tmpZvals[i].real() << ", " << tmpZvals[i].imag() << ")" << std::endl;
 		}
 
 		std::cout << "\nedge info: " << std::endl;
 		for(int i = 0; i < subSecMesh.GetEdgeCount(); i++)
 		{
-			std::cout << "e_" << i << ": " << "edge vertex: " << subSecMesh.GetEdgeVerts(i)[0] << " " << subSecMesh.GetEdgeVerts(i)[1] << ", w: " << loopedOmega(i) << std::endl;
+			std::cout << "e_" << i << ": " << "edge vertex: " << subSecMesh.GetEdgeVerts(i)[0] << " " << subSecMesh.GetEdgeVerts(i)[1] << ", w: " << loopedOmegaNew(i) << std::endl;
 		}
 
 		std::cout << "\nface info: " << std::endl;
-		for(int i = 0; i < loopTriF.rows(); i++)
+		for(int i = 0; i < loopTriFNew.rows(); i++)
 		{
-			std::cout << "f_" << i << ": " << loopTriF.row(i) << std::endl;
+			std::cout << "f_" << i << ": " << loopTriFNew.row(i) << std::endl;
 		}
 	}
 
