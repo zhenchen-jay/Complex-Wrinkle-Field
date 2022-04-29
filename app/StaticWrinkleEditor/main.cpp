@@ -36,7 +36,11 @@
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
-#include "../../include/ComplexLoopNew.h"
+#include "../../include/ComplexLoop/ComplexLoop.h"
+#include "../../include/ComplexLoop/ComplexLoopAmpPhase.h"
+#include "../../include/ComplexLoop/ComplexLoopAmpPhaseEdgeJump.h"
+#include "../../include/ComplexLoop/ComplexLoopReIm.h"
+#include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
 #include "../../include/MeshLib/RegionEdition.h"
@@ -536,10 +540,13 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			s
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			Mesh tmpMesh;
+			
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
-			complexLoopSubdivision(secMesh, edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes, tmpMesh);
-
+			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+			complexLoopOpt->setBndFixFlag(true);
+			complexLoopOpt->SetMesh(secMesh);
+			complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
+			Mesh tmpMesh = complexLoopOpt->GetMesh();
 			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
 
 			magList[i].setZero(upZFrames[i].size());
