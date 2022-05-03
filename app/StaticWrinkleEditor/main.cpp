@@ -184,6 +184,10 @@ std::string workingFolder;
 
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
 
+// smoothing
+int smoothingTimes = 1;
+double smoothingRatio = 0.95;
+
 //IntrinsicFormula::WrinkleEditingLocalModel editModel;
 
 struct PickedFace
@@ -782,6 +786,7 @@ void registerMesh(int frameId)
 
 	// wrinkle mesh
 	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
+	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
 	polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
 	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
@@ -1168,14 +1173,10 @@ bool saveProblem()
 
 	for (int i = 0; i < ampFieldsList.size(); i++)
 	{
-		Eigen::MatrixXd wrinkledV = upsampledTriV;
-		for (int j = 0; j < upsampledTriV.rows(); j++)
-		{
-			wrinkledV.row(j) = upsampledTriV.row(j) + ampFieldsList[i](j) * std::cos(phaseFieldsList[i][j]) * N.row(j);
-		}
-
-		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
-        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", wrinkledV, upsampledTriF);
+		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
+		Eigen::MatrixXd lapWrinkledV;
+		laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
+        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
 
 		/*Eigen::MatrixXd upWrinkledV;
 		Eigen::MatrixXi upWrinkledF;
@@ -1232,16 +1233,41 @@ void callback() {
 		curFrame = 0;
 		updateFieldsInView(curFrame);
 	}
-
-	if (ImGui::InputInt("upsampled times", &upsampleTimes))
+	ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+	if (ImGui::BeginTabBar("Visualization Options", tab_bar_flags))
 	{
-		if (upsampleTimes >= 0)
+		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
 		{
-			getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-			updatePaintingItems();
-			updateFieldsInView(curFrame);
+			if (ImGui::InputInt("smoothing times", &smoothingTimes))
+			{
+				smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
+				updatePaintingItems();
+				updateFieldsInView(curFrame);
+			}
+			if (ImGui::InputDouble("smoothing ratio", &smoothingRatio))
+			{
+				smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
+				updatePaintingItems();
+				updateFieldsInView(curFrame);
+			}
+			ImGui::EndTabItem();
 		}
+		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
+		{
+			if (ImGui::InputInt("upsampled level", &upsampleTimes))
+			{
+				if (upsampleTimes >= 0)
+				{
+					getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+					updatePaintingItems();
+					updateFieldsInView(curFrame);
+				}
+			}
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
 	}
+
 	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::Checkbox("is show vector fields", &isShowVectorFields))
@@ -1310,7 +1336,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Combo("model yype", (int*)&editModelType, "Global\0Local\0");
+		ImGui::Combo("model type", (int*)&editModelType, "Global\0Local\0");
 		if (ImGui::InputInt("num of frames", &numFrames))
 		{
 			if (numFrames <= 0)
