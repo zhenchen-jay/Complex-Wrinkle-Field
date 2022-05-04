@@ -8,6 +8,7 @@
 #include <igl/boundary_loop.h>
 #include <igl/doublearea.h>
 #include <igl/loop.h>
+#include <igl/decimate.h>
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/cotmatrix_entries.h>
@@ -617,7 +618,7 @@ int main(int argc, char** argv)
 		std::cout << "failed to load file." << std::endl;
 		return 1;
 	}
-
+	
 	// Options
 	polyscope::options::autocenterStructures = true;
 	polyscope::view::windowWidth = 1024;
