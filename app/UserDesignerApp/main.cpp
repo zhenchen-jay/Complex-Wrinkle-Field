@@ -35,6 +35,7 @@
 #include <igl/per_vertex_normals.h>
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
+#include <igl/readOBJ.h>
 #include <igl/writeOBJ.h>
 
 #include <sstream>
@@ -382,10 +383,14 @@ void loadBaseMesh(const std::string& meshPath)
 	geometry->requireVertexIndices();
 
 	// Register the mesh with polyscope
-	psMesh = polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
+	polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
 
 	convertGeoCentralMesh(*mesh, *geometry, triV, triMesh);
-
+	double shiftx = 1.2 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+	Eigen::MatrixXd shiftedV = triV;
+	shiftedV.setZero();
+	shiftedV.col(0).setConstant(shiftx);
+	psMesh = polyscope::registerSurfaceMesh("extended mesh", triV + shiftedV, triMesh.faces());
 
 	// Set vertex tangent spaces
 	VertexData<geometrycentral::Vector3> vBasisX(*mesh);
@@ -596,10 +601,28 @@ void updateSourceSetViz()
 
 	// Vectors at sources
 	VertexData<geometrycentral::Vector2> sourceVectors(*mesh, geometrycentral::Vector2::zero());
+	Eigen::VectorXd ampList = Eigen::VectorXd::Zero(mesh->nVertices());
 	for (SourceVert& s : sourcePoints) 
 	{
 		sourceVectors[s.vertex] = geometrycentral::Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
 	}
+
+	std::vector<std::vector<std::pair<int, double>>> effectiveVids;
+	getSourceEffectedVids(triMesh, triV.rows(), sourcePoints, effectiveVids, NULL);
+	for (auto& it : effectiveVids)
+	{
+		for (int i = 0; i < it.size(); i++)
+		{
+			int vid = it[i].first;
+			ampList(vid) = it[i].second;
+		}
+	}
+	auto ampColor = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("Selected Amp", ampList);
+	if (vizFirstRun)
+	{
+		ampColor->setEnabled(true);
+	}
+
 	auto vectorQ = polyscope::getSurfaceMesh("base mesh")->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
 	vectorQ->setVectorLengthScale(.05);
 	vectorQ->setVectorRadius(.005);
@@ -769,8 +792,8 @@ void wrinkleExtraction()
 		laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes);
 
 	PaintGeometry mpaint;
-	mpaint.setNormalization(true);
-	Eigen::MatrixXd ampColor = mpaint.paintAmplitude(mag);
+	/*mpaint.setNormalization(true);
+	Eigen::MatrixXd ampColor = mpaint.paintAmplitude(mag);*/
 
 	std::cout << "upsampled mag range: " << mag.minCoeff() << " " << mag.maxCoeff() << std::endl;
 
@@ -780,7 +803,7 @@ void wrinkleExtraction()
 	int nupverts = upsampledTriV.rows();
 	int nupfaces = upsampledTriF.rows();
 
-	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+	double shiftx = 1.2 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 
 	std::cout << "shift x: " << shiftx << std::endl;
 
@@ -789,19 +812,19 @@ void wrinkleExtraction()
 		wrinkleColor.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
 
 	Eigen::MatrixXd shiftV = Eigen::MatrixXd::Zero(nupverts, 3);
-	shiftV.col(0).setConstant(-shiftx);
+	shiftV.col(0).setConstant(shiftx);
 
-	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV + shiftV, upsampledTriF); 
+	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV + 2 * shiftV, upsampledTriF); 
 	polyscope::getSurfaceMesh("wrinkled mesh")->addVertexColorQuantity("VertexColor", wrinkleColor);
 	polyscope::getSurfaceMesh("wrinkled mesh")->getQuantity("VertexColor")->setEnabled(true);
 
 
-	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV + 2* shiftV, upsampledTriF);
+	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV + 3 * shiftV, upsampledTriF);
 	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("VertexColor", phiColor);
 	polyscope::getSurfaceMesh("phase mesh")->getQuantity("VertexColor")->setEnabled(true);
 
-	polyscope::registerSurfaceMesh("ampliude mesh", upsampledTriV + 3 * shiftV, upsampledTriF);
-	polyscope::getSurfaceMesh("ampliude mesh")->addVertexColorQuantity("VertexColor", ampColor);
+	polyscope::registerSurfaceMesh("ampliude mesh", upsampledTriV + 4 * shiftV, upsampledTriF);
+	polyscope::getSurfaceMesh("ampliude mesh")->addVertexScalarQuantity("VertexColor", mag);
 	polyscope::getSurfaceMesh("ampliude mesh")->getQuantity("VertexColor")->setEnabled(true);
 
 
@@ -840,6 +863,7 @@ void buildPointsMenu()
 
 		ImGui::Unindent();
 		ImGui::PopID();
+		id++;
 	}
 	ImGui::PopItemWidth();
 
@@ -959,6 +983,20 @@ int main(int argc, char** argv) {
 	load();
 	updateSourceSetViz();
 	wrinkleExtraction();
+	Eigen::MatrixXd swappedV;
+	Eigen::MatrixXi swappedF;
+	swappedV = triV;
+	swappedF = triMesh.faces();
+
+	Eigen::Matrix3d rot;
+	rot << 0, 0, 1,
+		   0, 1, 0,
+		   1, 0, 0;
+	swappedV = (rot * triV.transpose()).transpose();
+
+
+	//igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/userDesign/spot/mesh_2.obj", swappedV, swappedF);
+
 
 
 	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
