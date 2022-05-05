@@ -984,7 +984,7 @@ int main(int argc, char** argv)
     std::vector<std::complex<double>> cylinderZvals;
     generateCylinderWaves(1.0, 5.0, 0.1, 10, 0.1, cylinderV, cylinderF, cylinderAmp, cylinderOmega, cylinderZvals);
 
-    std::string filePath = std::filesystem::current_path();
+    std::string filePath = std::filesystem::current_path().string();
     std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
     int id = filePath.rfind("/");
     std::string workingFolder = filePath.substr(0, id + 1);

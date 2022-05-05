@@ -185,7 +185,7 @@ std::string workingFolder;
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
 
 // smoothing
-int smoothingTimes = 1;
+int smoothingTimes = 0;
 double smoothingRatio = 0.95;
 
 //IntrinsicFormula::WrinkleEditingLocalModel editModel;
@@ -275,6 +275,10 @@ enum ModelType
 	GlobalModel = 0,
 	LocalModel = 1
 };
+
+InitializationType initType = Linear;
+double zuenkoTau = 0.1;
+int zuenkoIter = 5;
 
 ModelType editModelType = GlobalModel;
 
@@ -691,7 +695,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 	else
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-	editModel->initialization(initZvals, initOmega, numFrames - 2);
+	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 	
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
@@ -768,7 +772,8 @@ void registerMesh(int frameId)
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
 	polyscope::registerSurfaceMesh("reference mesh", triV, triF);
 	polyscope::getSurfaceMesh("reference mesh")->translate({ shiftx, 0, 0 });
-	polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
+	auto refAmp = polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
+	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
 
 	// phase pattern
@@ -781,7 +786,8 @@ void registerMesh(int frameId)
 	// amp pattern
 	polyscope::registerSurfaceMesh("upsampled ampliude and frequency mesh", upsampledTriV, upsampledTriF);
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->translate({ 3 * shiftx, 0, 0 });
-	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("vertex amplitude", ampFieldsList[frameId]);
+	auto ampPatterns = polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("vertex amplitude", ampFieldsList[frameId]);
+	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
 	// wrinkle mesh
@@ -1026,7 +1032,7 @@ bool loadProblem()
 	{
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-		editModel->initialization(initZvals, initOmega, numFrames - 2);
+		editModel->initialization(initZvals, initOmega, numFrames - 2, Linear, 0.1);
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -1236,6 +1242,19 @@ void callback() {
 	ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
 	if (ImGui::BeginTabBar("Visualization Options", tab_bar_flags))
 	{
+		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
+		{
+			if (ImGui::InputInt("upsampled level", &upsampleTimes))
+			{
+				if (upsampleTimes >= 0)
+				{
+					getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+					updatePaintingItems();
+					updateFieldsInView(curFrame);
+				}
+			}
+			ImGui::EndTabItem();
+		}
 		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
 		{
 			if (ImGui::InputInt("smoothing times", &smoothingTimes))
@@ -1249,19 +1268,6 @@ void callback() {
 				smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
 //				updatePaintingItems();
 				updateFieldsInView(curFrame);
-			}
-			ImGui::EndTabItem();
-		}
-		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
-		{
-			if (ImGui::InputInt("upsampled level", &upsampleTimes))
-			{
-				if (upsampleTimes >= 0)
-				{
-					getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-					updatePaintingItems();
-					updateFieldsInView(curFrame);
-				}
 			}
 			ImGui::EndTabItem();
 		}
@@ -1325,8 +1331,8 @@ void callback() {
 	{
 		if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames - 1))
 		{
-			if (curFrame >= 0 && curFrame <= numFrames - 1)
-				updateFieldsInView(curFrame);
+			curFrame = curFrame % numFrames;
+			updateFieldsInView(curFrame);
 		}
 		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.00005, 0, 1))
 		{
@@ -1337,6 +1343,17 @@ void callback() {
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("model type", (int*)&editModelType, "Global\0Local\0");
+		ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
+		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
+		{
+			if (zuenkoTau < 0)
+				zuenkoTau = 0;
+		}
+		if (ImGui::InputInt("Zuenko Inner Iter", &zuenkoIter))
+		{
+			if (zuenkoIter < 0)
+				zuenkoTau = 5;
+		}
 		if (ImGui::InputInt("num of frames", &numFrames))
 		{
 			if (numFrames <= 0)
