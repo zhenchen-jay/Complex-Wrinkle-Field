@@ -28,6 +28,8 @@
 #include "../../include/Visualization/PaintGeometry.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/json.hpp"
+#include "../../include/LoadSaveIO.h"
+#include "../../include/testMeshGeneration.h"
 
 #include <igl/doublearea.h>
 #include <igl/cotmatrix_entries.h>
@@ -974,7 +976,25 @@ void myCallback() {
 	}
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
+    Eigen::MatrixXd cylinderV;
+    Eigen::MatrixXi cylinderF;
+    Eigen::VectorXd cylinderAmp, cylinderOmega;
+    std::vector<std::complex<double>> cylinderZvals;
+    generateCylinderWaves(1.0, 5.0, 0.1, 10, 0.1, cylinderV, cylinderF, cylinderAmp, cylinderOmega, cylinderZvals);
+
+    std::string filePath = std::filesystem::current_path();
+    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+    int id = filePath.rfind("/");
+    std::string workingFolder = filePath.substr(0, id + 1);
+    std::cout << "working folder: " << workingFolder << std::endl;
+
+    saveEdgeOmega(workingFolder + "/cylinder_omega.txt", cylinderOmega);
+    saveVertexZvals(workingFolder + "/cylinder_zvals.txt", cylinderZvals);
+    saveVertexAmp(workingFolder + "/cylinder_amp.txt", cylinderAmp);
+    igl::writeOBJ(workingFolder + "/cylinder_mesh.obj", cylinderV, cylinderF);
+    
 	// Initialize polyscope
 	polyscope::init();
 
@@ -983,19 +1003,6 @@ int main(int argc, char** argv) {
 	load();
 	updateSourceSetViz();
 	wrinkleExtraction();
-	Eigen::MatrixXd swappedV;
-	Eigen::MatrixXi swappedF;
-	swappedV = triV;
-	swappedF = triMesh.faces();
-
-	Eigen::Matrix3d rot;
-	rot << 0, 0, 1,
-		   0, 1, 0,
-		   1, 0, 0;
-	swappedV = (rot * triV.transpose()).transpose();
-
-
-	//igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/userDesign/spot/mesh_2.obj", swappedV, swappedF);
 
 
 

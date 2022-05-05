@@ -18,69 +18,76 @@ namespace IntrinsicFormula
 
 			_faceWeight.setZero(nfaces);
 			_vertWeight.setZero(nverts);
-			// build geodesics
-			// Precomputation
-			igl::HeatGeodesicsData<double> data;
-			double t = std::pow(igl::avg_edge_length(_pos, _mesh.faces()), 2);
-			const auto precompute = [&]()
-			{
-				if (!igl::heat_geodesics_precompute(_pos, _mesh.faces(), t, data))
-				{
-					std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
-					exit(EXIT_FAILURE);
-				};
-			};
-			precompute();
 
-			Eigen::VectorXi selectedEdgeFlags, selectedVertFlags;
-			getVertIdinGivenDomain(_selectedFids, selectedVertFlags);
-			getEdgeIdinGivenDomain(_selectedFids, selectedEdgeFlags);
+            if(_selectedVids.size())
+            {
+                // build geodesics
+                // Precomputation
+                igl::HeatGeodesicsData<double> data;
+                double t = std::pow(igl::avg_edge_length(_pos, _mesh.faces()), 2);
+                const auto precompute = [&]()
+                {
+                    if (!igl::heat_geodesics_precompute(_pos, _mesh.faces(), t, data))
+                    {
+                        std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
+                        exit(EXIT_FAILURE);
+                    };
+                };
+                precompute();
 
-			// interface edges and verts
-			Eigen::VectorXi interfaceEdgeFlags, interfaceVertFlags;
-			getVertIdinGivenDomain(_interfaceFids, interfaceVertFlags);
-			getEdgeIdinGivenDomain(_interfaceFids, interfaceEdgeFlags);
+                Eigen::VectorXi selectedEdgeFlags, selectedVertFlags;
+                getVertIdinGivenDomain(_selectedFids, selectedVertFlags);
+                getEdgeIdinGivenDomain(_selectedFids, selectedEdgeFlags);
 
-			std::vector<int> sourceVerts;
-			for (int i = 0; i < nverts; i++)
-			{
-				if (selectedVertFlags(i))
-					sourceVerts.push_back(i);
-				else if (interfaceVertFlags(i))
-					sourceVerts.push_back(i);
-			}
-			Eigen::VectorXi gamma(sourceVerts.size());
-			for (int i = 0; i < gamma.rows(); i++)
-				gamma(i) = sourceVerts[i];
+                // interface edges and verts
+                Eigen::VectorXi interfaceEdgeFlags, interfaceVertFlags;
+                getVertIdinGivenDomain(_interfaceFids, interfaceVertFlags);
+                getEdgeIdinGivenDomain(_interfaceFids, interfaceEdgeFlags);
 
-			Eigen::VectorXd dis;
-			igl::heat_geodesics_solve(data, gamma, dis);
+                std::vector<int> sourceVerts;
+                for (int i = 0; i < nverts; i++)
+                {
+                    if (selectedVertFlags(i))
+                        sourceVerts.push_back(i);
+                    else if (interfaceVertFlags(i))
+                        sourceVerts.push_back(i);
+                }
+                Eigen::VectorXi gamma(sourceVerts.size());
+                for (int i = 0; i < gamma.rows(); i++)
+                    gamma(i) = sourceVerts[i];
 
-			for (int i = 0; i < nverts; i++)
-			{
-				if (selectedVertFlags(i) || interfaceVertFlags(i))
-					dis(i) = 0;
-			}
-			
-			double min = dis.minCoeff();
-			double max = dis.maxCoeff();
+                Eigen::VectorXd dis;
+                igl::heat_geodesics_solve(data, gamma, dis);
 
-			std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
+                for (int i = 0; i < nverts; i++)
+                {
+                    if (selectedVertFlags(i) || interfaceVertFlags(i))
+                        dis(i) = 0;
+                }
 
-			double mu = 0;
-			double sigma = (max - min) / 4;
+                double min = dis.minCoeff();
+                double max = dis.maxCoeff();
 
-			for (int i = 0; i < nfaces; i++)
-			{
-				for (int j = 0; j < 3; j++)
-				{
-					int vid = _mesh.faceVertex(i, j);
-					double weight = expGrowth(dis(vid), mu, sigma);
-					_vertWeight(vid) = weight;
-					_faceWeight(i) += weight / 3;
-				}
-			}
-			std::cout << "face weight min: " << _faceWeight.minCoeff() << ", face weight max: " << _faceWeight.maxCoeff() << std::endl;
+                std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
+
+                double mu = 0;
+                double sigma = (max - min) / 4;
+
+                for (int i = 0; i < nfaces; i++)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        int vid = _mesh.faceVertex(i, j);
+                        double weight = expGrowth(dis(vid), mu, sigma);
+                        _vertWeight(vid) = weight;
+                        _faceWeight(i) += weight / 3;
+                    }
+                }
+                std::cout << "face weight min: " << _faceWeight.minCoeff() << ", face weight max: " << _faceWeight.maxCoeff() << std::endl;
+            }
+            else
+                _faceWeight.setConstant(1.0);
+
 		}
 		void warmstart();
 
