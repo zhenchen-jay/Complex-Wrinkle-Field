@@ -38,6 +38,13 @@ enum VecMotionType
     None = 3
 };
 
+enum InitializationType
+{
+    Linear = 0,
+    Zuenko = 1, 
+    Knoppel = 2
+};
+
 struct VertexOpInfo
 {
     VecMotionType vecOptType = None;

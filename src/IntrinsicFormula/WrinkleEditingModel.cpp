@@ -168,7 +168,7 @@ void WrinkleEditingModel::getEdgeIdinGivenDomain(const std::vector<int> faceList
 }
 
 void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega,
-	double numFrames)
+	double numFrames, InitializationType initType, double zuenkoTau, int zuenkoInner)
 {
 	Eigen::VectorXd initAmp;
 	initAmp.setZero(_pos.rows());
@@ -266,17 +266,59 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	_zvalsList[numFrames + 1] = tarZvals;
 
 	std::cout << "initialize the intermediate frames." << std::endl;
-	for (int i = 1; i <= numFrames; i++)
+
+	if (initType == Linear)
 	{
-		double t = i * dt;
-
-		_zvalsList[i] = tarZvals;
-
-		for (int j = 0; j < tarZvals.size(); j++)
+		for (int i = 1; i <= numFrames; i++)
 		{
-			_zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+			double t = i * dt;
+
+			_zvalsList[i] = tarZvals;
+
+			for (int j = 0; j < tarZvals.size(); j++)
+			{
+				_zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+			}
 		}
 	}
+	else if(initType == Zuenko)
+	{
+		ZuenkoAlgorithm(initZvals, _combinedRefOmegaList, _zvalsList, zuenkoTau, zuenkoInner);
+
+		for (int i = 0; i <= numFrames + 1; i++)
+		{
+			for (int j = 0; j < _zvalsList[i].size(); j++)
+			{
+				_zvalsList[i][j] *= _combinedRefAmpList[i][j];
+			}
+		}
+	}
+	else
+	{
+		for (int i = 1; i <= numFrames; i++)
+		{
+			if (!_nInterfaces)
+			{
+				roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[i], refAmpList[i], _edgeArea, _vertArea, _pos.rows(), _zvalsList[i]);
+			}
+			else
+			{
+				_zvalsList[i] = initZvals;
+				roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[i], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), _zvalsList[i]);
+
+				for (int j = 0; j < _zvalsList[i].size(); j++)
+				{
+					if (fixedVertsFlag[j] == 0)
+					{
+						double arg = std::arg(_zvalsList[i][j]);
+						_zvalsList[i][j] = refAmpList[i][j] * std::complex<double>(std::cos(arg), std::sin(arg));
+					}
+
+				}
+			}
+		}
+	}
+	
 
 	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
 	_refAmpAveList.resize(numFrames + 2);
@@ -290,6 +332,65 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 		}
 		ave /= _pos.rows();
 		_refAmpAveList[i] = ave;
+	}
+}
+
+void WrinkleEditingModel::ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau, int zuenkoInner)
+{
+	int nframes = refOmegaList.size();
+	if (!nframes)
+		return;
+	zList.resize(refOmegaList.size());
+	zList[0] = initZvals;
+
+	for (int i = 0; i < zList[0].size(); i++)
+	{
+		double theta = std::arg(zList[0][i]);
+		zList[0][i] = std::complex<double>(std::cos(theta), std::sin(theta));
+	}
+
+	int nedges = refOmegaList[0].rows();
+
+	// Zuenko's algorithm described in their section 5.1
+	for (int i = 1; i < nframes; i++)
+	{
+		// step 1: apply their equation (10) k times, where k = 5, as they suggested in their paper
+		std::vector<std::complex<double>> Phi0 = zList[i - 1];
+		std::vector<std::complex<double>> Phi1 = Phi0;
+		for (int k = 0; k < zuenkoInner; k++)
+		{
+			// update the Phi
+			for (int v = 0; v < Phi0.size(); v++)
+			{
+				std::complex<double> tmpZ = 0;
+				for (auto& e : _vertNeiEdges[v]) // all neighboring edges
+				{
+					double deltaTheta = refOmegaList[i][e];
+					int vj = _mesh.edgeVertex(e, 0);
+					if (_mesh.edgeVertex(e, 0) == v)
+					{
+						deltaTheta *= -1;			// make sure deltaTheta = theta_i - theta_j
+						vj = _mesh.edgeVertex(e, 1);
+					}
+						
+
+					std::complex<double> deltaZi(std::cos(deltaTheta), std::sin(deltaTheta));
+					tmpZ += deltaZi * Phi0[vj];
+				}
+				double theta = std::arg(tmpZ);
+				Phi1[v] = std::complex<double>(std::cos(theta), std::sin(theta));
+			}
+			Phi0.swap(Phi1);
+		}
+
+		// bluring
+		zList[i] = zList[i - 1];
+		for (int v = 0; v < Phi0.size(); v++)
+		{
+			std::complex<double> tmpZ = zuenkoTau * zList[i - 1][v] + (1 - zuenkoTau) * Phi0[v];
+			double theta = std::arg(tmpZ);
+			zList[i][v] = std::complex<double>(std::cos(theta), std::sin(theta));
+		}
 	}
 }
 

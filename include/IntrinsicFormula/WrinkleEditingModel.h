@@ -20,7 +20,8 @@ namespace IntrinsicFormula
 
 		void faceFlagsSetup(const Eigen::VectorXi& faceFlags);
 
-		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames);
+		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau = 0.1, int zuenkoIter = 5);
+		void ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau = 0.1, int zuenkoIter = 5);
 
 		std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
 		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
