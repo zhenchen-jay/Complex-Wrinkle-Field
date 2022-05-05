@@ -1241,13 +1241,13 @@ void callback() {
 			if (ImGui::InputInt("smoothing times", &smoothingTimes))
 			{
 				smoothingTimes = smoothingTimes > 0 ? smoothingTimes : 0;
-				updatePaintingItems();
+//				updatePaintingItems();
 				updateFieldsInView(curFrame);
 			}
 			if (ImGui::InputDouble("smoothing ratio", &smoothingRatio))
 			{
 				smoothingRatio = smoothingRatio > 0 ? smoothingRatio : 0;
-				updatePaintingItems();
+//				updatePaintingItems();
 				updateFieldsInView(curFrame);
 			}
 			ImGui::EndTabItem();

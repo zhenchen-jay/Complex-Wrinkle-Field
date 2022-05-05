@@ -1,4 +1,5 @@
 #include "../include/LoadSaveIO.h"
+#include <iomanip>
 
 bool loadEdgeOmega(const std::string& filename, const int& nlines, Eigen::VectorXd& edgeOmega)
 {
@@ -82,4 +83,43 @@ bool loadVertexAmp(const std::string& filePath, const int& nlines, Eigen::Vector
 		amp(j) = std::stod(x);
 	}
 	return true;
+}
+
+bool saveEdgeOmega(const std::string& filename, const Eigen::VectorXd& edgeOmega)
+{
+    std::ofstream wfs(filename);
+    if(!wfs)
+    {
+        std::cerr << "invalid omega file name" << std::endl;
+        return false;
+    }
+    wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << edgeOmega << std::endl;
+    return true;
+}
+
+bool saveVertexZvals(const std::string& filePath, const std::vector<std::complex<double>>& zvals)
+{
+    std::ofstream zfs(filePath);
+    if(!zfs)
+    {
+        std::cerr << "invalid zvals file name" << std::endl;
+        return false;
+    }
+    for (int j = 0; j < zvals.size(); j++)
+    {
+        zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zvals[j].real() << " " << zvals[j].imag() << std::endl;
+    }
+    return true;
+
+}
+bool saveVertexAmp(const std::string& filePath, const Eigen::VectorXd& amp)
+{
+    std::ofstream  afs(filePath);
+    if(!afs)
+    {
+        std::cerr << "invalid amplitude file name" << std::endl;
+        return false;
+    }
+    afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << amp << std::endl;
+    return true;
 }
