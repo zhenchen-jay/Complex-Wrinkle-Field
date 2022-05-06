@@ -232,7 +232,8 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 		computeCombinedRefAmpList(refAmpList, &_combinedRefOmegaList);
 
 		tarZvals = initZvals;
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		//roundZvalsForSpecificDomainFromEdgeOmegaBndValuesDirectly(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals, NULL);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals, &(_combinedRefAmpList[numFrames + 1]));
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -243,8 +244,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 			}
 
 		}
-
-		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlagsStep2, _edgeArea, _vertArea, _pos.rows(), tarZvals);
+		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[numFrames + 1], fixedVertsFlagsStep2, _edgeArea, _vertArea, _pos.rows(), tarZvals, &(_combinedRefAmpList[numFrames + 1]));
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -304,7 +304,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 			else
 			{
 				_zvalsList[i] = initZvals;
-				roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[i], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), _zvalsList[i]);
+				roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, _combinedRefOmegaList[i], fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), _zvalsList[i], &(_combinedRefAmpList[i]));
 
 				for (int j = 0; j < _zvalsList[i].size(); j++)
 				{

@@ -529,7 +529,7 @@ void buildFacesMenu()
 }
 
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const			std::vector<std::vector<std::complex<double>>>& zFrames, 
+void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, 
 	std::vector<Eigen::VectorXd>& magList, 
 	std::vector<Eigen::VectorXd>& phaseList,
 	std::vector<std::vector<std::complex<double>>>& upZFrames)
@@ -603,7 +603,11 @@ void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, 
 	secMesh = convert2SecMesh(triV, triF);
 	subSecMesh = secMesh;
 
-	Subdivide(subSecMesh, upsampleTimes);
+	std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+	complexLoopOpt->setBndFixFlag(true);
+	complexLoopOpt->SetMesh(secMesh);
+	complexLoopOpt->meshSubdivide(upsampleTimes);
+	subSecMesh = complexLoopOpt->GetMesh();
 	parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
 }
 
@@ -1161,7 +1165,6 @@ bool saveProblem()
 		{
 			zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zList[i][j].real() << " " << zList[i][j].imag() << std::endl;
 		}
-
 
 	}
 

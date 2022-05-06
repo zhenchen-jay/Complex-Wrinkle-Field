@@ -181,6 +181,31 @@ bool mapPlane2Cylinder(Eigen::MatrixXd planeV, Eigen::MatrixXi planeF, Eigen::Ma
     return true;
 }
 
+void generateRectangle(double len, double width, double triarea, Eigen::MatrixXd& triV, Eigen::MatrixXi& triF)
+{
+    Eigen::MatrixXd planeV(4, 2);
+    Eigen::MatrixXi planeE(4, 2);
+    planeV << 0, 0,
+        len, 0,
+        len, width,
+        0, width;
+    planeE << 0, 1,
+        1, 2,
+        2, 3,
+        3, 0;
+
+    Eigen::MatrixXd V2d;
+    Eigen::MatrixXi F;
+    Eigen::MatrixXi H(0, 2);
+    const std::string flags = "q20a" + std::to_string(triarea);
+    igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+    triV.resize(V2d.rows(), 3);
+    triV.setZero();
+    triV.block(0, 0, triV.rows(), 2) = V2d;
+    triF = F;
+}
+
+
 void generateCylinder(double radius, double height, double triarea)
 {
     Eigen::MatrixXd checkBoxV, halfRegularV, irregularV, checkBoxCV, halfRegularCV, irregularCV;
@@ -369,9 +394,27 @@ void generateCylinder(double radius, double height, double triarea)
 
 }
 
-void generateCylinderWaves(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& cylinderV, const MeshConnectivity& cylinderMesh, double numWaves, double ampMag, Eigen::VectorXd& amp, Eigen::VectorXd& edgeOmega, std::vector<std::complex<double>>& zvals)
+void generateCylinderWaves(const Eigen::MatrixXd& restV, const MeshConnectivity& restMesh, const Eigen::MatrixXd& cylinderV, const MeshConnectivity& cylinderMesh, double numWaves, double ampMag, Eigen::VectorXd& amp, Eigen::VectorXd& edgeOmega, std::vector<std::complex<double>>& zvals, Eigen::VectorXd* restAmp, Eigen::VectorXd* restEdgeOmega, std::vector<std::complex<double>>* restZvals)
 {
     int nrestverts = restV.rows();
+    int nrestedges = restMesh.nEdges();
+    int nrestfaces = restMesh.nFaces();
+
+    if (restAmp)
+    {
+        restAmp->setOnes(nrestverts);
+        (*restAmp) *= ampMag;
+    }
+
+    if (restEdgeOmega)
+    {
+        restEdgeOmega->setZero(nrestedges);
+    }
+    if (restZvals)
+    {
+        restZvals->resize(nrestverts, 0);
+    }
+
     int nverts = cylinderV.rows();
     int nedges = cylinderMesh.nEdges();
     int nfaces = cylinderMesh.nFaces();
@@ -381,12 +424,21 @@ void generateCylinderWaves(const Eigen::MatrixXd& restV, const MeshConnectivity&
     {
         double x = restV(i, 0);
         restPhi(i) = numWaves * x;
+        
+        if (restZvals)
+        {
+            restZvals->at(i) = ampMag * std::complex<double>(std::cos(restPhi(i)), std::sin(restPhi(i)));
+        }
+        
     }
     amp.setOnes(nverts);
     amp *= ampMag;
 
+    
+
     edgeOmega.setZero(nedges);
     zvals.resize(nverts, 0);
+
     for(int i = 0; i < nfaces; i++)
     {
         for(int j = 0; j < 3; j++)
@@ -395,6 +447,17 @@ void generateCylinderWaves(const Eigen::MatrixXd& restV, const MeshConnectivity&
             int vid = cylinderMesh.faceVertex(i, j);
 
             double w = restPhi(restMesh.faceVertex(i, (j + 2) % 3)) - restPhi(restMesh.faceVertex(i, (j+1)%3));
+
+            if (restEdgeOmega)
+            {
+                int resteid = restMesh.faceEdge(i, j);
+                (*restEdgeOmega)(resteid) = w;
+
+                if (restMesh.faceVertex(i, (j + 1) % 3) > restMesh.faceVertex(i, (j + 2) % 3))
+                    (*restEdgeOmega)(resteid) *= -1;
+            }
+           
+
             if(cylinderMesh.faceVertex(i, (j+1)%3) > cylinderMesh.faceVertex(i, (j+2) % 3))
                 w *= -1;
             edgeOmega(eid) = w;
@@ -406,7 +469,7 @@ void generateCylinderWaves(const Eigen::MatrixXd& restV, const MeshConnectivity&
 
 }
 
-void generateCylinderWaves(double radius, double height, double triarea, double numWaves, double ampMag, Eigen::MatrixXd& cylinderV, Eigen::MatrixXi& cylinderF, Eigen::VectorXd& amp, Eigen::VectorXd& dphi, std::vector<std::complex<double>>& zvals)
+void generateCylinderWaves(double radius, double height, double triarea, double numWaves, double ampMag, Eigen::MatrixXd& cylinderV, Eigen::MatrixXi& cylinderF, Eigen::VectorXd& amp, Eigen::VectorXd& dphi, std::vector<std::complex<double>>& zvals, Eigen::MatrixXd *restV, Eigen::MatrixXi* restF, Eigen::VectorXd* restAmp, Eigen::VectorXd* restEdgeOmega, std::vector<std::complex<double>>* restZvals)
 {
     Eigen::MatrixXd irregularV, irregularCV;
     Eigen::MatrixXi irregularF, irregularCF;
@@ -470,6 +533,11 @@ void generateCylinderWaves(double radius, double height, double triarea, double 
         cylinderV = irregularCV;
         cylinderF = irregularCF;
 
-        generateCylinderWaves(irregularV, MeshConnectivity(irregularF), irregularCV, MeshConnectivity(irregularCF), numWaves, ampMag, amp, dphi, zvals);
+        generateCylinderWaves(irregularV, MeshConnectivity(irregularF), irregularCV, MeshConnectivity(irregularCF), numWaves, ampMag, amp, dphi, zvals, restAmp, restEdgeOmega, restZvals);
+
+        if (restV)
+            (*restV) = irregularV;
+        if (restF)
+            (*restF) = irregularF;
     }
 }

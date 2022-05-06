@@ -978,11 +978,11 @@ void myCallback() {
 
 int main(int argc, char** argv)
 {
-    Eigen::MatrixXd cylinderV;
-    Eigen::MatrixXi cylinderF;
-    Eigen::VectorXd cylinderAmp, cylinderOmega;
-    std::vector<std::complex<double>> cylinderZvals;
-    generateCylinderWaves(1.0, 5.0, 0.1, 10, 0.1, cylinderV, cylinderF, cylinderAmp, cylinderOmega, cylinderZvals);
+    Eigen::MatrixXd cylinderV, restV;
+    Eigen::MatrixXi cylinderF, restF;
+    Eigen::VectorXd cylinderAmp, cylinderOmega, restAmp, restOmega;
+    std::vector<std::complex<double>> cylinderZvals, restZvals;
+    generateCylinderWaves(1.0, 5.0, 0.1, 10, 0.1, cylinderV, cylinderF, cylinderAmp, cylinderOmega, cylinderZvals, &restV, &restF, &restAmp, &restOmega, &restZvals);
 
     std::string filePath = std::filesystem::current_path().string();
     std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
@@ -994,6 +994,11 @@ int main(int argc, char** argv)
     saveVertexZvals(workingFolder + "/cylinder_zvals.txt", cylinderZvals);
     saveVertexAmp(workingFolder + "/cylinder_amp.txt", cylinderAmp);
     igl::writeOBJ(workingFolder + "/cylinder_mesh.obj", cylinderV, cylinderF);
+
+	saveEdgeOmega(workingFolder + "/plane_omega.txt", restOmega);
+	saveVertexZvals(workingFolder + "/plane_zvals.txt", restZvals);
+	saveVertexAmp(workingFolder + "/plane_amp.txt", restAmp);
+	igl::writeOBJ(workingFolder + "/plane_mesh.obj", restV, restF);
     
 	// Initialize polyscope
 	polyscope::init();

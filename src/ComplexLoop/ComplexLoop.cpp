@@ -797,3 +797,31 @@ ComplexLoop::_AssembleEdgeOdd(int face, int edgeInFace, TripletInserter out) con
 		}
 	}
 }
+
+void ComplexLoop::meshSubdivide(int level)
+{
+	int nverts = _mesh.GetVertCount();
+
+	MatrixX X;
+	_mesh.GetPos(X);
+	
+	for (int l = 0; l < level; ++l)
+	{
+		SparseMatrixX tmpS0, tmpS1, tmpSV, tmpSE;
+		BuildS0(tmpS0);
+		BuildS1(tmpS1);
+
+		X = tmpS0 * X;
+
+		std::vector<Vector3> points;
+		ConvertToVector3(X, points);
+
+		std::vector< std::vector<int> > edgeToVert;
+		GetSubdividedEdges(edgeToVert);
+
+		std::vector< std::vector<int> > faceToVert;
+		GetSubdividedFaces(faceToVert);
+
+		_mesh.Populate(points, faceToVert, edgeToVert);
+	}
+}
