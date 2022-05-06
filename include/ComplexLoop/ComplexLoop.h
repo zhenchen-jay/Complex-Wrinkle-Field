@@ -26,6 +26,7 @@ public:
 	bool AreIrregularVertsIsolated() const;
 
 	void virtual Subdivide(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, int level) = 0;
+	void meshSubdivide(int level);
 
 protected:
 	int _GetVertVertIndex(int vert) const;

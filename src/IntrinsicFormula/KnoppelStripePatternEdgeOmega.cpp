@@ -330,7 +330,124 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 	}
 }
 
-void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals)
+void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValuesDirectly(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals, Eigen::VectorXd* vertAmp)
+{
+	Eigen::VectorXd clampedVals(2 * nverts);
+	clampedVals.setZero();
+
+	std::vector<Eigen::Triplet<double>> PT;
+	int nDOFs = 0;
+	for (int i = 0; i < nverts; i++)
+	{
+		if (vertFlags(i) == 0)	// free variables
+		{
+			PT.push_back({ 2 * nDOFs, 2 * i, 1.0 });
+			PT.push_back({ 2 * nDOFs + 1, 2 * i + 1, 1.0 });
+			nDOFs += 1;
+		}
+		else
+		{
+			clampedVals(2 * i) = vertZvals[i].real();
+			clampedVals(2 * i + 1) = vertZvals[i].imag();
+		}
+	}
+	if (nDOFs == 0)
+		return;
+	Eigen::SparseMatrix<double> projM, unProjM;
+	projM.resize(2 * nDOFs, 2 * nverts);
+	projM.setFromTriplets(PT.begin(), PT.end());
+
+	unProjM = projM.transpose();
+
+	auto zList2CoordVec = [&](const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& xvec, Eigen::VectorXd& yvec)
+	{
+		xvec.setZero(zvals.size());
+		yvec.setZero(zvals.size());
+
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			xvec(i) = zvals[i].real();
+			yvec(i) = zvals[i].imag();
+		}
+	};
+
+	auto zList2Vec = [&](const std::vector<std::complex<double>>& zvals)
+	{
+		Eigen::VectorXd zvec(2 * zvals.size());
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			zvec(2 * i) = zvals[i].real();
+			zvec(2 * i + 1) = zvals[i].imag();
+		}
+		return zvec;
+	};
+
+	auto vec2zList = [&](const Eigen::VectorXd& zvec)
+	{
+		std::vector<std::complex<double>> zList;
+		for (int i = 0; i < zvec.size() / 2; i++)
+		{
+			zList.push_back(std::complex<double>(zvec(2 * i), zvec(2 * i + 1)));
+		}
+		return zList;
+	};
+
+	auto projVar = [&](const std::vector<std::complex<double>>& zvals)
+	{
+		Eigen::VectorXd zvec = zList2Vec(zvals);
+		return projM * zvec;
+	};
+
+	auto unprojVar = [&](const Eigen::VectorXd& zvec, const Eigen::VectorXd& clampedZvecs)
+	{
+		Eigen::VectorXd fullZvec = unProjM * zvec + clampedVals;
+		return vec2zList(fullZvec);
+	};
+
+	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj)
+	{
+		std::vector<std::complex<double>> zList = unprojVar(x, clampedVals);
+		Eigen::VectorXd deriv;
+		std::vector<Eigen::Triplet<double>> T;
+		Eigen::SparseMatrix<double> H;
+		double E = 0;
+		if(vertAmp)
+			E = KnoppelEdgeEnergyGivenMag(mesh, edgeW, *vertAmp, edgeWeight, zList, grad ? &deriv : NULL, hess ? &T : NULL);
+		else
+			E = KnoppelEdgeEnergy(mesh, edgeW, edgeWeight, zList, grad ? &deriv : NULL, hess ? &T : NULL);
+
+		Eigen::VectorXd fullx = zList2Vec(zList);
+
+		if (grad)
+		{
+			(*grad) = projM * deriv;
+		}
+		if (hess)
+		{
+			H.resize(2 * nverts, 2 * nverts);
+			H.setFromTriplets(T.begin(), T.end());
+
+			(*hess) = projM * H * unProjM;
+		}
+
+		return E;
+	};
+
+	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+		return 1.0;
+	};
+
+	Eigen::VectorXd x0 = projVar(vertZvals);
+	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, true);
+
+	Eigen::VectorXd deriv;
+	double E = funVal(x0, &deriv, NULL, false);
+	std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+	vertZvals = unprojVar(x0, clampedVals);
+}
+
+
+void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW,  const Eigen::VectorXi& vertFlags, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals, Eigen::VectorXd* vertAmp)
 {
 	Eigen::VectorXd clampedVals(2 * nverts);
 	clampedVals.setZero();
@@ -377,7 +494,10 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const M
 	PT = P.transpose();
 
 	Eigen::SparseMatrix<double> A;
-	computeEdgeMatrix(mesh, edgeW, edgeWeight, nverts, A);
+	if (vertAmp)
+		computeEdgeMatrixGivenMag(mesh, edgeW, *vertAmp, edgeWeight, nverts, A);
+	else
+		computeEdgeMatrix(mesh, edgeW, edgeWeight, nverts, A);
 
 	A = P * A * PT;
 
