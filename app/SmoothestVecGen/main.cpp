@@ -5,6 +5,7 @@
 #include "geometrycentral/surface/surface_centers.h"
 #include "geometrycentral/surface/vector_heat_method.h"
 #include "geometrycentral/surface/vertex_position_geometry.h"
+#include "geometrycentral/surface/direction_fields.h"
 
 #include "polyscope/point_cloud.h"
 #include "polyscope/polyscope.h"
@@ -39,6 +40,7 @@
 #include <igl/file_dialog_save.h>
 #include <igl/readOBJ.h>
 #include <igl/writeOBJ.h>
+#include <igl/decimate.h>
 
 #include <sstream>
 
@@ -49,7 +51,6 @@ using namespace geometrycentral::surface;
 struct SourceVert {
 	Vertex vertex;
 	double scalarVal = 1.;
-	int effectiveRadius = 5;
 	double vectorMag = 100.;
 	float vectorAngleRad = 0.;
 };
@@ -112,247 +113,32 @@ void getVecTransport(VertexPositionGeometry& geoPos, std::vector<SourceVert> sou
 	}
 }
 
-void buildMask(const MeshConnectivity& mesh, int nverts, std::vector<SourceVert> sourcePoints, Eigen::VectorXi& vertFlags, Eigen::VectorXi& edgeFlags, Eigen::VectorXi& faceFlags)
+void getSmoothestVec(VertexPositionGeometry& geoPos, Eigen::MatrixXd& vertVecs)
 {
-	int nfaces = mesh.nFaces();
-	int nedges = mesh.nEdges();
+	VertexData<geometrycentral::Vector2> vectorExtension;
+	if(geoPos.boundaryLoopIndices.size())
+		vectorExtension = computeSmoothestBoundaryAlignedVertexDirectionField(geoPos);
+	else
+		vectorExtension = computeSmoothestVertexDirectionField(geoPos);
 
-	faceFlags.setZero(nfaces);
+	int nverts = geoPos.inputVertexPositions.size();
 
-	RegionEdition regEd(mesh, nverts);
-
-	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
-
-	buildVertexNeighboringInfo(mesh, nverts, vertNeiEdges, vertNeiFaces);
-	for (SourceVert& s : sourcePoints) 
-	{
-		if (s.effectiveRadius)
-		{
-			Eigen::VectorXi curfaceFlags, curfaceFlagsNew;
-
-			curfaceFlags.setZero(nfaces);
-			curfaceFlagsNew.setZero(nfaces);
-
-			int vid = s.vertex.getIndex();
-
-			for (int i = 0; i < vertNeiFaces[vid].size(); i++)
-			{
-				curfaceFlags(vertNeiFaces[vid][i]) = 1;
-			}
-			curfaceFlagsNew = curfaceFlags;
-			
-			for (int i = 0; i < s.effectiveRadius - 1; i++)
-			{
-				regEd.faceDilation(curfaceFlags, curfaceFlagsNew);
-				curfaceFlags = curfaceFlagsNew;
-			}
-
-			faceFlags += curfaceFlags;
-		}	
-	}
-
-	vertFlags.setZero(nverts);
-	edgeFlags.setZero(nedges);
-
-	for (int i = 0; i < nfaces; i++)
-	{
-		if (faceFlags(i))
-		{
-			faceFlags(i) = 1;
-			for (int j = 0; j < 3; j++)
-			{
-				int eid = mesh.faceEdge(i, j);
-				int vid = mesh.faceVertex(i, j);
-
-				vertFlags(vid) = 1;
-				edgeFlags(eid) = 1;
-			}
-		}
-			
-	}
+	vertVecs.setZero(nverts, 3);
 
 
-}
+	for (size_t iV = 0; iV < nverts; iV++) {
 
-void getSourceEffectedVids(const MeshConnectivity& mesh, int nverts, std::vector<SourceVert> sourcePoints, std::vector<std::vector<std::pair<int, double>>>& effectedVids, Eigen::VectorXi *selectedVids = NULL)
-{
-	if (selectedVids)
-		selectedVids->setZero(nverts);
+		geometrycentral::Vector3 normal = geoPos.vertexNormals[iV];
+		geometrycentral::Vector3 basisX = geoPos.vertexTangentBasis[iV][0];
+		geometrycentral::Vector3 basisY = geoPos.vertexTangentBasis[iV][1];
 
-	RegionEdition regEd(mesh, nverts);
+		std::complex<double> angle = std::complex<double>(vectorExtension[iV][0], vectorExtension[iV][1]);
 
-	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
-
-	int nfaces = mesh.nFaces();
-	buildVertexNeighboringInfo(mesh, nverts, vertNeiEdges, vertNeiFaces);
-
-	for (SourceVert& s : sourcePoints)
-	{
-		if (s.effectiveRadius)
-		{
-			Eigen::VectorXi curfaceFlags, curfaceFlagsNew;
-
-			curfaceFlags.setZero(nfaces);
-			curfaceFlagsNew.setZero(nfaces);
-
-			int vid = s.vertex.getIndex();
-
-			for (int i = 0; i < vertNeiFaces[vid].size(); i++)
-			{
-				curfaceFlags(vertNeiFaces[vid][i]) = 1;
-			}
-			curfaceFlagsNew = curfaceFlags;
-
-			for (int i = 0; i < s.effectiveRadius - 1; i++)
-			{
-				regEd.faceDilation(curfaceFlags, curfaceFlagsNew);
-				curfaceFlags = curfaceFlagsNew;
-			}
-
-			Eigen::VectorXi vertFlags;
-			vertFlags.setZero(nverts);
-			std::vector<std::pair<int, double>> tmp;
-			for (int i = 0; i < curfaceFlags.rows(); i++)
-			{
-				if (curfaceFlags(i))
-				{
-					for (int j = 0; j < 3; j++)
-					{
-						int vid = mesh.faceVertex(i, j);
-						if (vertFlags(vid) == 0)
-						{
-							tmp.push_back({ vid, s.scalarVal });
-							vertFlags(vid) = 1;
-
-							if (selectedVids)
-								(*selectedVids)(vid) = 1;
-						}
-					}
-				}
-			}
-			effectedVids.push_back(tmp);
-		}
+		geometrycentral::Vector3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
+		vertVecs.row(iV) << vec3.x, vec3.y, vec3.z;
 	}
 }
 
-double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, const Eigen::VectorXd& amp, const Eigen::VectorXd& vertArea, std::vector<std::vector<std::pair<int, double>>> effectedVids, double smoothnessCoef = 1.0, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL)
-{
-	Eigen::SparseMatrix<double> L;
-	igl::cotmatrix(pos, mesh.faces(), L);
-	double E = -0.5 * amp.dot(L * amp) * smoothnessCoef;
-
-	Eigen::VectorXd deriv1;
-	std::vector<Eigen::Triplet<double>> T;
-	E += amplitudeEnergyWithGivenOmega(mesh, amp, w, deriv ? &deriv1 : NULL, hess ? &T : NULL);
-
-	for (auto& it : effectedVids)
-	{
-		for (int i = 0; i < it.size(); i++)
-		{
-			int vid = it[i].first;
-			E += 0.5 * (amp(vid)-it[i].second) * (amp(vid)-it[i].second) * vertArea(vid);
-			
-			if (deriv)
-			{
-				deriv1(vid) += (amp(vid)-it[i].second) * vertArea(vid);
-			}
-
-			if (hess)
-			{
-				T.push_back({ vid, vid, vertArea(vid) });
-			}
-		}
-	}
-
-	if (deriv)
-	{
-		(*deriv) = deriv1 - L * amp * smoothnessCoef;
-	}
-	if (hess)
-	{
-		hess->resize(amp.rows(), amp.rows());
-		hess->setFromTriplets(T.begin(), T.end());
-		(*hess) += -L * smoothnessCoef;
-	}
-	return E;
-}
-
-
-void extendAmp(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& w, std::vector<SourceVert> sourcePoints, Eigen::VectorXd& amp, double smoothCoeff = 1.0)
-{
-	int nverts = pos.rows();
-	int nfaces = mesh.nFaces();
-
-	Eigen::VectorXd vertArea, faceArea;
-	igl::doublearea(pos, mesh.faces(), faceArea);
-	faceArea /= 2;
-	vertArea.setZero(nverts);
-
-	for (int i = 0; i < nfaces; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			int vid = mesh.faceVertex(i, j);
-			vertArea(vid) += faceArea(i) / 3;
-		}
-	}
-	std::vector<std::vector<std::pair<int, double>>> effectedVids;
-	Eigen::VectorXi selectedVids;
-	getSourceEffectedVids(mesh, nverts, sourcePoints, effectedVids, &selectedVids);
-
-	std::vector<int> freeDOFs;
-	for (int i = 0; i < nverts; i++)
-	{
-		if (selectedVids(i))
-			freeDOFs.push_back(i);
-	}
-
-	std::vector<Eigen::Triplet<double>> T;
-	for (int i = 0; i < freeDOFs.size(); i++)
-	{
-		T.push_back(Eigen::Triplet<double>(i, freeDOFs[i], 1.0));
-	}
-
-	Eigen::SparseMatrix<double> projM(freeDOFs.size(), nverts);
-	projM.setFromTriplets(T.begin(), T.end());
-
-	Eigen::SparseMatrix<double> unProjM = projM.transpose();
-
-	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-		Eigen::VectorXd deriv;
-		Eigen::SparseMatrix<double> H;
-
-		Eigen::VectorXd fullx = unProjM * x;
-
-		double E = computeAmpEnergy(pos, mesh, w, fullx, vertArea, effectedVids, smoothCoeff, grad ? &deriv : NULL, hess ? &H : NULL);
-
-
-		if (grad)
-		{
-			(*grad) = projM * deriv;
-		}
-
-		if (hess)
-		{
-			(*hess) = projM * H * unProjM;
-		}
-
-		return E;
-	};
-	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
-		return 1.0;
-	};
-	amp.setZero(nverts);
-	Eigen::VectorXd x0 = projM * amp;
-	Eigen::VectorXd deriv;
-	double E = funVal(x0, &deriv, NULL, false);
-	std::cout << "initial energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
-	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
-
-	 E = funVal(x0, &deriv, NULL, false);
-	std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
-	amp = unProjM * x0;
-}
 
 // == Geometry-central data
 std::unique_ptr<HalfedgeMesh> mesh;
@@ -369,6 +155,8 @@ polyscope::SurfaceMesh* psMesh;
 // Some algorithm parameters
 float tCoef = 1.0;
 double sCoef = 1.0;
+double vFreq = 2 * M_PI;
+double vAmp = 1.0;
 int vertexInd = 0;
 int pCenter = 2;
 
@@ -494,8 +282,7 @@ void load()
 			newV.vectorMag = jval["source_points"][i]["vector_magnitude"];
 			newV.vectorAngleRad = jval["source_points"][i]["vector_radiusAngle"];
 			newV.scalarVal = jval["source_points"][i]["scalar_value"];
-			newV.effectiveRadius = jval["source_points"][i]["effective_domain_radius"];
-
+			
 			sourcePoints.push_back(newV);
 		}
 		std::cout << "loading finished!" << std::endl;
@@ -593,7 +380,6 @@ void save()
 			{"vert_id", sourcePoints[i].vertex.getIndex()},
 			{"vector_magnitude", sourcePoints[i].vectorMag},
 			{"vector_radiusAngle", sourcePoints[i].vectorAngleRad},
-			{"effective_domain_radius", sourcePoints[i].effectiveRadius},
 			{"scalar_value", sourcePoints[i].scalarVal}
 		};
 		vecJval["source_points"].push_back(spJval);
@@ -629,22 +415,6 @@ void updateSourceSetViz()
 	for (SourceVert& s : sourcePoints) 
 	{
 		sourceVectors[s.vertex] = geometrycentral::Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
-	}
-
-	std::vector<std::vector<std::pair<int, double>>> effectiveVids;
-	getSourceEffectedVids(triMesh, triV.rows(), sourcePoints, effectiveVids, NULL);
-	for (auto& it : effectiveVids)
-	{
-		for (int i = 0; i < it.size(); i++)
-		{
-			int vid = it[i].first;
-			ampList(vid) = it[i].second;
-		}
-	}
-	auto ampColor = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("Selected Amp", ampList);
-	if (vizFirstRun)
-	{
-		ampColor->setEnabled(true);
 	}
 
 	auto vectorQ = polyscope::getSurfaceMesh("base mesh")->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
@@ -693,67 +463,31 @@ void vectorTransport() {
 		return;
 	}
 
-	Eigen::VectorXi faceFlags, vertFlags, edgeFlags;
-	buildMask(triMesh, triV.rows(), sourcePoints, vertFlags, edgeFlags, faceFlags);
-
 	Eigen::MatrixXd vertVec;
 	getVecTransport(*geometry, sourcePoints, vertVec);
-
-	for (int i = 0; i < triV.rows(); i++)
-		vertVec.row(i) *= vertFlags(i);
 
 	auto psVec = psMesh->addVertexVectorQuantity("vector extension", vertVec);
 	psVec->setEnabled(true);
-
-	/*Eigen::VectorXd edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
-
-	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
-	for (int i = 0; i < triMesh.nFaces(); i++)
-		faceVec.row(i) *= faceFlags(i);
-
-	auto fVec = psMesh->addFaceVectorQuantity("face extension", faceVec);
-	fVec->setEnabled(true);*/
 }
 
-void wrinkleExtraction()
+void smoothestVector()
 {
-	if (solver == nullptr) {
-		solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
-	}
-
-	if (sourcePoints.size() == 0) {
-		polyscope::warning("no source points set");
-		return;
-	}
-
-	Eigen::VectorXi faceFlags, vertFlags, edgeFlags;
-	buildMask(triMesh, triV.rows(), sourcePoints, vertFlags, edgeFlags, faceFlags);
-
 	Eigen::MatrixXd vertVec;
-	getVecTransport(*geometry, sourcePoints, vertVec);
+	getSmoothestVec(*geometry, vertVec);
 
+	auto psVec = psMesh->addVertexVectorQuantity("smoothest vector", vertVec);
+	psVec->setEnabled(true);
+}
+
+void stripePatternExtraction(const Eigen::MatrixXd& vertVec)
+{
 	edgeVec = vertexVec2IntrinsicVec(vertVec, triV, triMesh);
-	for (int i = 0; i < triMesh.nEdges(); i++)
-		edgeVec(i) *= edgeFlags(i);
-
 	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
-	for (int i = 0; i < triMesh.nFaces(); i++)
-		faceVec.row(i) *= faceFlags(i);
-
-	extendAmp(triV, triMesh, edgeVec, sourcePoints, vertAmp, sCoef);
-	//amp.setConstant(sourcePoints[0].scalarVal);
-
-	std::cout << "amp range: " << vertAmp.minCoeff() << " " << vertAmp.maxCoeff() << std::endl;
-
 	auto fVec = psMesh->addFaceVectorQuantity("face vector", faceVec);
 	fVec->setEnabled(true);
 
-	auto pScal = psMesh->addVertexScalarQuantity("amp", vertAmp);
-	pScal->setEnabled(true);
-
-	/*for (int i = 0; i < triV.rows(); i++)
-		if(!vertFlags(i))
-			amp(i) = 0;*/
+	vertAmp.setOnes(triV.rows());
+	vertAmp *= vAmp;
 
 	Eigen::VectorXd edgeArea, vertArea;
 	edgeArea = getEdgeArea(triV, triMesh);
@@ -762,39 +496,29 @@ void wrinkleExtraction()
 	std::vector<std::complex<double>> upsampledZvals;
 	vertZvals.resize(triV.rows(), 0);
 
-	Eigen::VectorXi freeVerts = Eigen::VectorXi::Ones(triV.rows()) - vertFlags;
+	IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, edgeVec, edgeArea, vertArea, triV.rows(), vertZvals);
 
-	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(triMesh, edgeVec, freeVerts, edgeArea, vertArea, triV.rows(), vertZvals, &vertAmp);
 	for (int i = 0; i < vertZvals.size(); i++)
 	{
 		double theta = std::arg(vertZvals[i]);
-		vertZvals[i] = vertAmp(i)*std::complex<double>(std::cos(theta), std::sin(theta));
+		vertZvals[i] = vertAmp(i) * std::complex<double>(std::cos(theta), std::sin(theta));
 	}
 
 
 	Eigen::MatrixXd upsampledTriV, wrinkledV;
 	Eigen::MatrixXi upsampledTriF;
-	
-	if (isUseLoop)
-	{
-		Mesh secMesh = convert2SecMesh(triV, triMesh.faces());
-		Mesh subSecMesh = secMesh;
-		Eigen::VectorXd secEdgeVec = swapEdgeVec(triMesh.faces(), edgeVec, 0);
-		Eigen::VectorXd subEdgeVec;
 
-		std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
-		complexLoopOpt->setBndFixFlag(true);
-		complexLoopOpt->SetMesh(secMesh);
-		complexLoopOpt->Subdivide(secEdgeVec, vertZvals, subEdgeVec, upsampledZvals, upsampleTimes);
-		subSecMesh = complexLoopOpt->GetMesh();
-		parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
-	}
-	else
-	{
-		std::vector<std::pair<int, Eigen::Vector3d>> bary;
-		meshUpSampling(triV, triMesh.faces(), upsampledTriV, upsampledTriF, upsampleTimes, NULL, NULL, &bary);
-		upsampledZvals = IntrinsicFormula::upsamplingZvals(triMesh, vertZvals, edgeVec, bary);
-	}
+	Mesh secMesh = convert2SecMesh(triV, triMesh.faces());
+	Mesh subSecMesh = secMesh;
+	Eigen::VectorXd secEdgeVec = swapEdgeVec(triMesh.faces(), edgeVec, 0);
+	Eigen::VectorXd subEdgeVec;
+
+	std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+	complexLoopOpt->setBndFixFlag(true);
+	complexLoopOpt->SetMesh(secMesh);
+	complexLoopOpt->Subdivide(secEdgeVec, vertZvals, subEdgeVec, upsampledZvals, upsampleTimes);
+	subSecMesh = complexLoopOpt->GetMesh();
+	parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
 
 	Eigen::VectorXd mag(upsampledTriV.rows()), phase(upsampledTriV.rows());
 	wrinkledV = upsampledTriV;
@@ -812,13 +536,8 @@ void wrinkleExtraction()
 		phase(i) = std::arg(upsampledZvals[i]);
 		//wrinkledV.row(i) += upsampledZvals[i].real() * vertNormals.row(i);
 	}
-	laplacianSmoothing(wrinkledV, upsampledTriF, wrinkledV, smoothingRatio, smoothingTimes, isFixBnd);
 
 	PaintGeometry mpaint;
-	/*mpaint.setNormalization(true);
-	Eigen::MatrixXd ampColor = mpaint.paintAmplitude(mag);*/
-
-	std::cout << "upsampled mag range: " << mag.minCoeff() << " " << mag.maxCoeff() << std::endl;
 
 	mpaint.setNormalization(false);
 	Eigen::MatrixXd phiColor = mpaint.paintPhi(phase);
@@ -837,7 +556,7 @@ void wrinkleExtraction()
 	Eigen::MatrixXd shiftV = Eigen::MatrixXd::Zero(nupverts, 3);
 	shiftV.col(0).setConstant(shiftx);
 
-	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV + 2 * shiftV, upsampledTriF); 
+	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV + 2 * shiftV, upsampledTriF);
 	polyscope::getSurfaceMesh("wrinkled mesh")->addVertexColorQuantity("VertexColor", wrinkleColor);
 	polyscope::getSurfaceMesh("wrinkled mesh")->getQuantity("VertexColor")->setEnabled(true);
 
@@ -881,7 +600,6 @@ void buildPointsMenu()
 
 		if (ImGui::InputDouble("scalar value", &s.scalarVal)) anyChanged = true;
 		if (ImGui::InputDouble("vector mag", &s.vectorMag)) anyChanged = true;
-		if (ImGui::InputInt("effective radius", &s.effectiveRadius)) anyChanged = true;
 		if (ImGui::SliderAngle("vector angle", &s.vectorAngleRad)) anyChanged = true;
 
 		ImGui::Unindent();
@@ -975,53 +693,51 @@ void myCallback() {
 			ImGui::EndTabItem();
 		}
 
-		if (ImGui::BeginTabItem("Amplitude interpolation Algorithm"))
+		if (ImGui::BeginTabItem("Smoothest Vector fields Algorithm"))
 		{
-			ImGui::TextUnformatted("Algorithm options:");
-			ImGui::PushItemWidth(100);
-			if (ImGui::InputDouble("smoothness coef", &sCoef))
+			if (ImGui::InputDouble("freq", &vFreq))
 			{
-				if (sCoef < 0)
+				if (vFreq < 0)
 				{
-					sCoef = 1;
+					vFreq = 2 * M_PI;
 				}
 			}
-			ImGui::EndTabItem();
+			if (ImGui::InputDouble("amp", &vAmp))
+			{
+				if (vAmp < 0)
+				{
+					vAmp = 1;
+				}
+			}
 		}
 
 		ImGui::EndTabBar();
 	}
 
-	if (ImGui::Button("run wrinkle extraction")) 
+	if (ImGui::Button("run vector heat method")) 
 	{
-		wrinkleExtraction();
+		vectorTransport();
+	}
+
+	if (ImGui::Button("run smoothest vector field"))
+	{
+		Eigen::MatrixXd vertVec;
+		getSmoothestVec(*geometry, vertVec);
+		vertVec *= vFreq;
+		stripePatternExtraction(vertVec);
 	}
 }
 
 int main(int argc, char** argv)
-{
-//    Eigen::MatrixXd cylinderV, restV;
-//    Eigen::MatrixXi cylinderF, restF;
-//    Eigen::VectorXd cylinderAmp, cylinderOmega, restAmp, restOmega;
-//    std::vector<std::complex<double>> cylinderZvals, restZvals;
-//    generateCylinderWaves(1.0, 5.0, 0.1, 10, 0.1, cylinderV, cylinderF, cylinderAmp, cylinderOmega, cylinderZvals, &restV, &restF, &restAmp, &restOmega, &restZvals);
-//
-//    std::string filePath = std::filesystem::current_path().string();
-//    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-//    int id = filePath.rfind("/");
-//    std::string workingFolder = filePath.substr(0, id + 1);
-//    std::cout << "working folder: " << workingFolder << std::endl;
-//
-//    saveEdgeOmega(workingFolder + "/cylinder_omega.txt", cylinderOmega);
-//    saveVertexZvals(workingFolder + "/cylinder_zvals.txt", cylinderZvals);
-//    saveVertexAmp(workingFolder + "/cylinder_amp.txt", cylinderAmp);
-//    igl::writeOBJ(workingFolder + "/cylinder_mesh.obj", cylinderV, cylinderF);
-//
-//	saveEdgeOmega(workingFolder + "/plane_omega.txt", restOmega);
-//	saveVertexZvals(workingFolder + "/plane_zvals.txt", restZvals);
-//	saveVertexAmp(workingFolder + "/plane_amp.txt", restAmp);
-//	igl::writeOBJ(workingFolder + "/plane_mesh.obj", restV, restF);
-    
+{    
+	Eigen::MatrixXd testV;
+	Eigen::MatrixXi testF;
+	Eigen::VectorXi map;
+	igl::readOBJ("G:/WrinkleEdition_dataset/meshes/eight.obj", testV, testF);
+	igl::decimate(testV, testF, 2000, testV, testF, map);
+	igl::writeOBJ("G:/WrinkleEdition_dataset/meshes/eight_decimate.obj", testV, testF);
+
+
 	// Initialize polyscope
 	polyscope::init();
 
@@ -1029,7 +745,6 @@ int main(int argc, char** argv)
 	polyscope::state::userCallback = myCallback;
 	load();
 	updateSourceSetViz();
-	wrinkleExtraction();
 
 
 

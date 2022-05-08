@@ -831,7 +831,7 @@ Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 	return vertArea;
 }
 
-void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio, int opTimes)
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio, int opTimes, bool isFixBnd)
 {
     newV = V;
     if(opTimes == 0)
@@ -868,15 +868,20 @@ void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eige
     Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
 
     std::vector<int> bnd;
-    igl::boundary_loop(F, bnd);
+    if(isFixBnd)
+		igl::boundary_loop(F, bnd);
 
     for(int i = 0; i < opTimes; i++)
     {
         for(int j = 0; j < 3; j++)
             newV.col(j) = smoothL * newV.col(j);
 
-        for(int j = 0; j < bnd.size(); j++)
-            newV.row(bnd[j]) = V.row(bnd[j]);
+		if (isFixBnd)
+		{
+			for (int j = 0; j < bnd.size(); j++)
+				newV.row(bnd[j]) = V.row(bnd[j]);
+		}
+       
     }
 
 

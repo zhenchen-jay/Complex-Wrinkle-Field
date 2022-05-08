@@ -81,7 +81,7 @@ Eigen::VectorXd getFaceArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 Eigen::VectorXd getEdgeArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
 Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& mesh);
 
-void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio = 0.95, int opTimes = 3);
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio = 0.95, int opTimes = 3, bool isFixBnd = false);
 
 void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio = 0.95, int opTimes = 3);
 
