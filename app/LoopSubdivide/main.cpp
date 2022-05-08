@@ -4,6 +4,7 @@
 #include <igl/invert_diag.h>
 #include <igl/per_vertex_normals.h>
 #include <igl/readOBJ.h>
+#include <igl/readOFF.h>
 #include <igl/writeOBJ.h>
 #include <igl/boundary_loop.h>
 #include <igl/doublearea.h>
@@ -76,7 +77,7 @@ std::string workingFolder;
 double ampTol = 0.1, curlTol = 1e-4;
 
 // smoothing
-int smoothingTimes = 0;
+int smoothingTimes = 3;
 double smoothingRatio = 0.95;
 
 bool isUseTangentCorrection = false;
@@ -277,7 +278,10 @@ void updateFieldsInView()
 	//polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
 	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexScalarQuantity("real-z color", loopedReal);
 
-	polyscope::registerSurfaceMesh("Loop-Zuenko mesh", wrinkledTrivNew, loopTriFNew);
+	Eigen::MatrixXd loopzuenkoNVLap;
+	laplacianSmoothing(wrinkledTrivNew, loopTriFNew, loopzuenkoNVLap, smoothingRatio, smoothingTimes, isFixBnd);
+
+	polyscope::registerSurfaceMesh("Loop-Zuenko mesh", loopzuenkoNVLap, loopTriFNew);
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
 	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setEnabled(true);
@@ -318,12 +322,12 @@ void updateFieldsInView()
 	polyscope::getSurfaceMesh("Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
 	//polyscope::getSurfaceMesh("Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
 
-
-	laplacianSmoothing(zuenkoNV, NF, zuenkoNV, smoothingRatio, smoothingTimes);
+	Eigen::MatrixXd zuenkoNVLap;
+	laplacianSmoothing(zuenkoNV, NF, zuenkoNVLap, smoothingRatio, smoothingTimes, isFixBnd);
 
 	igl::writeOBJ(workingFolder + "wrinkledMesh_Zuenko.obj", zuenkoNV, NF);
 
-	polyscope::registerSurfaceMesh("Zuenko mesh", zuenkoNV, NF);
+	polyscope::registerSurfaceMesh("Zuenko mesh", zuenkoNVLap, NF);
 	polyscope::getSurfaceMesh("Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
 	polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);

@@ -10,7 +10,7 @@ namespace IntrinsicFormula
 	class WrinkleEditingGlobalModel : public WrinkleEditingModel
 	{
 	public:
-		WrinkleEditingGlobalModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio) :
+		WrinkleEditingGlobalModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
 			WrinkleEditingModel(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio)
 		{
 			int nverts = _pos.rows();
@@ -19,7 +19,7 @@ namespace IntrinsicFormula
 			_faceWeight.setZero(nfaces);
 			_vertWeight.setZero(nverts);
 
-            if(_selectedVids.size())
+            if(_selectedVids.size() && effectivedistFactor > 0)
             {
                 // build geodesics
                 // Precomputation
@@ -71,14 +71,14 @@ namespace IntrinsicFormula
                 std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
 
                 double mu = 0;
-                double sigma = (max - min) / 4;
+                double sigma = (max - min) / effectivedistFactor;
 
                 for (int i = 0; i < nfaces; i++)
                 {
                     for (int j = 0; j < 3; j++)
                     {
                         int vid = _mesh.faceVertex(i, j);
-                        double weight = expGrowth(dis(vid), mu, sigma);
+                        double weight = std::min(expGrowth(dis(vid), mu, sigma), 1e10);
                         _vertWeight(vid) = weight;
                         _faceWeight(i) += weight / 3;
                     }

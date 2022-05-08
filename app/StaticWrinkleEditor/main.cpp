@@ -185,8 +185,11 @@ std::string workingFolder;
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
 
 // smoothing
-int smoothingTimes = 0;
+int smoothingTimes = 3;
 double smoothingRatio = 0.95;
+
+bool isFixedBnd = false;
+int effectivedistFactor = 6;
 
 //IntrinsicFormula::WrinkleEditingLocalModel editModel;
 
@@ -551,7 +554,7 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 			
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
 			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
-			complexLoopOpt->setBndFixFlag(true);
+			complexLoopOpt->setBndFixFlag(isFixedBnd);
 			complexLoopOpt->SetMesh(secMesh);
 			complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
 			Mesh tmpMesh = complexLoopOpt->GetMesh();
@@ -604,7 +607,7 @@ void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, 
 	subSecMesh = secMesh;
 
 	std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
-	complexLoopOpt->setBndFixFlag(true);
+	complexLoopOpt->setBndFixFlag(isFixedBnd);
 	complexLoopOpt->SetMesh(secMesh);
 	complexLoopOpt->meshSubdivide(upsampleTimes);
 	subSecMesh = complexLoopOpt->GetMesh();
@@ -648,11 +651,6 @@ void updateEditionDomain()
 			
 	}
 
-	for (int i = 0; i < faceFlags.rows(); i++)
-	{
-		if (faceFlags(i) == -1)
-			ninterfaces++;
-	}
 	std::cout << "selected effective faces: " << nselected << ", num of interfaces: " << ninterfaces << std::endl;
 
 	std::cout << "build wrinkle motions. " << std::endl;
@@ -695,7 +693,7 @@ void updatePaintingItems()
 void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	if(editModelType == GlobalModel)
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	else
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
@@ -796,7 +794,7 @@ void registerMesh(int frameId)
 
 	// wrinkle mesh
 	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
-	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
+	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
 	polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
 	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
@@ -1034,7 +1032,7 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 
 		editModel->initialization(initZvals, initOmega, numFrames - 2, Linear, 0.1);
 		refAmpList = editModel->getRefAmpList();
@@ -1184,7 +1182,7 @@ bool saveProblem()
 	{
 		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
 		Eigen::MatrixXd lapWrinkledV;
-		laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes);
+		laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
         igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
 
 		/*Eigen::MatrixXd upWrinkledV;
@@ -1255,6 +1253,12 @@ void callback() {
 					updatePaintingItems();
 					updateFieldsInView(curFrame);
 				}
+			}
+			if (ImGui::Checkbox("fix bnd", &isFixedBnd))
+			{
+				getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+				updatePaintingItems();
+				updateFieldsInView(curFrame);
 			}
 			ImGui::EndTabItem();
 		}
@@ -1389,6 +1393,11 @@ void callback() {
 				quadOrder = 4;
 		}
 
+		if (ImGui::InputInt("effective factor", &effectivedistFactor))
+		{
+			if (effectivedistFactor < 0)
+				effectivedistFactor = 4;
+		}
 		if (ImGui::InputDouble("spatial amp ratio", &spatialAmpRatio))
 		{
 			if (spatialAmpRatio < 0)

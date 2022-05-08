@@ -76,7 +76,7 @@ std::string workingFolder;
 double ampTol = 0.1, curlTol = 1e-4;
 
 // smoothing
-int smoothingTimes = 0;
+int smoothingTimes = 3;
 double smoothingRatio = 0.95;
 
 bool isUseTangentCorrection = false;
@@ -179,10 +179,15 @@ void updateFieldsInView()
 	loopedAmp.resize(loopTriV.rows());
 	loopedPhase.resize(loopTriV.rows());
 
+	Eigen::VectorXd realPart(loopTriV.rows());
+	Eigen::VectorXd imagPart(loopTriV.rows());
+
     for (int i = 0; i < loopedAmp.rows(); i++)
     {
         loopedAmp(i) = std::abs(loopedZvals[i]);
         loopedPhase(i) = std::arg(loopedZvals[i]);
+		realPart(i) = loopedZvals[i].real();
+		imagPart(i) = loopedZvals[i].imag();
     }
 
 	polyscope::registerSurfaceMesh("looped base mesh", loopTriV, loopTriF);
@@ -191,7 +196,10 @@ void updateFieldsInView()
 	polyscope::getSurfaceMesh("looped base mesh")->translate(glm::vec3(shiftx, 0, 0));
 	//polyscope::getSurfaceMesh("looped amp mesh")->setEnabled(false);
 
-	polyscope::getSurfaceMesh("looped base mesh")->addVertexScalarQuantity("amp color", loopedAmp);
+	polyscope::getSurfaceMesh("looped base mesh")->addVertexScalarQuantity("amp", loopedAmp);
+	polyscope::getSurfaceMesh("looped base mesh")->addVertexScalarQuantity("phi", loopedPhase);
+	polyscope::getSurfaceMesh("looped base mesh")->addVertexScalarQuantity("real", realPart);
+	polyscope::getSurfaceMesh("looped base mesh")->addVertexScalarQuantity("imag", imagPart);
 	//polyscope::getSurfaceMesh("looped amp mesh")->getQuantity("amp color")->setEnabled(true);
 
 	mPaint.setNormalization(false);
@@ -211,7 +219,7 @@ void updateFieldsInView()
     buildVertexNeighboringInfo(MeshConnectivity(loopTriF), loopTriV.rows(), vertNeiEdges, vertNeiFaces);
     getWrinkledMesh(loopTriV, loopTriF, loopedZvals, &vertNeiFaces, wrinkledTriV, wrinkleAmpScalingRatio, isUseTangentCorrection);
     Eigen::MatrixXd lapWrinkledTriV = wrinkledTriV;
-    laplacianSmoothing(wrinkledTriV, loopTriF, lapWrinkledTriV, smoothingRatio, smoothingTimes);
+    laplacianSmoothing(wrinkledTriV, loopTriF, lapWrinkledTriV, smoothingRatio, smoothingTimes, isFixBnd);
 
     Eigen::MatrixXd faceColors(loopTriF.rows(), 3);
     for (int i = 0; i < faceColors.rows(); i++)
@@ -461,11 +469,34 @@ void callback() {
 		std::shared_ptr<ComplexLoop> loopOpt2 = std::make_shared<ComplexLoopZuenko>();
 		loopOpt2->SetMesh(secMesh);
 		loopOpt2->setBndFixFlag(isFixBnd);
-		loopOpt2->Subdivide(edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel);
+		loopOpt2->Subdivide(edgeVec, initZvals, loopedOmegaNew, tmpZvals, 2);
 		subSecMesh = loopOpt2->GetMesh();
 		parseSecMesh(subSecMesh, loopTriVNew, loopTriFNew);
 
-        int printVid = 114;
+		if (subSecMesh.GetFaceCount() > 4492)
+		{
+			int f0 = 4492;
+			int f1 = 4486;
+
+			std::cout << "fid: " << f0 << std::endl;
+			for (int i = 0; i < 3; i++)
+			{
+				int vid = subSecMesh.GetFaceVerts(f0)[i];
+				int eid = subSecMesh.GetFaceEdges(f0)[i];
+				std::cout << "vid: " << vid << ", pos: " << subSecMesh.GetVertPos(vid).transpose() << ", z: " << tmpZvals[vid] << std::endl;
+				std::cout << "eid: " << eid << ", v0: " << subSecMesh.GetEdgeVerts(eid)[0] << ", v1: " << subSecMesh.GetEdgeVerts(eid)[1] << ", omega: " << loopedOmegaNew(eid) << std::endl;
+			}
+			std::cout << "\nfid: " << f1 << std::endl;
+			for (int i = 0; i < 3; i++)
+			{
+				int vid = subSecMesh.GetFaceVerts(f1)[i];
+				int eid = subSecMesh.GetFaceEdges(f1)[i];
+				std::cout << "vid: " << vid << ", pos: " << subSecMesh.GetVertPos(vid).transpose() << ", z: " << tmpZvals[vid] << std::endl;
+				std::cout << "eid: " << eid << ", v0: " << subSecMesh.GetEdgeVerts(eid)[0] << ", v1: " << subSecMesh.GetEdgeVerts(eid)[1] << ", omega: " << loopedOmegaNew(eid) << std::endl;
+			}
+		}
+
+       /* int printVid = 114;
         if(subSecMesh.GetVertCount() > printVid)
         {
             std::cout << "\nloop level: " << loopLevel << std::endl;
@@ -496,7 +527,7 @@ void callback() {
                     std::cout << "e_" << i << ": " << e << ", w: " << loopedOmegaNew[e] << ", end verts: " <<  subSecMesh.GetEdgeVerts(e)[0] << " " << subSecMesh.GetEdgeVerts(e)[1] << std::endl;
                 }
             }
-        }
+        }*/
 	}
 
 	if (ImGui::Button("output images", ImVec2(-1, 0)))
