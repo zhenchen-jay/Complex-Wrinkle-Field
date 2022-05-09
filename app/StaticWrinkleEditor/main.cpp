@@ -764,11 +764,19 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 
 void registerMesh(int frameId)
 {
-	int nverts = triV.rows();
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	polyscope::registerSurfaceMesh("base mesh", triV, triF);
 	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 	updateSelectedRegionSetViz();
+
+    Eigen::VectorXd baseAmplitude = refAmpList[frameId];
+    for(int i = 0 ; i < refAmpList[frameId].size(); i++)
+    {
+        baseAmplitude(i) = std::abs(zList[frameId][i]);
+    }
+    auto baseAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("opt amplitude", baseAmplitude);
+    baseAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+    polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("opt frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
 
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
@@ -1131,18 +1139,10 @@ bool saveProblem()
 	int id = filePath.rfind("/");
 	std::string workingFolder = filePath.substr(0, id + 1);
 
-	std::ofstream iwfs(workingFolder + "omega.txt");
-	iwfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initOmega << std::endl;
 
-	std::ofstream iafs(workingFolder + "amp.txt");
-	iafs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initAmp << std::endl;
-
-	std::ofstream izfs(workingFolder + "zvals.txt");
-	for (int i = 0; i < initZvals.size(); i++)
-	{
-		izfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << initZvals[i].real() << " " << initZvals[i].imag() << std::endl;
-	}
-
+    saveEdgeOmega(workingFolder + "omega.txt", initOmega);
+    saveVertexAmp(workingFolder + "amp.txt", initAmp);
+    saveVertexZvals(workingFolder + "zvals.txt", initZvals);
 
 	igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
 
@@ -1152,72 +1152,138 @@ bool saveProblem()
 	std::string omegaOutputFolder = workingFolder + "/optOmega/";
 	mkdir(omegaOutputFolder);
 
+    std::string refOmegaOutputFolder = workingFolder + "/refOmega/";
+    mkdir(refOmegaOutputFolder);
 
+    // save reference
+    std::string refAmpOutputFolder = workingFolder + "/refAmp/";
+    mkdir(refAmpOutputFolder);
 
-	for (int i = 0; i < zList.size(); i++)
-	{
-		std::ofstream zfs(outputFolder + "zvals_" + std::to_string(i) + ".txt");
-		std::ofstream wfs(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt");
-		wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << omegaList[i] << std::endl;
-		for (int j = 0; j < zList[i].size(); j++)
-		{
-			zfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << zList[i][j].real() << " " << zList[i][j].imag() << std::endl;
-		}
+    int nframes = zList.size();
+    auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
 
-	}
+            saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
+            saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
+            saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
+            saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
+        }
+    };
 
-	Eigen::MatrixXd N;
-	igl::per_vertex_normals(upsampledTriV, upsampledTriF, N);
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+    tbb::parallel_for(rangex, savePerFrame);
 
-	outputFolder = workingFolder + "/upsampledAmp/";
-	mkdir(outputFolder);
+//	for (int i = 0; i < zList.size(); i++)
+//	{
+//        saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
+//        saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
+//        saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
+//        saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
+//	}
 
-	std::string outputFolderPhase = workingFolder + "/upsampledPhase/";
-	mkdir(outputFolderPhase);
-
-	std::string outputFolderWrinkles = workingFolder + "/wrinkledMesh/";
-	mkdir(outputFolderWrinkles);
-
-	for (int i = 0; i < ampFieldsList.size(); i++)
-	{
-		igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
-		Eigen::MatrixXd lapWrinkledV;
-		laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
-        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
-
-		/*Eigen::MatrixXd upWrinkledV;
-		Eigen::MatrixXi upWrinkledF;
-		loopUpsampling(wrinkledV, upsampledTriF, upWrinkledV, upWrinkledF, 2);
-		igl::writeOBJ(outputFolderWrinkles + "loopedWrinkledMesh_" + std::to_string(i) + ".obj", upWrinkledV, upWrinkledF);*/
-
-		std::ofstream afs(outputFolder + "upAmp_" + std::to_string(i) + ".txt");
-		std::ofstream pfs(outputFolderPhase + "upPhase" + std::to_string(i) + ".txt");
-		afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << ampFieldsList[i] << std::endl;
-		pfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << phaseFieldsList[i] << std::endl;
-	}
-
-	// save reference
-	outputFolder = workingFolder + "/refAmp/";
-	mkdir(outputFolder);
-	for (int i = 0; i < refAmpList.size(); i++)
-	{
-		std::ofstream afs(outputFolder + "amp_" + std::to_string(i) + ".txt");
-		afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refAmpList[i] << std::endl;
-	}
-
-	outputFolder = workingFolder + "/refOmega/";
-	mkdir(outputFolder);
-	for (int i = 0; i < refOmegaList.size(); i++)
-	{
-		std::ofstream wfs(outputFolder + "omega_" + std::to_string(i) + ".txt");
-		wfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << refOmegaList[i] << std::endl;
-	}
 
 	std::ofstream o(saveFileName);
 	o << std::setw(4) << jval << std::endl;
 	std::cout << "save file in: " << saveFileName << std::endl;
 
 	return true;
+}
+
+bool saveForRender()
+{
+    std::string saveFileName = igl::file_dialog_save();
+    std::string filePath = saveFileName;
+    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+    int id = filePath.rfind("/");
+    std::string workingFolder = filePath.substr(0, id + 1);
+
+    // render information
+    std::string renderFolder = workingFolder + "/render/";
+    mkdir(renderFolder);
+    igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
+    igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
+
+    std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
+    mkdir(outputFolderAmp);
+
+    std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
+    mkdir(outputFolderPhase);
+
+    std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
+    mkdir(outputFolderWrinkles);
+
+    std::string refAmpFolder = renderFolder + "/refAmp/";
+    mkdir(refAmpFolder);
+    std::string refOmegaFolder = renderFolder + "/refOmega/";
+    mkdir(refOmegaFolder);
+
+    std::string optAmpFolder = renderFolder + "/optAmp/";
+    mkdir(optAmpFolder);
+    std::string optOmegaFolder = renderFolder + "/optOmega/";
+    mkdir(optOmegaFolder);
+
+    int nframes = ampFieldsList.size();
+
+    auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+
+            // upsampled information
+            igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
+            Eigen::MatrixXd lapWrinkledV;
+            laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
+            igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
+
+            saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs");
+            savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
+            saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
+
+            // reference information
+            Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
+            saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs");
+            saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
+
+            // optimal information
+            saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
+            Eigen::VectorXd baseAmplitude = refAmpList[i];
+            for(int j = 0 ; j < refAmpList[i].size(); j++)
+            {
+                baseAmplitude(j) = std::abs(zList[i][j]);
+            }
+
+            saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs");
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+    tbb::parallel_for(rangex, savePerFrame);
+
+//    for (int i = 0; i < nframes; i++)
+//    {
+//        // upsampled information
+//        igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
+//        Eigen::MatrixXd lapWrinkledV;
+//        laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
+//        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
+//
+//        saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs");
+//        savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
+//        saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
+//
+//        // reference information
+//        Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
+//        saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs");
+//        saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
+//
+//        // optimal information
+//        saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
+//        saveAmp4Render(zList[i], optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs");
+//    }
+
+    return true;
 }
 
 void callback() {
@@ -1235,10 +1301,9 @@ void callback() {
 	{
 		saveProblem();
 	}
-	if (ImGui::Button("Reset", ImVec2(-1, 0)))
+	if (ImGui::Button("save for render", ImVec2(-1, 0)))
 	{
-		curFrame = 0;
-		updateFieldsInView(curFrame);
+		saveForRender();
 	}
 	ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
 	if (ImGui::BeginTabBar("Visualization Options", tab_bar_flags))

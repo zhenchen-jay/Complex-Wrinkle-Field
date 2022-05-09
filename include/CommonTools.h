@@ -93,3 +93,10 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& bary, Eigen::Matrix3d& baryGrad);
 
 void mkdir(const std::string& foldername);
+
+
+// save for render
+void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const MeshConnectivity& mesh, const Eigen::MatrixXd& pos, const std::string& filename);
+void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const Mesh& secMesh, const std::string& filename);
+void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename);
+void savePhi4Render(const Eigen::VectorXd& vertPhi, const std::string& fileName);
