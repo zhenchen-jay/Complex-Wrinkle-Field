@@ -1072,3 +1072,69 @@ void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, c
 	baryGrad.row(1) = dbary12.row(0);
 	baryGrad.row(2) = dbary12.row(1);
 }
+
+
+void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const MeshConnectivity& mesh, const Eigen::MatrixXd& pos, const std::string& filename)
+{
+	int nfaces = mesh.nFaces();
+	std::ofstream dpfs(filename);
+	for (int i = 0; i < nfaces; i++)
+	{
+		Eigen::Vector3d e0 = pos.row(mesh.faceVertex(i, 1)) - pos.row(mesh.faceVertex(i, 0));
+		Eigen::Vector3d e1 = pos.row(mesh.faceVertex(i, 2)) - pos.row(mesh.faceVertex(i, 0));
+
+        Eigen::Vector2d rhs;
+        double u = faceOmega.row(i).dot(e0);
+        double v = faceOmega.row(i).dot(e1);
+        rhs << u, v;
+        Eigen::Matrix2d I;
+        I << e0.dot(e0), e0.dot(e1), e1.dot(e0), e1.dot(e1);
+        rhs = I.inverse() * rhs;
+
+        dpfs << rhs(0) << ",\t" << rhs(1) << ",\t" << 0 << ",\t" << 0 << ",\t" << 0 << ",\t" << 0 << std::endl;
+	}
+}
+
+void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const Mesh& mesh, const std::string& filename)
+{
+	int nfaces = mesh.GetFaceCount();
+	std::ofstream dpfs(filename);
+
+	for (int f = 0; f < nfaces; f++)
+	{
+		std::vector<int> faceVerts = mesh.GetFaceVerts(f);
+		Eigen::Vector3d e0 = mesh.GetVertPos(faceVerts[1]) - mesh.GetVertPos(faceVerts[0]);
+		Eigen::Vector3d e1 = mesh.GetVertPos(faceVerts[2]) - mesh.GetVertPos(faceVerts[0]);
+
+        Eigen::Vector2d rhs;
+        double u = faceOmega.row(f).dot(e0);
+        double v = faceOmega.row(f).dot(e1);
+
+        rhs << u, v;
+        Eigen::Matrix2d I;
+        I << e0.dot(e0), e0.dot(e1), e1.dot(e0), e1.dot(e1);
+        rhs = I.inverse() * rhs;
+
+		dpfs << rhs(0) << ",\t" << rhs(1) << ",\t" << 0 << ",\t" << 0 << ",\t" << 0 << ",\t" << 0 << std::endl;
+	}
+}
+
+void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename)
+{
+	std::ofstream afs(filename);
+
+	for(int j = 0; j < vertAmp.rows(); j++)
+	{
+		afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertAmp[j] << ",\t" << 3.14159 << std::endl;
+	}
+}
+
+
+void savePhi4Render(const Eigen::VectorXd& vertPhi, const std::string& fileName)
+{
+	std::ofstream pfs(fileName);
+	for(int j = 0; j < vertPhi.rows(); j++)
+	{
+		pfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertPhi[j] << ",\t" << 3.14159 << std::endl;
+	}
+}
