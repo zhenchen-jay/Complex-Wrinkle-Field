@@ -1205,6 +1205,8 @@ bool saveForRender()
     igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
     igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
 
+    saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
+
     std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
     mkdir(outputFolderAmp);
 
@@ -1237,13 +1239,13 @@ bool saveForRender()
             laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
             igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
 
-            saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs");
+            saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
             savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
             saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
 
             // reference information
             Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
-            saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs");
+            saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
             saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
 
             // optimal information
@@ -1254,7 +1256,7 @@ bool saveForRender()
                 baseAmplitude(j) = std::abs(zList[i][j]);
             }
 
-            saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs");
+            saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
         }
     };
 
