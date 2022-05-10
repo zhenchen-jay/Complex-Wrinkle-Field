@@ -98,5 +98,7 @@ void mkdir(const std::string& foldername);
 // save for render
 void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const MeshConnectivity& mesh, const Eigen::MatrixXd& pos, const std::string& filename);
 void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const Mesh& secMesh, const std::string& filename);
-void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename);
+void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename, double ampMin = 0, double ampMax = 1);
 void savePhi4Render(const Eigen::VectorXd& vertPhi, const std::string& fileName);
+void saveFlag4Render(const Eigen::VectorXi& faceFlags, const std::string& filename); // 1 for selected, -1 for interface, 0 for unchanged
+void saveSourcePts4Render(const Eigen::VectorXi& vertFlags, const Eigen::MatrixXd& vertVecs, const Eigen::VectorXd& vertAmp, const std::string& flagfilename);

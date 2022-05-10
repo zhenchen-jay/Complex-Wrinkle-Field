@@ -1119,13 +1119,13 @@ void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const Mesh& mesh, const s
 	}
 }
 
-void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename)
+void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename, double ampMin, double ampMax)
 {
 	std::ofstream afs(filename);
 
 	for(int j = 0; j < vertAmp.rows(); j++)
 	{
-		afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertAmp[j] << ",\t" << 3.14159 << std::endl;
+		afs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << (vertAmp[j] - ampMin) / (ampMax - ampMin) << ",\t" << 3.14159 << std::endl;
 	}
 }
 
@@ -1137,4 +1137,24 @@ void savePhi4Render(const Eigen::VectorXd& vertPhi, const std::string& fileName)
 	{
 		pfs << std::setprecision(std::numeric_limits<long double>::digits10 + 1) << vertPhi[j] << ",\t" << 3.14159 << std::endl;
 	}
+}
+
+void saveFlag4Render(const Eigen::VectorXi& faceFlags, const std::string& filename)
+{
+    std::ofstream ffs(filename);
+
+    for(int j = 0; j < faceFlags.rows(); j++)
+    {
+        ffs << faceFlags(j) << ",\t" << 3.14159 << std::endl;
+    }
+}
+
+void saveSourcePts4Render(const Eigen::VectorXi& vertFlags, const Eigen::MatrixXd& vertVecs, const Eigen::VectorXd& vertAmp, const std::string& flagfilename)
+{
+    std::ofstream ffs(flagfilename);
+
+    for(int j = 0; j < vertFlags.rows(); j++)
+    {
+        ffs << vertFlags(j) << ",\t" << vertAmp(j) << ",\t" << vertVecs(j, 0) << ",\t" << vertVecs(j, 1) << ",\t" << vertVecs(j, 2) << std::endl;
+    }
 }

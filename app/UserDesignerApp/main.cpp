@@ -604,6 +604,61 @@ void save()
 	std::cout << "save wrinkle design file in: " << filePath << std::endl;
 }
 
+void saveForRender()
+{
+    std::string saveFileName = igl::file_dialog_save();
+    std::string filePath = saveFileName;
+    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+    int id = filePath.rfind("/");
+    std::string workingFolder = filePath.substr(0, id + 1);
+
+    int nverts = triV.rows();
+    Eigen::VectorXi vertFlags(nverts);
+    vertFlags.setZero();
+    Eigen::VectorXd vertAmp;
+    vertAmp.setZero(nverts);
+    Eigen::MatrixXd verVec;
+    verVec.setZero(nverts, 3);
+
+    // Vectors at sources
+    for (SourceVert& s : sourcePoints)
+    {
+        int iV = s.vertex.getIndex();
+        geometrycentral::Vector3 basisX = geometry->vertexTangentBasis[iV][0];
+        geometrycentral::Vector3 basisY = geometry->vertexTangentBasis[iV][1];
+
+        geometrycentral::Vector2 intrinsicVec = geometrycentral::Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
+
+
+        std::complex<double> angle = std::complex<double>(intrinsicVec[0], intrinsicVec[1]);
+
+        geometrycentral::Vector3 vec3 = basisX * (float)angle.real() + basisY * (float)angle.imag();
+        verVec.row(iV) << vec3.x, vec3.y, vec3.z;
+
+        vertFlags(iV) = 1;
+    }
+
+    std::vector<std::vector<std::pair<int, double>>> effectiveVids;
+    getSourceEffectedVids(triMesh, triV.rows(), sourcePoints, effectiveVids, NULL);
+
+    double maxAmp = -1;
+    for (auto& it : effectiveVids)
+    {
+        for (int i = 0; i < it.size(); i++)
+        {
+            int vid = it[i].first;
+            vertAmp(vid) = it[i].second;
+            maxAmp =  std::max(maxAmp, it[i].second);
+        }
+    }
+    vertAmp /= maxAmp;
+
+    std::string renderFolder = workingFolder + "/render/";
+    mkdir(renderFolder);
+    std::string vertFlagPath = renderFolder + "sourceInfo.cvs";
+    saveSourcePts4Render(vertFlags, verVec, vertAmp, vertFlagPath);
+}
+
 bool vizFirstRun = true;
 void updateSourceSetViz() 
 {
@@ -926,6 +981,10 @@ void myCallback() {
 	{
 		save();
 	}
+    if (ImGui::Button("Save for render", ImVec2(-1, 0)))
+    {
+        saveForRender();
+    }
 
 	ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
 	if (ImGui::BeginTabBar("Visualization Options", tab_bar_flags))
