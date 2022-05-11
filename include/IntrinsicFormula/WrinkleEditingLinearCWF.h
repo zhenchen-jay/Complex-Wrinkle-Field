@@ -7,10 +7,10 @@
 
 namespace IntrinsicFormula
 {
-	class WrinkleEditingGlobalModel : public WrinkleEditingModel
+	class WrinkleEditingLinearCWF : public WrinkleEditingModel
 	{
 	public:
-		WrinkleEditingGlobalModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
+        WrinkleEditingLinearCWF(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
 			WrinkleEditingModel(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio)
 		{
 			int nverts = _pos.rows();
@@ -103,8 +103,7 @@ namespace IntrinsicFormula
 
 
 		}
-		void warmstart();
-
+		
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
@@ -116,7 +115,7 @@ namespace IntrinsicFormula
             if(workingFolder)
                 tmpFolder = (*workingFolder) + "/tmpRes/";
             else
-                tmpFolder = "/tmpRes/";
+                tmpFolder = _savingFolder + "tmpRes/";
             mkdir(tmpFolder);
 
             std::string outputFolder = tmpFolder + "/optZvals/";
@@ -174,15 +173,29 @@ namespace IntrinsicFormula
 			}
 		}
 
-		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override;
+        virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override
+        {
+            return 0;
+        }
 
-	protected:
+
 		// spatial-temporal energies
-		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-		virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-		virtual double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
+		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override
+        {
+            return 0;
+        }
+		virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override 
+        {
+            return 0;
+        }
+		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override
+        {
+            return 0;
+        }
+		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override
+        {
+            return 0;
+        }
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)

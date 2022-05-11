@@ -23,6 +23,8 @@ namespace IntrinsicFormula
 
 		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau = 0.1, int zuenkoIter = 5);
         void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType);
+		void initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList);
+
 		void ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau = 0.1, int zuenkoIter = 5);
 
 		std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
@@ -31,7 +33,11 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
 		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
 
-        virtual void save(const Eigen::VectorXd& x0, std::string* workingFold = NULL) = 0;
+
+		void setSaveFolder(const std::string& savingFolder)
+		{
+			_savingFolder = savingFolder;
+		}
 
 		void setwzLists(std::vector<std::vector<std::complex<double>>>& zList, std::vector<Eigen::VectorXd>& wList)
 		{
@@ -42,21 +48,17 @@ namespace IntrinsicFormula
 		void getVertIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& vertFlags);
 		void getEdgeIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& edgeFlags);
 
-		virtual void warmstart() = 0;
+		virtual void save(const Eigen::VectorXd& x0, std::string* workingFold = NULL) = 0;
 		virtual void convertVariable2List(const Eigen::VectorXd& x) = 0;
 		virtual void convertList2Variable(Eigen::VectorXd& x) = 0;
-
 		virtual void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm) = 0;
-
 		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) = 0;
 
-	protected:
 		// spatial-temporal energies
 		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
 		virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
-		virtual double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) = 0;
 
 	protected:
 		void computeCombinedRefAmpList(const std::vector<Eigen::VectorXd>& refAmpList, std::vector<Eigen::VectorXd>* combinedOmegaList = NULL);
@@ -134,6 +136,7 @@ namespace IntrinsicFormula
 		double _spatialKnoppelRatio;
 
 		int _nInterfaces;
+		std::string _savingFolder;
 
 	public:	// should be private, when publishing
 		ComputeZdotFromEdgeOmega _zdotModel;

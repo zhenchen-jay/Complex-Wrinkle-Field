@@ -73,6 +73,7 @@ WrinkleEditingModel::WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshC
 	}
 	faceFlagsSetup(faceFlag);
 	_nInterfaces = _interfaceFids.size();
+	_savingFolder = "";
 
 	std::cout << "number of interfaces: " << _nInterfaces << std::endl;
 	std::cout << "min edge area: " << _edgeArea.minCoeff() << ", min vertex area: " << _vertArea.minCoeff() << std::endl;
@@ -387,6 +388,31 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
         _refAmpAveList[i] = ave;
     }
 
+}
+
+void WrinkleEditingModel::initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList)
+{
+	_zvalsList = zList;
+	_edgeOmegaList = omegaList;
+	_combinedRefAmpList = refAmpList;
+	_combinedRefOmegaList = refOmegaList;
+
+	int numFrames = zList.size() - 2;
+	double dt = 1.0 / (numFrames + 1);
+
+	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
+	_refAmpAveList.resize(numFrames + 2);
+
+	for (int i = 0; i < _refAmpAveList.size(); i++)
+	{
+		double ave = 0;
+		for (int j = 0; j < _pos.rows(); j++)
+		{
+			ave += _combinedRefAmpList[i][j];
+		}
+		ave /= _pos.rows();
+		_refAmpAveList[i] = ave;
+	}
 }
 
 void WrinkleEditingModel::ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau, int zuenkoInner)

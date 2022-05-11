@@ -373,16 +373,18 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 			Eigen::SparseMatrix<double> hess;
 			double f0 = funVal(x0, &grad, &hess, false);
 			std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << ", working folder: " << workingFolder << std::endl;
-			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder, saveTmpRes);
+			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, false, getVecNorm, &workingFolder, saveTmpRes);
 			std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
+
+			std::cout << "convert variable to list." << std::endl;
+			editModel->convertVariable2List(x);
 		}
 	}
-	std::cout << "convert variable to list." << std::endl;
-	editModel->convertVariable2List(x);
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
+
 }
 
 void registerMesh(int frameId)

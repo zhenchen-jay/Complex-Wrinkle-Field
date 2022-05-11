@@ -221,6 +221,7 @@ double IntrinsicFormula::KnoppelEdgeEnergyGivenMag(const MeshConnectivity& mesh,
 	return energy;
 }
 
+
 void IntrinsicFormula::roundZvalsFromEdgeOmega(const MeshConnectivity &mesh, const Eigen::VectorXd& edgeW,
 	const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>> &zvals)
 {
@@ -305,6 +306,7 @@ void IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(const MeshConnectivity &
 	Spectra::SymShiftInvert<double> op(A, B);
 	Spectra::SparseSymMatProd<double> Bop(B);
 	Spectra::SymGEigsShiftSolver<Spectra::SymShiftInvert<double>, Spectra::SparseSymMatProd<double>, Spectra::GEigsMode::ShiftInvert> geigs(op, Bop, 1, 6, -2 * eps);
+	
 	geigs.init();
 	int nconv = geigs.compute(Spectra::SortRule::LargestMagn, 1e6);
 

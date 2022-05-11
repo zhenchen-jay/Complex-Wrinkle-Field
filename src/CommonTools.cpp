@@ -8,6 +8,7 @@
 #include <igl/cotmatrix.h>
 #include <igl/boundary_loop.h>
 #include <filesystem>
+#include <fstream>
 
 void quadS3(double w, std::vector<QuadraturePoints>& quadLists)
 {

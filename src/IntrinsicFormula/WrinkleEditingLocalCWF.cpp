@@ -1,4 +1,4 @@
-#include "../../include/IntrinsicFormula/WrinkleEditingLocalModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -10,155 +10,8 @@
 
 using namespace IntrinsicFormula;
 
-void WrinkleEditingLocalModel::warmstart()
-{
-	int nFreeVerts = _freeVids.size();
-	int nFreeEdges = _freeEids.size();
 
-	int numFrames = _zvalsList.size() - 2;
-
-	int DOFsPerframe = 2 * nFreeVerts;
-
-	int DOFs = numFrames * DOFsPerframe;
-
-	auto convertVec2ZList = [&](const Eigen::VectorXd& x)
-	{
-		for (int i = 0; i < numFrames; i++)
-		{
-			for (int j = 0; j < nFreeVerts; j++)
-			{
-				_zvalsList[i + 1][_freeVids[j]] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
-			}
-		}
-	};
-
-	auto convertZList2Vec = [&](Eigen::VectorXd& x)
-	{
-		x.setZero(DOFs);
-
-		for (int i = 0; i < numFrames; i++)
-		{
-			for (int j = 0; j < nFreeVerts; j++)
-			{
-				x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][_freeVids[j]].real();
-				x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][_freeVids[j]].imag();
-			}
-		}
-	};
-
-	double dt = 1.0 / (numFrames + 1);
-
-	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj)
-	{
-		convertVec2ZList(x);
-		double energy = 0;
-		if (grad)
-		{
-			grad->setZero(DOFs);
-		}
-
-		std::vector<Eigen::Triplet<double>> T, curT;
-		Eigen::VectorXd curDeriv;
-		
-		for (int i = 0; i < _zvalsList.size() - 1; i++)
-		{
-			energy += naiveKineticEnergy(i, grad ? &curDeriv : NULL, hess ? &curT : NULL, false);
-			if (grad)
-			{
-				if (i == 0)
-					grad->segment(0, DOFsPerframe) += curDeriv.segment(DOFsPerframe, DOFsPerframe);
-				else if (i == _zvalsList.size() - 2)
-					grad->segment((i - 1) * DOFsPerframe, DOFsPerframe) += curDeriv.segment(0, DOFsPerframe);
-				else
-				{
-					grad->segment((i - 1) * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;
-				}
-			}
-
-			if (hess)
-			{
-				for (auto& it : curT)
-				{
-
-					if (i == 0)
-					{
-						if (it.row() >= DOFsPerframe && it.col() >= DOFsPerframe)
-							T.push_back({ it.row() - DOFsPerframe, it.col() - DOFsPerframe, it.value() });
-					}
-					else if (i == _zvalsList.size() - 2)
-					{
-						if (it.row() < DOFsPerframe && it.col() < DOFsPerframe)
-							T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
-					}
-					else
-					{
-						T.push_back({ it.row() + (i - 1) * DOFsPerframe, it.col() + (i - 1) * DOFsPerframe, it.value() });
-					}
-
-
-				}
-				curT.clear();
-			}
-		}
-
-		
-		for (int i = 0; i < numFrames; i++)
-		{
-			int id = i + 1;
-			Eigen::VectorXd ampDeriv, knoppelDeriv;
-			std::vector<Eigen::Triplet<double>> ampT, knoppelT;
-			energy += temporalAmpDifference(i + 1, grad ? &ampDeriv : NULL, hess ? &ampT : NULL, isProj);
-			energy += spatialKnoppelEnergy(i + 1, grad ? &knoppelDeriv : NULL, hess ? &knoppelT : NULL, isProj);
-
-			if (grad)
-			{
-				grad->segment(i * DOFsPerframe, 2 * nFreeVerts) += ampDeriv + knoppelDeriv;
-			}
-
-			if (hess)
-			{
-				for (auto& it : ampT)
-				{
-					T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), it.value() });
-				}
-				for (auto& it : knoppelT)
-				{
-					T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), it.value() });
-				}
-			}
-		}
-
-		if (hess)
-		{
-			//std::cout << "num of triplets: " << T.size() << std::endl;
-			hess->resize(DOFs, DOFs);
-			hess->setFromTriplets(T.begin(), T.end());
-		}
-
-		return energy;
-
-	};
-	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
-		return 1.0;
-	};
-
-	auto postProcess = [&](Eigen::VectorXd& x)
-	{
-		//            interpModel.postProcess(x);
-	};
-
-	Eigen::VectorXd x, x0;
-	convertZList2Vec(x);
-	x0 = x;
-	OptSolver::testFuncGradHessian(funVal, x0);
-	OptSolver::newtonSolver(funVal, maxStep, x, 1000, 1e-6, 0, 0, true);
-	std::cout << "before optimization: ||x|| = " << x0.norm() << std::endl;
-	std::cout << "after optimization: ||x|| = " << x.norm() << std::endl;
-	convertVec2ZList(x);
-
-}
-
-void WrinkleEditingLocalModel::convertList2Variable(Eigen::VectorXd& x)
+void WrinkleEditingLocalCWF::convertList2Variable(Eigen::VectorXd& x)
 {
 	int nFreeVerts = _freeVids.size();
 	int nFreeEdges = _freeEids.size();
@@ -186,7 +39,7 @@ void WrinkleEditingLocalModel::convertList2Variable(Eigen::VectorXd& x)
 	}
 }
 
-void WrinkleEditingLocalModel::convertVariable2List(const Eigen::VectorXd& x)
+void WrinkleEditingLocalCWF::convertVariable2List(const Eigen::VectorXd& x)
 {
 	int nFreeVerts = _freeVids.size();
 	int nFreeEdges = _freeEids.size();
@@ -210,7 +63,7 @@ void WrinkleEditingLocalModel::convertVariable2List(const Eigen::VectorXd& x)
 }
 
 
-double WrinkleEditingLocalModel::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingLocalCWF::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	int nFreeVerts = _freeVids.size();
 	double energy = 0;
@@ -260,7 +113,7 @@ double WrinkleEditingLocalModel::temporalAmpDifference(int frameId, Eigen::Vecto
 	return energy;
 }
 
-double WrinkleEditingLocalModel::temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingLocalCWF::temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	int nFreeEdges = _freeEids.size();
 	double energy = 0;
@@ -289,7 +142,7 @@ double WrinkleEditingLocalModel::temporalOmegaDifference(int frameId, Eigen::Vec
 	return energy;
 }
 
-double WrinkleEditingLocalModel::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingLocalCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	double energy = 0;
 	int nFreeEdges = _freeEids.size();
@@ -371,7 +224,8 @@ double WrinkleEditingLocalModel::spatialKnoppelEnergy(int frameId, Eigen::Vector
 	return energy;
 }
 
-double WrinkleEditingLocalModel::kineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+
+double WrinkleEditingLocalCWF::kineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
 	double energy = 0;
 	if (frameId >= _zvalsList.size() - 1)
@@ -465,52 +319,7 @@ double WrinkleEditingLocalModel::kineticEnergy(int frameId, Eigen::VectorXd* der
 	return energy;
 }
 
-
-double WrinkleEditingLocalModel::naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
-{
-	int nFreeVerts = _freeVids.size();
-	double dt = 1. / (_zvalsList.size() - 1);
-	double energy = 0;
-
-	int DOFsPerframe = 2 * nFreeVerts;
-
-	if (deriv)
-		deriv->setZero(4 * nFreeVerts);
-
-	for (int fv = 0; fv < nFreeVerts; fv++)
-	{
-		Eigen::Vector2d diff;
-		int vid = _freeVids[fv];
-		double coeff = 1. / (dt * dt) * _vertArea[vid];
-		diff << (_zvalsList[frameId + 1][vid] - _zvalsList[frameId][vid]).real(), (_zvalsList[frameId + 1][vid] - _zvalsList[frameId][vid]).imag();
-		energy += 0.5 * coeff * diff.squaredNorm();
-
-		if (deriv)
-		{
-			deriv->segment<2>(2 * fv) += -coeff * diff;
-			deriv->segment<2>(2 * fv + DOFsPerframe) += coeff * diff;
-		}
-
-		if (hessT)
-		{
-			hessT->push_back({ 2 * fv, 2 * fv, coeff });
-			hessT->push_back({ DOFsPerframe + 2 * fv, DOFsPerframe + 2 * fv, coeff });
-
-			hessT->push_back({ DOFsPerframe + 2 * fv, 2 * fv, -coeff });
-			hessT->push_back({ 2 * fv, DOFsPerframe + 2 * fv, -coeff });
-
-			hessT->push_back({ 2 * fv + 1, 2 * fv + 1, coeff });
-			hessT->push_back({ DOFsPerframe + 2 * fv + 1, DOFsPerframe + 2 * fv + 1, coeff });
-
-			hessT->push_back({ 2 * fv + 1, DOFsPerframe + 2 * fv + 1, -coeff });
-			hessT->push_back({ DOFsPerframe + 2 * fv + 1, 2 * fv + 1, -coeff });
-
-		}
-	}
-	return energy;
-}
-
-double WrinkleEditingLocalModel::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
+double WrinkleEditingLocalCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
 	int nFreeVerts = _freeVids.size();
 	int nFreeEdges = _freeEids.size();
