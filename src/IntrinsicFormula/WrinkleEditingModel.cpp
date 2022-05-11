@@ -335,6 +335,60 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	}
 }
 
+void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType)
+{
+    int numFrames = refAmpList.size() - 2;
+    _zvalsList.resize(numFrames + 2);
+    _edgeOmegaList.resize(numFrames + 2);
+
+    _edgeOmegaList = refOmegaList;
+    _combinedRefAmpList = refAmpList;
+    _combinedRefOmegaList = refOmegaList;
+
+    _zvalsList[0] = initZvals;
+    _zvalsList[numFrames + 1] = tarZvals;
+
+    double dt = 1.0 / (numFrames + 1);
+
+    if (initType == Linear)
+    {
+        for (int i = 1; i <= numFrames; i++)
+        {
+            double t = i * dt;
+
+            _zvalsList[i] = tarZvals;
+
+            for (int j = 0; j < tarZvals.size(); j++)
+            {
+                _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+            }
+        }
+    }
+    else
+    {
+        for (int i = 1; i <= numFrames; i++)
+        {
+            roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[i], refAmpList[i], _edgeArea, _vertArea, _pos.rows(), _zvalsList[i]);
+        }
+    }
+
+
+    _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
+    _refAmpAveList.resize(numFrames + 2);
+
+    for (int i = 0; i < _refAmpAveList.size(); i++)
+    {
+        double ave = 0;
+        for (int j = 0; j < _pos.rows(); j++)
+        {
+            ave += _combinedRefAmpList[i][j];
+        }
+        ave /= _pos.rows();
+        _refAmpAveList[i] = ave;
+    }
+
+}
+
 void WrinkleEditingModel::ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau, int zuenkoInner)
 {
 	int nframes = refOmegaList.size();
@@ -924,6 +978,7 @@ void WrinkleEditingModel::computeCombinedRefOmegaList(const std::vector<Eigen::V
 		_combinedRefOmegaList[k] = prevw;
 	}
 }
+
 
 
 ////////////////////////////////////////////// test functions ///////////////////////////////////////////////////////////////////////////

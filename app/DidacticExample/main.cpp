@@ -45,78 +45,6 @@
 #include "../../include/SecMeshParsing.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
-long long int selectFace(polyscope::SurfaceMesh* mesh) 
-{
-	using namespace polyscope;
-	// Make sure we can see edges
-	float oldEdgeWidth = mesh->getEdgeWidth();
-	mesh->setEdgeWidth(1.);
-	mesh->setEnabled(true);
-
-	long long int returnFaceInd = -1;
-
-	// Register the callback which creates the UI and does the hard work
-	auto focusedPopupUI = [&]() {
-		{ // Create a window with instruction and a close button.
-			static bool showWindow = true;
-			ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Once);
-			ImGui::Begin("Select face", &showWindow);
-
-			ImGui::PushItemWidth(300);
-			ImGui::TextUnformatted("Hold ctrl and left-click to select a face");
-			ImGui::Separator();
-
-			// Pick by number
-			ImGui::PushItemWidth(300);
-			static int iF = -1;
-			ImGui::InputInt("index", &iF);
-			if (ImGui::Button("Select by index"))
-			{
-				if (iF >= 0 && (size_t)iF < mesh->nFaces()) 
-				{
-					returnFaceInd = iF;
-					popContext();
-				}
-			}
-			ImGui::PopItemWidth();
-
-			ImGui::Separator();
-			if (ImGui::Button("Abort")) {
-				popContext();
-			}
-		}
-
-		ImGuiIO& io = ImGui::GetIO();
-		if (io.KeyCtrl && !io.WantCaptureMouse && ImGui::IsMouseClicked(0)) {
-
-			ImGuiIO& io = ImGui::GetIO();
-
-			// API is a giant mess..
-			size_t pickInd;
-			ImVec2 p = ImGui::GetMousePos();
-			std::pair<Structure*, size_t> pickVal =
-				pick::evaluatePickQuery(io.DisplayFramebufferScale.x * p.x, io.DisplayFramebufferScale.y * p.y);
-
-			if (pickVal.first == mesh) {
-
-				if (pickVal.second >= mesh->nVertices() && pickVal.second < mesh->nVertices() + mesh->nFaces()) 
-				{
-					returnFaceInd = pickVal.second - mesh->nVertices();
-					popContext();
-				}
-			}
-		}
-	};
-
-
-	// Pass control to the context we just created
-	pushContext(focusedPopupUI);
-
-	mesh->setEdgeWidth(oldEdgeWidth); // restore edge setting
-
-	return returnFaceInd;
-}
-
 std::vector<VertexOpInfo> vertOpts;
 
 Eigen::MatrixXd triV, upsampledTriV;
@@ -165,7 +93,6 @@ int curFrame = 0;
 double globalAmpMax = 1;
 double globalAmpMin = 0;
 
-double dragSpeed = 0.5;
 
 float vecratio = 0.001;
 
@@ -180,6 +107,8 @@ double spatialAmpRatio = 1;
 double spatialEdgeRatio = 1;
 double spatialKnoppelRatio = 1;
 
+bool isRotate = false;
+
 std::string workingFolder;
 
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
@@ -191,84 +120,8 @@ double smoothingRatio = 0.95;
 bool isFixedBnd = false;
 int effectivedistFactor = 6;
 
-//IntrinsicFormula::WrinkleEditingLocalModel editModel;
-
-struct PickedFace
-{
-	int fid = -1;
-	double ampChangeRatio = 1.;
-	int effectiveRadius = 5;
-	int interfaceDilation = 5;
-	VecMotionType freqVecMotion = Enlarge;
-	double freqVecChangeValue = 1.;
-	bool isFreqAmpCoupled = false;
-
-	std::vector<int> effectiveFaces = {};
-	std::vector<int> interFaces = {};
-	std::vector<int> effectiveVerts = {};
-	std::vector<int> interVerts = {};
-
-	void buildEffectiveFaces(int nfaces)
-	{
-		effectiveFaces.clear();
-		effectiveVerts.clear();
-		interFaces.clear();
-		interVerts.clear();
-
-		if (fid == -1 || fid >= nfaces)
-			return;
-		else
-		{
-			Eigen::VectorXi curFaceFlags = Eigen::VectorXi::Zero(triF.rows());
-			curFaceFlags(fid) = 1;
-			Eigen::VectorXi curFaceFlagsNew = curFaceFlags;
-			regEdt.faceDilation(curFaceFlagsNew, curFaceFlags, effectiveRadius);
-			regEdt.faceDilation(curFaceFlags, curFaceFlagsNew, interfaceDilation);
-
-			Eigen::VectorXi vertFlags, vertFlagsNew;
-
-			faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlags, vertFlags);
-			faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlagsNew, vertFlagsNew);
-
-			for (int i = 0; i < curFaceFlags.rows(); i++)
-			{
-				if (curFaceFlags(i))
-					effectiveFaces.push_back(i);
-				else if (curFaceFlagsNew(i))
-					interFaces.push_back(i);
-			}
-				
-
-			for (int i = 0; i < vertFlags.rows(); i++)
-			{
-				if (vertFlags(i))
-					effectiveVerts.push_back(i);
-				else if (vertFlagsNew(i))
-					interVerts.push_back(i);
-			}
-		}
-	}
-};
-
-bool isSelectAll = false;
-std::vector<PickedFace> pickFaces;
-VecMotionType selectedMotion = Enlarge;
-
-double selectedMotionValue = 2;
-double selectedMagValue = 1;
-bool isCoupled = false;
-
-Eigen::VectorXi selectedFids;
-Eigen::VectorXi interfaceFids;
-Eigen::VectorXi faceFlags;	// -1 for interfaces, 0 otherwise
-Eigen::VectorXi selectedVertices;
-
-int optTimes = 5;
 
 bool isLoadOpt;
-
-int clickedFid = -1;
-int dilationTimes = 10;
 
 bool isUseV2 = false;
 bool isWarmStart = false;
@@ -285,252 +138,41 @@ int zuenkoIter = 5;
 
 ModelType editModelType = GlobalModel;
 
-void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
+
+void buildRefInfo(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<Eigen::VectorXd>& didacticRefAmpList, std::vector<Eigen::VectorXd>& didacticRefOmegaList, int numFrames, bool isRotate)
 {
-	int nverts = triV.rows();
-	vertOpInfo.clear();
-	vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
 
-	if (isSelectAll)
-	{
-		for (int i = 0; i < nverts; i++)
-		{
-			vertOpts[i] = { selectedMotion, isCoupled, selectedMotionValue, selectedMagValue };
-		}
-	}
-	else
-	{
-		Eigen::VectorXi tmpFlags;
-		tmpFlags.setZero(nverts);
-		int nselectedV = 0;
+    didacticRefAmpList.resize(numFrames + 2);
+    didacticRefOmegaList.resize(numFrames + 2);
 
-		// make sure there is no overlap
-		for (auto& pf : faceList)
-		{
-			for (auto& v : pf.effectiveVerts)
-			{
-				if (tmpFlags(v))
-				{
-					std::cerr << "overlap happens on the effective vertices. " << std::endl;
-					exit(EXIT_FAILURE);
-				}
-				tmpFlags(v) = 1;
-				nselectedV++;
-			}
-		}
 
-		std::cout << "num of selected vertices: " << nselectedV << std::endl;
+    didacticRefAmpList[0] = Eigen::VectorXd::Ones(initZvals.size());
+    for(int i = 0; i < didacticRefAmpList[0].rows(); i++)
+    {
+        didacticRefAmpList[0][i] = std::abs(initZvals[i]);
+    }
 
-		vertOpInfo.clear();
-		vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
+    didacticRefOmegaList[0] = initOmega;
 
-		for (auto& pf : faceList)
-		{
-			for (auto& v : pf.effectiveVerts)
-			{
-				vertOpInfo[v] = { pf.freqVecMotion, pf.isFreqAmpCoupled, pf.freqVecChangeValue, pf.ampChangeRatio };
-			}
-		}
-	}	
+    double dt = 1.0 / (numFrames + 1);
+    for (int i = 1; i <= numFrames + 1; i++)
+    {
+        if(isRotate)
+        {
+            std::vector<VertexOpInfo> curVertOpts;
+            curVertOpts.resize(initAmp.rows(), { Rotate, false, dt * i * 90.0, 1 });
+            WrinkleFieldsEditor::edgeBasedWrinkleEdition(triV, triMesh, initAmp, initOmega, curVertOpts, didacticRefAmpList[i], didacticRefOmegaList[i]);
+        }
 
+        else
+        {
+            didacticRefAmpList[i] = initAmp;
+            didacticRefOmegaList[i] = initOmega;
+            didacticRefOmegaList[i][initOmega.rows() - 1] *= (1 + dt * i);
+
+        }
+    }
 }
-
-bool addSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags, Eigen::VectorXi& curVertFlags)
-{
-	for (auto& f : face.effectiveFaces)
-		if (curFaceFlags(f))
-			return false;
-
-	for (auto& v : face.effectiveVerts)
-		if (curVertFlags(v))
-			return false;
-
-	for (auto& f : face.effectiveFaces)
-		curFaceFlags(f) = 1;
-	for (auto& v : face.effectiveVerts)
-		curVertFlags(v) = 1;
-
-	return true;
-}
-
-void deleteSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags, Eigen::VectorXi& curVertFlags)
-{
-	for (auto& f : face.effectiveFaces)
-		curFaceFlags(f) = 0;
-	for (auto v : face.effectiveVerts)
-		curVertFlags(v) = 0;
-}
-
-void updateInterfaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& interFaceFlags)
-{
-	int nfaces = triMesh.nFaces();
-	interFaceFlags.setZero(nfaces);
-
-	for (auto& f : faces)
-	{
-		for (auto& interf : f.interFaces)
-			interFaceFlags(interf) = 1;
-	}
-}
-
-void updateSelectedFaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& selectedFaceFlags)
-{
-	int nfaces = triMesh.nFaces();
-	selectedFaceFlags.setZero(nfaces);
-
-	for (auto& f : faces)
-	{
-		for (auto& ef : f.effectiveFaces)
-			if (selectedFaceFlags(ef))
-			{
-				std::cerr << "face overlap." << std::endl;
-				exit(EXIT_FAILURE);
-			}
-			else
-				selectedFaceFlags(ef) = 1;
-	}
-}
-
-void updateSelectedRegionSetViz()
-{
-	updateInterfaces(pickFaces, interfaceFids);
-	int nfaces = triF.rows();
-	Eigen::MatrixXd renderColor(triF.rows(), 3);
-	renderColor.col(0).setConstant(1.0);
-	renderColor.col(1).setConstant(1.0);
-	renderColor.col(2).setConstant(1.0);
-
-	for (int i = 0; i < nfaces; i++)
-	{
-		if (selectedFids(i) == 1)
-			renderColor.row(i) << 1.0, 0, 0;
-		else if (interfaceFids(i) == 1)
-			renderColor.row(i) << 0, 1.0, 0;
-	}
-	polyscope::getSurfaceMesh("base mesh")->addFaceColorQuantity("selected region", renderColor);
-}
-
-void addPickedFace(size_t ind)
-{
-	// Make sure not already used
-	for (PickedFace& s : pickFaces)
-	{
-		if (s.fid == ind)
-		{
-			std::stringstream ss;
-			ss << "Face " << ind;
-			std::string vStr = ss.str();
-			polyscope::warning("Face " + vStr + " is already picked");
-			return;
-		}
-	}
-
-	PickedFace newface;
-	newface.fid = ind;
-
-	newface.buildEffectiveFaces(triF.rows());
-	std::cout << "num of new effective faces: " << newface.effectiveFaces.size() << ", dilation radius: " << newface.effectiveRadius << std::endl;
-
-
-	if (addSelectedFaces(newface, selectedFids, selectedVertices))
-		pickFaces.push_back(newface);
-	else
-	{
-		std::stringstream ss;
-		ss << "Face " << ind;
-		std::string vStr = ss.str();
-		polyscope::warning("Face " + vStr + " is inside the effective domain");
-		return;
-	}
-	updateSelectedRegionSetViz();
-}
-
-void buildFacesMenu()
-{
-	if (isSelectAll)
-		return;
-
-	bool anyChanged = false;
-
-	ImGui::PushItemWidth(200);
-
-	int id = 0;
-	int eraseInd = -1;
-	for (PickedFace& s : pickFaces)
-	{
-		std::stringstream ss;
-		ss << "Face " << s.fid;
-		std::string vStr = ss.str();
-		ImGui::PushID(vStr.c_str());
-
-		ImGui::TextUnformatted(vStr.c_str());
-
-		ImGui::SameLine();
-		if (ImGui::Button("delete"))
-		{
-			eraseInd = id;
-			anyChanged = true;
-		}
-		ImGui::Indent();
-
-		int backupRadius = s.effectiveRadius;
-
-		if (ImGui::InputInt("effective radius", &s.effectiveRadius))
-		{
-			anyChanged = true;
-			deleteSelectedFaces(s, selectedFids, selectedVertices);
-			s.buildEffectiveFaces(triF.rows());
-			if (!addSelectedFaces(s, selectedFids, selectedVertices))
-			{
-				std::cout << "due to the overlap, failed to extend the effective radius, back to last effective one: " << backupRadius << std::endl;
-				s.effectiveRadius = backupRadius;
-				s.buildEffectiveFaces(triF.rows());
-				std::cout << "effective face size: " << s.effectiveFaces.size() << std::endl;
-				addSelectedFaces(s, selectedFids, selectedVertices);
-			}
-		}
-		if (ImGui::InputInt("interface dilation", &s.interfaceDilation))
-		{
-			anyChanged = true;
-			s.buildEffectiveFaces(triF.rows());
-		}
-		ImGui::Combo("freq motion", (int*)&s.freqVecMotion, "Ratate\0Tilt\0Enlarge\0None\0");
-		if (ImGui::InputDouble("freq change", &s.freqVecChangeValue)) anyChanged = true;
-		if (ImGui::InputDouble("amp change", &s.ampChangeRatio)) anyChanged = true;
-		if (ImGui::Checkbox("amp freq coupled", &s.isFreqAmpCoupled)) anyChanged = true;
-		id++;
-
-		ImGui::Unindent();
-		ImGui::PopID();
-	}
-	ImGui::PopItemWidth();
-
-	// actually do erase, if requested
-	if (eraseInd != -1)
-	{
-		deleteSelectedFaces(pickFaces[eraseInd], selectedFids, selectedVertices);
-		pickFaces.erase(pickFaces.begin() + eraseInd);
-	}
-
-	if (ImGui::Button("add face"))
-	{
-		long long int pickId = selectFace(polyscope::getSurfaceMesh("base mesh"));
-		//int nverts = polyscope::getSurfaceMesh("base mesh")->nVertices();
-		int nfaces = polyscope::getSurfaceMesh("base mesh")->nFaces();
-
-		if (id >= 0 && id < nfaces)
-		{
-			addPickedFace(pickId);
-			anyChanged = true;
-		}
-	}
-
-	if (anyChanged)
-	{
-		updateSelectedRegionSetViz();
-	}
-}
-
 
 void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, 
 	std::vector<Eigen::VectorXd>& magList, 
@@ -616,46 +258,8 @@ void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, 
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
-	
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-	selectedFids.setZero(triMesh.nFaces());
-	interfaceFids = selectedFids;
 	regEdt = RegionEdition(triMesh, triV.rows());
-	selectedVertices.setZero(triV.rows());
-}
-
-
-void updateEditionDomain()
-{
-	int nselected = 0;
-	for (int i = 0; i < selectedFids.rows(); i++)
-	{
-		if (selectedFids(i) == 1)
-		{
-			nselected++;
-		}
-	}
-
-	Eigen::VectorXi interfaces;
-	updateInterfaces(pickFaces, interfaces);
-
-	faceFlags = selectedFids;
-	int ninterfaces = 0;
-	for (int i = 0; i < selectedFids.rows(); i++)
-	{
-		if (selectedFids(i) == 0 && interfaces(i) == 1)
-		{
-			ninterfaces++;
-			faceFlags(i) = -1;
-		}
-			
-	}
-
-	std::cout << "selected effective faces: " << nselected << ", num of interfaces: " << ninterfaces << std::endl;
-
-	std::cout << "build wrinkle motions. " << std::endl;
-	buildWrinkleMotions(pickFaces, vertOpts);
-
 }
 
 void updatePaintingItems()
@@ -697,7 +301,22 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 	else
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
 
-	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+    buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
+    Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
+    Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
+    Eigen::VectorXd faceArea = getFaceArea(triV, triMesh);
+
+    std::vector<std::complex<double>> tarZvals;
+    if(!isRotate)
+        tarZvals = initZvals;
+    else
+    {
+        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refAmpList.size()-1], edgeArea, vertArea, vertArea.size(), tarZvals);
+    }
+    editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() - 1], refAmpList, refOmegaList, initType);
+
+
+//	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 	
 	std::cout << "initilization finished!" << std::endl;
 	Eigen::VectorXd x;
@@ -753,7 +372,7 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
 			Eigen::VectorXd grad;
 			Eigen::SparseMatrix<double> hess;
 			double f0 = funVal(x0, &grad, &hess, false);
-			std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
+			std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << ", working folder: " << workingFolder << std::endl;
 			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, true, getVecNorm, &workingFolder, saveTmpRes);
 			std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 		}
@@ -771,7 +390,6 @@ void registerMesh(int frameId)
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	polyscope::registerSurfaceMesh("base mesh", triV, triF);
 	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-	updateSelectedRegionSetViz();
 
     Eigen::VectorXd baseAmplitude = refAmpList[frameId];
     for(int i = 0 ; i < refAmpList[frameId].size(); i++)
@@ -834,7 +452,7 @@ bool loadProblem()
 	std::string filePath = loadFileName;
 	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
 	int id = filePath.rfind("/");
-	std::string workingFolder = filePath.substr(0, id + 1);
+	workingFolder = filePath.substr(0, id + 1);
 	std::cout << "working folder: " << workingFolder << std::endl;
 
 	json jval;
@@ -852,72 +470,6 @@ bool loadProblem()
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
-
-	isSelectAll = jval["region_global_details"]["select_all"];
-	isCoupled = jval["region_global_details"]["amp_omega_coupling"];
-	selectedMagValue = jval["region_global_details"]["amp_operation_value"];
-	selectedMotionValue = jval["region_global_details"]["omega_operation_value"];
-	std::string optype = jval["region_global_details"]["omega_operation_motion"];
-
-	/*isCoupled = jval["operation_details"]["amp_omega_coupling"];
-	selectedMagValue = jval["operation_details"]["amp_operation_value"];
-	selectedMotionValue = jval["operation_details"]["omega_operation_value"];
-
-	std::string optype = jval["operation_details"]["omega_operation_type"];*/
-	if (optype == "None")
-		selectedMotion = None;
-	else if (optype == "Enlarge")
-		selectedMotion = Enlarge;
-	else if (optype == "Rotate")
-		selectedMotion = Rotate;
-	else
-		selectedMotion = None;
-
-	/*isSelectAll = jval["region_details"]["select_all"];
-	clickedFid = jval["region_details"]["selected_fid"];
-	dilationTimes = jval["region_details"]["selected_domain_dilation"];
-	optTimes = jval["region_details"]["interface_dilation"];*/
-
-	pickFaces.clear();
-
-	if (jval.contains(std::string_view{ "region_local_details" }))
-	{
-		int npicked = jval["region_local_details"].size();
-		for (int i = 0; i < npicked; i++)
-		{
-			PickedFace pf;
-			pf.fid = jval["region_local_details"][i]["face_id"];
-			pf.effectiveRadius = jval["region_local_details"][i]["effective_radius"];
-			pf.interfaceDilation = jval["region_local_details"][i]["interface_dilation"];
-
-			optype = jval["region_local_details"][i]["omega_operation_motion"];
-			if (optype == "None")
-				pf.freqVecMotion = None;
-			else if (optype == "Enlarge")
-				pf.freqVecMotion = Enlarge;
-			else if (optype == "Rotate")
-				pf.freqVecMotion = Rotate;
-			else
-				pf.freqVecMotion = None;
-
-			pf.isFreqAmpCoupled = jval["region_local_details"][i]["amp_omega_coupling"];
-			pf.freqVecChangeValue = jval["region_local_details"][i]["omega_opereation_value"];
-			pf.ampChangeRatio = jval["region_local_details"][i]["amp_operation_value"];
-			
-
-			pf.buildEffectiveFaces(triF.rows());
-			if (!addSelectedFaces(pf, selectedFids, selectedVertices))
-			{
-				std::cerr << "something wrong happened in the store setup file!" << std::endl;
-				exit(EXIT_FAILURE);
-			}
-			pickFaces.push_back(pf);
-		}
-	}
-	std::cout << "num of picked faces: " << pickFaces.size() << std::endl;
-	
-	updateEditionDomain();
-	
 
 	if (jval.contains(std::string_view{ "spatial_ratio" }))
 	{
@@ -1044,9 +596,30 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
+        Eigen::VectorXi faceFlags;
+        faceFlags.setOnes(triMesh.nFaces());
+
+        int nverts = triV.rows();
+        vertOpts.clear();
+        vertOpts.resize(nverts, { None, false, 0, 1 });
+
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 
-		editModel->initialization(initZvals, initOmega, numFrames - 2, Linear, 0.1);
+        buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
+
+        Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
+        Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
+        Eigen::VectorXd faceArea = getFaceArea(triV, triMesh);
+
+        std::vector<std::complex<double>> tarZvals;
+        if(!isRotate)
+            tarZvals = initZvals;
+        else
+        {
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refAmpList.size()-1], edgeArea, vertArea, vertArea.size(), tarZvals);
+        }
+
+        editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() -1], refAmpList, refOmegaList, Linear);
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -1069,74 +642,6 @@ bool loadProblem()
 bool saveProblem()
 {
 	std::string saveFileName = igl::file_dialog_save();
-
-	std::string curOpt = "None";
-	if (selectedMotion == Enlarge)
-		curOpt = "Enlarge";
-	else if (selectedMotion == Rotate)
-		curOpt = "Rotate";
-
-	using json = nlohmann::json;
-	json jval =
-	{
-			{"mesh_name",         "mesh.obj"},
-			{"num_frame",         zList.size()},
-			{"quad_order",        quadOrder},
-			{"spatial_ratio",     {
-										   {"amp_ratio", spatialAmpRatio},
-										   {"edge_ratio", spatialEdgeRatio},
-										   {"knoppel_ratio", spatialKnoppelRatio}
-
-								  }
-			},
-			{"upsampled_times",  upsampleTimes},
-			{"init_omega",        "omega.txt"},
-			{"init_amp",          "amp.txt"},
-			{"init_zvls",         "zvals.txt"},
-			{"region_global_details",	  {
-										{"select_all", isSelectAll},
-										{"omega_operation_motion", curOpt},
-										{"omega_operation_value", selectedMotionValue},
-										{"amp_omega_coupling", isCoupled},
-										{"amp_operation_value", selectedMagValue}
-								  }
-			},
-			{
-			 "reference",         {
-										  {"ref_amp", "/refAmp/"},
-										  {"ref_omega", "/refOmega/"}
-								  }
-			},
-			{
-			 "solution",          {
-										  {"opt_zvals", "/optZvals/"},
-										  {"opt_omega", "/optOmega/"},
-										  {"wrinkle_mesh", "/wrinkledMesh/"},
-										  {"upsampled_amp", "/upsampledAmp/"},
-										  {"upsampled_phase", "/upsampledPhase/"}
-								  }
-			}
-	};
-
-	for (int i = 0; i < pickFaces.size(); i++)
-	{
-		curOpt = "None";
-		if (pickFaces[i].freqVecMotion == Enlarge)
-			curOpt = "Enlarge";
-		else if (pickFaces[i].freqVecMotion == Rotate)
-			curOpt = "Rotate";
-		json pfJval =
-		{
-			{"face_id", pickFaces[i].fid},
-			{"effective_radius", pickFaces[i].effectiveRadius},
-			{"interface_dilation", pickFaces[i].interfaceDilation},
-			{"omega_operation_motion", curOpt},
-			{"omega_opereation_value", pickFaces[i].freqVecChangeValue},
-			{"amp_operation_value", pickFaces[i].ampChangeRatio},
-			{"amp_omega_coupling", pickFaces[i].isFreqAmpCoupled}
-		};
-		jval["region_local_details"].push_back(pfJval);
-	}
 
 	std::string filePath = saveFileName;
 	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
@@ -1178,20 +683,6 @@ bool saveProblem()
 
     tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
     tbb::parallel_for(rangex, savePerFrame);
-
-//	for (int i = 0; i < zList.size(); i++)
-//	{
-//        saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
-//        saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
-//        saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
-//        saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
-//	}
-
-
-	std::ofstream o(saveFileName);
-	o << std::setw(4) << jval << std::endl;
-	std::cout << "save file in: " << saveFileName << std::endl;
-
 	return true;
 }
 
@@ -1208,8 +699,6 @@ bool saveForRender()
     mkdir(renderFolder);
     igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
     igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
-
-    saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
 
     std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
     mkdir(outputFolderAmp);
@@ -1372,39 +861,6 @@ void callback() {
                 updateFieldsInView(curFrame);
         }
 	}
-
-	if (ImGui::CollapsingHeader("Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-		if (ImGui::BeginTabBar("Selected Region", tab_bar_flags))
-		{
-			if (ImGui::BeginTabItem("Local"))
-			{
-				buildFacesMenu();
-				ImGui::EndTabItem();
-			}
-			if (ImGui::BeginTabItem("Global"))
-			{
-				ImGui::Checkbox("Select all", &isSelectAll);
-				ImGui::Combo("edition motion", (int*)&selectedMotion, "Ratate\0Tilt\0Enlarge\0None\0");
-				if (ImGui::InputDouble("motion value", &selectedMotionValue))
-				{
-					if (selectedMotionValue < 0 && selectedMotion == Enlarge)
-						selectedMotionValue = 0;
-				}
-				ImGui::Checkbox("vec mag coupled", &isCoupled);
-				if (ImGui::InputDouble("mag motion value", &selectedMagValue))
-				{
-					if (selectedMagValue < 0)
-						selectedMagValue = 1;
-				}
-				ImGui::EndTabItem();
-			}
-			ImGui::EndTabBar();
-		}
-	}
-	
-
 	if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames - 1))
@@ -1422,6 +878,10 @@ void callback() {
 	{
 		ImGui::Combo("model type", (int*)&editModelType, "Global\0Local\0");
 		ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
+        if (ImGui::Checkbox("Rotate", &isRotate))
+        {
+            
+        }
 		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
 		{
 			if (zuenkoTau < 0)
@@ -1496,9 +956,8 @@ void callback() {
 
 	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
 	{
-
-		updateEditionDomain();
-		// solve for the path from source to target
+        Eigen::VectorXi faceFlags;
+        faceFlags.setOnes(triMesh.nFaces());
 		solveKeyFrames(initAmp, initOmega, faceFlags, omegaList, zList);
 		updatePaintingItems();
 		updateFieldsInView(curFrame);

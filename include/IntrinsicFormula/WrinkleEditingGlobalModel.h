@@ -21,19 +21,6 @@ namespace IntrinsicFormula
 
             if(_selectedVids.size() && effectivedistFactor > 0)
             {
-                // build geodesics
-                // Precomputation
-                igl::HeatGeodesicsData<double> data;
-                double t = std::pow(igl::avg_edge_length(_pos, _mesh.faces()), 2);
-                const auto precompute = [&]()
-                {
-                    if (!igl::heat_geodesics_precompute(_pos, _mesh.faces(), t, data))
-                    {
-                        std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
-                        exit(EXIT_FAILURE);
-                    };
-                };
-                precompute();
 
                 Eigen::VectorXi selectedEdgeFlags, selectedVertFlags;
                 getVertIdinGivenDomain(_selectedFids, selectedVertFlags);
@@ -52,41 +39,68 @@ namespace IntrinsicFormula
                     else if (interfaceVertFlags(i))
                         sourceVerts.push_back(i);
                 }
-                Eigen::VectorXi gamma(sourceVerts.size());
-                for (int i = 0; i < gamma.rows(); i++)
-                    gamma(i) = sourceVerts[i];
-
-                Eigen::VectorXd dis;
-                igl::heat_geodesics_solve(data, gamma, dis);
-
-                for (int i = 0; i < nverts; i++)
+                if(sourceVerts.size() == nverts)
                 {
-                    if (selectedVertFlags(i) || interfaceVertFlags(i))
-                        dis(i) = 0;
+                    _faceWeight.setConstant(1.0);
+                    _vertWeight.setConstant(1.0);
                 }
-
-                double min = dis.minCoeff();
-                double max = dis.maxCoeff();
-
-                std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
-
-                double mu = 0;
-                double sigma = (max - min) / effectivedistFactor;
-
-                for (int i = 0; i < nfaces; i++)
+                else
                 {
-                    for (int j = 0; j < 3; j++)
+                    // build geodesics
+                    // Precomputation
+                    igl::HeatGeodesicsData<double> data;
+                    double t = std::pow(igl::avg_edge_length(_pos, _mesh.faces()), 2);
+                    const auto precompute = [&]()
                     {
-                        int vid = _mesh.faceVertex(i, j);
-                        double weight = std::min(expGrowth(dis(vid), mu, sigma), 1e10);
-                        _vertWeight(vid) = weight;
-                        _faceWeight(i) += weight / 3;
+                        if (!igl::heat_geodesics_precompute(_pos, _mesh.faces(), t, data))
+                        {
+                            std::cerr << "Error: heat_geodesics_precompute failed." << std::endl;
+                            exit(EXIT_FAILURE);
+                        };
+                    };
+                    precompute();
+                    
+                    Eigen::VectorXi gamma(sourceVerts.size());
+                    for (int i = 0; i < gamma.rows(); i++)
+                        gamma(i) = sourceVerts[i];
+
+                    Eigen::VectorXd dis;
+                    igl::heat_geodesics_solve(data, gamma, dis);
+
+                    for (int i = 0; i < nverts; i++)
+                    {
+                        if (selectedVertFlags(i) || interfaceVertFlags(i))
+                            dis(i) = 0;
                     }
+
+                    double min = dis.minCoeff();
+                    double max = dis.maxCoeff();
+
+                    std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
+
+                    double mu = 0;
+                    double sigma = (max - min) / effectivedistFactor;
+
+                    for (int i = 0; i < nfaces; i++)
+                    {
+                        for (int j = 0; j < 3; j++)
+                        {
+                            int vid = _mesh.faceVertex(i, j);
+                            double weight = std::min(expGrowth(dis(vid), mu, sigma), 1e10);
+                            _vertWeight(vid) = weight;
+                            _faceWeight(i) += weight / 3;
+                        }
+                    }
+                    std::cout << "face weight min: " << _faceWeight.minCoeff() << ", face weight max: " << _faceWeight.maxCoeff() << std::endl;
                 }
-                std::cout << "face weight min: " << _faceWeight.minCoeff() << ", face weight max: " << _faceWeight.maxCoeff() << std::endl;
+
             }
             else
+            {
                 _faceWeight.setConstant(1.0);
+                _vertWeight.setConstant(1.0);
+            }
+
 
 		}
 		void warmstart();
@@ -94,6 +108,46 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
+
+        virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder) override
+        {
+            convertVariable2List(x0);
+            std::string tmpFolder;
+            if(workingFolder)
+                tmpFolder = (*workingFolder) + "/tmpRes/";
+            else
+                tmpFolder = "/tmpRes/";
+            mkdir(tmpFolder);
+
+            std::string outputFolder = tmpFolder + "/optZvals/";
+            mkdir(outputFolder);
+
+            std::string omegaOutputFolder = tmpFolder + "/optOmega/";
+            mkdir(omegaOutputFolder);
+
+            std::string refOmegaOutputFolder = tmpFolder + "/refOmega/";
+            mkdir(refOmegaOutputFolder);
+
+            // save reference
+            std::string refAmpOutputFolder = tmpFolder + "/refAmp/";
+            mkdir(refAmpOutputFolder);
+
+            int nframes = _zvalsList.size();
+            auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+            {
+                for (uint32_t i = range.begin(); i < range.end(); ++i)
+                {
+
+                    saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", _zvalsList[i]);
+                    saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", _edgeOmegaList[i]);
+                    saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", _combinedRefAmpList[i]);
+                    saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", _combinedRefOmegaList[i]);
+                }
+            };
+
+            tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+            tbb::parallel_for(rangex, savePerFrame);
+        }
 
 		virtual void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm) override
 		{

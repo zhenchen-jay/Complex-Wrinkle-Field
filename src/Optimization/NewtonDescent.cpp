@@ -6,7 +6,7 @@
 #include "../../include/timer.h"
 // #include "SuiteSparse_config.h"
 
-void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(Eigen::VectorXd&)> postProcess)
+void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen::VectorXd*, Eigen::SparseMatrix<double>*, bool)> objFunc, std::function<double(const Eigen::VectorXd&, const Eigen::VectorXd&)> findMaxStep, Eigen::VectorXd& x0, int numIter, double gradTol, double xTol, double fTol, bool disPlayInfo, std::function<void(const Eigen::VectorXd&, double&, double&)> getNormFunc, std::string* savingFolder, std::function<void(const Eigen::VectorXd&, std::string*)> saveProcess)
 {
 	const int DIM = x0.rows();
     //Eigen::VectorXd randomVec = x0;
@@ -123,15 +123,14 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
             std::cout << "assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
 		}
 
-        if(postProcess)
+        if(saveProcess)
         {
-            postProcess(x0);
-            if (disPlayInfo)
+            double solvingTimePerFrame = localAssTime + localSolvingTime + localLinesearchTime;// in seconds
+            int saveIter = int(std::min(50.0, 1800 / solvingTimePerFrame)); // save at least per half an hour
+            if(numIter % saveIter == 0)
             {
-                double tmpfnew = objFunc(x0, &grad, NULL, isProj);
-                std::cout << "after post process, f_new: " << tmpfnew << ", grad norm: " << grad.norm() << std::endl;
+                saveProcess(x0, savingFolder);
             }
-
         }
 
 		if (savingFolder)
