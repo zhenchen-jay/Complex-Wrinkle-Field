@@ -44,6 +44,14 @@
 #include "../../include/SecMeshParsing.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
+enum LoopMethod
+{
+    CWF = 0,
+    ReIm = 1,
+    MagArg = 2,
+    MagArgFreq = 3
+};
+
 Eigen::MatrixXd triV, loopTriV, NV, newN;
 Eigen::MatrixXi triF, loopTriF, NF;
 
@@ -77,11 +85,14 @@ std::string workingFolder;
 double ampTol = 0.1, curlTol = 1e-4;
 
 // smoothing
-int smoothingTimes = 3;
+int smoothingTimes = 0;
 double smoothingRatio = 0.95;
 
 bool isUseTangentCorrection = false;
 bool isFixBnd = true;
+
+std::shared_ptr<ComplexLoop> loopModel;
+LoopMethod loopMethod = CWF;
 
 void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& omegaNew, std::vector<std::complex<double>>& upZvals, Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& upsampledPhase)
 {
@@ -98,11 +109,19 @@ void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::c
 
 	Eigen::VectorXd edgeVec = swapEdgeVec(triF, omega, 0);
 
-	std::shared_ptr<ComplexLoop> loopOpt1 = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
-	loopOpt1->SetMesh(secMesh);
-	loopOpt1->setBndFixFlag(isFixBnd);
-	loopOpt1->Subdivide(edgeVec, zvals, omegaNew, upZvals, loopLevel);
-	subSecMesh = (loopOpt1->GetMesh());
+    if(loopMethod == CWF)
+        loopModel = std::make_shared<ComplexLoopZuenko>();
+    else if (loopMethod == ReIm)
+        loopModel = std::make_shared<ComplexLoopReIm>();
+    else if (loopMethod == MagArg)
+        loopModel = std::make_shared<ComplexLoopAmpPhase>();
+    else if(loopMethod == MagArgFreq)
+        loopModel = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
+
+    loopModel->SetMesh(secMesh);
+    loopModel->setBndFixFlag(isFixBnd);
+    loopModel->Subdivide(edgeVec, zvals, omegaNew, upZvals, loopLevel);
+	subSecMesh = (loopModel->GetMesh());
 	parseSecMesh(subSecMesh, loopTriV, loopTriF);
 
 	upsampledAmp.resize(loopTriV.rows());
@@ -170,11 +189,35 @@ void updateFieldsInView()
 	polyscope::getSurfaceMesh("input mesh")->addFaceVectorQuantity("vector field", faceOmega);
 
 	Eigen::VectorXd edgeVec = swapEdgeVec(triF, initOmega, 0);
-	std::shared_ptr<ComplexLoop> loopOpt1 = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
-	loopOpt1->SetMesh(secMesh);
-	loopOpt1->setBndFixFlag(isFixBnd);
-	loopOpt1->Subdivide(edgeVec, initZvals, loopedOmega, loopedZvals, loopLevel);
-	subSecMesh = loopOpt1->GetMesh();
+
+
+    std::string methodName = "CWF";
+    if(loopMethod == CWF)
+    {
+        methodName = "CWF";
+        loopModel = std::make_shared<ComplexLoopZuenko>();
+    }
+    else if(loopMethod == ReIm)
+    {
+        loopModel = std::make_shared<ComplexLoopReIm>();
+        methodName = "ReIm";
+    }
+    else if(loopMethod == MagArg)
+    {
+        loopModel = std::make_shared<ComplexLoopAmpPhase>();
+        methodName = "MagArg";
+    }
+    else
+    {
+        loopModel = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
+        methodName = "MagArgFreq";
+    }
+    std::cout << methodName << std::endl;
+    
+    loopModel->SetMesh(secMesh);
+    loopModel->setBndFixFlag(isFixBnd);
+    loopModel->Subdivide(edgeVec, initZvals, loopedOmega, loopedZvals, loopLevel);
+	subSecMesh = loopModel->GetMesh();
 	parseSecMesh(subSecMesh, loopTriV, loopTriF);
 
 	loopedAmp.resize(loopTriV.rows());
@@ -185,26 +228,6 @@ void updateFieldsInView()
 		loopedPhase(i) = std::arg(loopedZvals[i]);
 	}
 
-	polyscope::registerSurfaceMesh("looped amp mesh", loopTriV, loopTriF);
-	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-	double shiftz = 1.5 * (loopTriV.col(2).maxCoeff() - loopTriV.col(2).minCoeff());
-
-	polyscope::getSurfaceMesh("looped amp mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
-	//polyscope::getSurfaceMesh("looped amp mesh")->setEnabled(false);
-
-	polyscope::getSurfaceMesh("looped amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
-	//polyscope::getSurfaceMesh("looped amp mesh")->getQuantity("amp color")->setEnabled(true);
-
-	polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("looped phase mesh")->translate(glm::vec3(shiftx, 0, shiftz));
-	//polyscope::getSurfaceMesh("looped phase mesh")->setEnabled(true);
-
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd phiColor = mPaint.paintPhi(loopedPhase);
-	polyscope::getSurfaceMesh("looped phase mesh")->addVertexColorQuantity("phase color", phiColor);
-
-	loopedFaceOmega = edgeVec2FaceVec(subSecMesh, loopedOmega);
-	polyscope::getSurfaceMesh("looped phase mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmega);
 	//polyscope::getSurfaceMesh("looped phase mesh")->getQuantity("phase color")->setEnabled(true);
 
 	Eigen::MatrixXd wrinkledTriV;
@@ -213,78 +236,44 @@ void updateFieldsInView()
 	buildVertexNeighboringInfo(MeshConnectivity(loopTriF), loopTriV.rows(), vertNeiEdges, vertNeiFaces);
 	getWrinkledMesh(loopTriV, loopTriF, loopedZvals, &vertNeiFaces, wrinkledTriV, wrinkleAmpScalingRatio, isUseTangentCorrection);
 
+    Eigen::MatrixXd lapLoopWrinkleV;
+    laplacianSmoothing(wrinkledTriV, loopTriF, lapLoopWrinkleV, smoothingRatio, smoothingTimes, isFixBnd);
+
 	Eigen::MatrixXd faceColors(loopTriF.rows(), 3);
 	for (int i = 0; i < faceColors.rows(); i++)
 	{
 		faceColors.row(i) << 80 / 255.0, 122 / 255.0, 91 / 255.0;
 	}
 
-	igl::writeOBJ(workingFolder + "wrinkledMesh_loop.obj", wrinkledTriV, loopTriF);
 
-	polyscope::registerSurfaceMesh("loop wrinkled mesh", wrinkledTriV, loopTriF);
+	igl::writeOBJ(workingFolder + methodName + "_wrinkledMesh_loop_lap.obj", lapLoopWrinkleV, loopTriF);
+    igl::writeOBJ(workingFolder + methodName + "_wrinkledMesh_loop.obj", wrinkledTriV, loopTriF);
+    igl::writeOBJ(workingFolder + methodName + "_upmesh.obj", loopTriV, loopTriF);
+    saveAmp4Render(loopedAmp, workingFolder + methodName + "_loop_amp.csv", loopedAmp.minCoeff(), loopedAmp.maxCoeff());
+    savePhi4Render(loopedPhase, workingFolder + methodName + "_loop_phi.csv");
+
+    double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+    double shiftz = 1.5 * (loopTriV.col(2).maxCoeff() - loopTriV.col(2).minCoeff());
+
+    polyscope::registerSurfaceMesh("looped amp mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("looped amp mesh")->translate(glm::vec3(shiftx, 0, 2 * shiftz));
+    polyscope::getSurfaceMesh("looped amp mesh")->addVertexScalarQuantity("amp color", loopedAmp);
+
+    polyscope::registerSurfaceMesh("looped phase mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("looped phase mesh")->translate(glm::vec3(shiftx, 0, shiftz));
+
+    mPaint.setNormalization(false);
+    Eigen::MatrixXd phiColor = mPaint.paintPhi(loopedPhase);
+    polyscope::getSurfaceMesh("looped phase mesh")->addVertexColorQuantity("phase color", phiColor);
+
+    loopedFaceOmega = edgeVec2FaceVec(subSecMesh, loopedOmega);
+    polyscope::getSurfaceMesh("looped phase mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmega);
+
+	polyscope::registerSurfaceMesh("loop wrinkled mesh", lapLoopWrinkleV, loopTriF);
 	polyscope::getSurfaceMesh("loop wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
 	polyscope::getSurfaceMesh("loop wrinkled mesh")->addFaceColorQuantity("wrinkled color", faceColors);
 	polyscope::getSurfaceMesh("loop wrinkled mesh")->translate(glm::vec3(shiftx, 0, 0));
 	polyscope::getSurfaceMesh("loop wrinkled mesh")->setEnabled(true);
-
-	
-	Eigen::VectorXd edgeArea = getEdgeArea(loopTriV, loopTriF);
-	Eigen::VectorXd vertArea = getVertArea(loopTriV, loopTriF);
-
-	std::vector<std::complex<double>> tmpZvals;
-	Eigen::VectorXd loopedOmegaNew = loopedOmega, loopedAmpNew = loopedAmp, loopedPhaseNew = loopedPhase;
-
-	Eigen::MatrixXd loopTriVNew;
-	Eigen::MatrixXi loopTriFNew;
-
-	std::shared_ptr<ComplexLoop> loopOpt2 = std::make_shared<ComplexLoopZuenko>();
-	loopOpt2->SetMesh(secMesh);
-	loopOpt2->setBndFixFlag(isFixBnd);
-	loopOpt2->Subdivide(edgeVec, initZvals, loopedOmegaNew, tmpZvals, loopLevel);
-	subSecMesh = loopOpt2->GetMesh();
-	parseSecMesh(subSecMesh, loopTriVNew, loopTriFNew);
-
-	Eigen::MatrixXd wrinkledTrivNew = loopTriVNew;
-
-	Eigen::VectorXd loopedReal = loopedAmp;
-
-	for (int i = 0; i < loopTriVNew.rows(); i++)
-	{
-		loopedPhaseNew(i) = std::arg(tmpZvals[i]);
-		loopedAmpNew(i) = std::abs(tmpZvals[i]);
-		loopedReal(i) = tmpZvals[i].real();
-	}
-
-	getWrinkledMesh(loopTriVNew, loopTriFNew, tmpZvals, &vertNeiFaces, wrinkledTrivNew, wrinkleAmpScalingRatio, isUseTangentCorrection);
-
-	igl::writeOBJ(workingFolder + "wrinkledMesh_loop_Zuenko.obj", wrinkledTrivNew, loopTriFNew);
-
-	polyscope::registerSurfaceMesh("Loop-Zuenko amp mesh", loopTriVNew, loopTriFNew);
-	polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
-	//polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->setEnabled(false);
-
-	polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->addVertexScalarQuantity("amp color", loopedAmpNew);
-	//polyscope::getSurfaceMesh("Loop-Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
-
-	polyscope::registerSurfaceMesh("Loop-Zuenko phase mesh", loopTriVNew, loopTriFNew);
-	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
-	Eigen::MatrixXd loopedFaceOmegaNew = edgeVec2FaceVec(subSecMesh, loopedOmegaNew);
-	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addFaceVectorQuantity("upsampled vector field", loopedFaceOmegaNew);
-	//polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->setEnabled(true);
-
-	mPaint.setNormalization(false);
-	phiColor = mPaint.paintPhi(loopedPhaseNew);
-	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
-	//polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
-	polyscope::getSurfaceMesh("Loop-Zuenko phase mesh")->addVertexScalarQuantity("real-z color", loopedReal);
-
-	Eigen::MatrixXd loopzuenkoNVLap;
-	laplacianSmoothing(wrinkledTrivNew, loopTriFNew, loopzuenkoNVLap, smoothingRatio, smoothingTimes, isFixBnd);
-
-	polyscope::registerSurfaceMesh("Loop-Zuenko mesh", loopzuenkoNVLap, loopTriFNew);
-	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
-	polyscope::getSurfaceMesh("Loop-Zuenko mesh")->setEnabled(true);
 
 	meshUpSampling(triV, triF, NV, NF, loopLevel, NULL, NULL, &bary);
 	std::vector<std::complex<double>> zuenkoZvals = IntrinsicFormula::upsamplingZvals(triMesh, initZvals, initOmega, bary);
@@ -304,9 +293,19 @@ void updateFieldsInView()
 		zuenkoAmp(i) = std::abs(zuenkoZvals[i]);
 		//zuenkoNV.row(i) = NV.row(i) + zuenkoZvals[i].real() * zuenkoNormal.row(i);
 	}
+    Eigen::MatrixXd zuenkoNVLap;
+    laplacianSmoothing(zuenkoNV, NF, zuenkoNVLap, smoothingRatio, smoothingTimes, isFixBnd);
+
+
+    igl::writeOBJ(workingFolder + "wrinkledMesh_zuenko_lap.obj", zuenkoNVLap, NF);
+    igl::writeOBJ(workingFolder + "wrinkledMesh_zuenko.obj", zuenkoNV, NF);
+    igl::writeOBJ(workingFolder + "zuenko_upmesh.obj", NV, NF);
+    saveAmp4Render(zuenkoAmp, workingFolder + "zuenko_amp.csv", loopedAmp.minCoeff(), loopedAmp.maxCoeff());
+    savePhi4Render(zuenkoPhase, workingFolder + "zuenko_phi.csv");
+
 
 	polyscope::registerSurfaceMesh("Zuenko amp mesh", NV, NF);
-	polyscope::getSurfaceMesh("Zuenko amp mesh")->translate(glm::vec3(3 * shiftx, 0, 2 * shiftz));
+	polyscope::getSurfaceMesh("Zuenko amp mesh")->translate(glm::vec3(2 * shiftx, 0, 2 * shiftz));
 	//polyscope::getSurfaceMesh("Zuenko amp mesh")->setEnabled(false);
 
 
@@ -314,7 +313,7 @@ void updateFieldsInView()
 	//polyscope::getSurfaceMesh("Zuenko amp mesh")->getQuantity("amp color")->setEnabled(true);
 
 	polyscope::registerSurfaceMesh("Zuenko phase mesh", NV, NF);
-	polyscope::getSurfaceMesh("Zuenko phase mesh")->translate(glm::vec3(3 * shiftx, 0, shiftz));
+	polyscope::getSurfaceMesh("Zuenko phase mesh")->translate(glm::vec3(2 * shiftx, 0, shiftz));
 	//polyscope::getSurfaceMesh("Zuenko phase mesh")->setEnabled(true);
 
 	mPaint.setNormalization(false);
@@ -322,14 +321,13 @@ void updateFieldsInView()
 	polyscope::getSurfaceMesh("Zuenko phase mesh")->addVertexColorQuantity("phase color", phiColor);
 	//polyscope::getSurfaceMesh("Zuenko phase mesh")->getQuantity("phase color")->setEnabled(true);
 
-	Eigen::MatrixXd zuenkoNVLap;
-	laplacianSmoothing(zuenkoNV, NF, zuenkoNVLap, smoothingRatio, smoothingTimes, isFixBnd);
+
 
 	igl::writeOBJ(workingFolder + "wrinkledMesh_Zuenko.obj", zuenkoNV, NF);
 
 	polyscope::registerSurfaceMesh("Zuenko mesh", zuenkoNVLap, NF);
 	polyscope::getSurfaceMesh("Zuenko mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-	polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(3 * shiftx, 0, 0));
+	polyscope::getSurfaceMesh("Zuenko mesh")->translate(glm::vec3(2 * shiftx, 0, 0));
 	polyscope::getSurfaceMesh("Zuenko mesh")->setEnabled(true);
 }
 
@@ -349,7 +347,7 @@ bool loadProblem()
 	std::string filePath = loadFileName;
 	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
 	int id = filePath.rfind("/");
-	std::string workingFolder = filePath.substr(0, id + 1);
+    workingFolder = filePath.substr(0, id + 1);
 	std::cout << "working folder: " << workingFolder << std::endl;
 
 	json jval;
@@ -435,6 +433,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+        ImGui::Combo("loop model", (int*)&loopMethod, "CFW\0ReIm\0MagArg\0MagArgFreq\0");
 		if (ImGui::Checkbox("Fix bnd", &isFixBnd))
 			updateFieldsInView();
 		if (ImGui::Checkbox("is use tangent correction", &isUseTangentCorrection))

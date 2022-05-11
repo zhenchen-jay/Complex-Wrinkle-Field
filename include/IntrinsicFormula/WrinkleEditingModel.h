@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../CommonTools.h"
+#include "../LoadSaveIO.h"
 #include "ComputeZdotFromEdgeOmega.h"
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
@@ -21,6 +22,7 @@ namespace IntrinsicFormula
 		void faceFlagsSetup(const Eigen::VectorXi& faceFlags);
 
 		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau = 0.1, int zuenkoIter = 5);
+        void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType);
 		void ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau = 0.1, int zuenkoIter = 5);
 
 		std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
@@ -28,6 +30,8 @@ namespace IntrinsicFormula
 
 		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
 		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
+
+        virtual void save(const Eigen::VectorXd& x0, std::string* workingFold = NULL) = 0;
 
 		void setwzLists(std::vector<std::vector<std::complex<double>>>& zList, std::vector<Eigen::VectorXd>& wList)
 		{

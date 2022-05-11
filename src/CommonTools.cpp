@@ -1122,6 +1122,8 @@ void saveDphi4Render(const Eigen::MatrixXd& faceOmega, const Mesh& mesh, const s
 void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename, double ampMin, double ampMax)
 {
 	std::ofstream afs(filename);
+    if(ampMin >= ampMax)
+        ampMin = 0;
 
 	for(int j = 0; j < vertAmp.rows(); j++)
 	{

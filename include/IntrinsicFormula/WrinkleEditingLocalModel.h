@@ -96,6 +96,46 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
+        virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder = NULL) override
+        {
+            convertVariable2List(x0);
+            std::string tmpFolder;
+            if(workingFolder)
+                tmpFolder = (*workingFolder) + "/tmpRes/";
+            else
+                tmpFolder = "/tmpRes/";
+            mkdir(tmpFolder);
+
+            std::string outputFolder = tmpFolder + "/optZvals/";
+            mkdir(outputFolder);
+
+            std::string omegaOutputFolder = tmpFolder + "/optOmega/";
+            mkdir(omegaOutputFolder);
+
+            std::string refOmegaOutputFolder = tmpFolder + "/refOmega/";
+            mkdir(refOmegaOutputFolder);
+
+            // save reference
+            std::string refAmpOutputFolder = tmpFolder + "/refAmp/";
+            mkdir(refAmpOutputFolder);
+
+            int nframes = _zvalsList.size();
+            auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+            {
+                for (uint32_t i = range.begin(); i < range.end(); ++i)
+                {
+
+                    saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", _zvalsList[i]);
+                    saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", _edgeOmegaList[i]);
+                    saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", _combinedRefAmpList[i]);
+                    saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", _combinedRefOmegaList[i]);
+                }
+            };
+
+            tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+            tbb::parallel_for(rangex, savePerFrame);
+        }
+
 
 		virtual void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm) override
 		{
