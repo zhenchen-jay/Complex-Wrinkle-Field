@@ -4,10 +4,10 @@
 
 namespace IntrinsicFormula
 {
-	class WrinkleEditingLocalModel : public WrinkleEditingModel
+	class WrinkleEditingLocalCWF : public WrinkleEditingModel
 	{
 	public:
-		WrinkleEditingLocalModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio) :
+		WrinkleEditingLocalCWF(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio) :
 			WrinkleEditingModel(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio)
 		{
 			int nfaces = _mesh.nFaces();
@@ -91,7 +91,6 @@ namespace IntrinsicFormula
 			for (int j = 0; j < _freeEids.size(); j++)
 				_actualEid2Free[_freeEids[j]] = j;
 		}
-		void warmstart();
 
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
@@ -103,7 +102,7 @@ namespace IntrinsicFormula
             if(workingFolder)
                 tmpFolder = (*workingFolder) + "/tmpRes/";
             else
-                tmpFolder = "/tmpRes/";
+                tmpFolder = _savingFolder + "tmpRes/";
             mkdir(tmpFolder);
 
             std::string outputFolder = tmpFolder + "/optZvals/";
@@ -164,13 +163,11 @@ namespace IntrinsicFormula
 
 		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override;
 
-	protected:
 		// spatial-temporal energies
 		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-		virtual double naiveKineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 
 	private:
 		std::vector<int> _unselectedFids;

@@ -34,6 +34,38 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		std::cout << "gradient tol: " << gradTol << ", function update tol: " << fTol << ", variable update tol: " << xTol << ", maximum iteration: " << numIter << std::endl << std::endl;
 	}
 	int i = 0;
+
+	std::cout << "pre-check for convex problem" << std::endl;
+	double f = objFunc(x0, &grad, &hessian, false);
+	Eigen::SparseMatrix<double> H = hessian;
+	Eigen::SparseMatrix<double> I(DIM, DIM);
+	I.setIdentity();
+	std::cout << "num of nonzeros: " << H.nonZeros() << ", rows: " << H.rows() << ", cols: " << H.cols() << std::endl;
+	Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	while (solver.info() != Eigen::Success)
+	{
+		if (disPlayInfo)
+		{
+			if (isProj)
+				std::cout << "some small perturb is needed to remove round-off error, current reg = " << reg << std::endl;
+			else
+				std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
+		}
+
+		H = hessian + reg * I;
+		solver.compute(H);
+		reg = std::max(10 * reg, 1e-16);
+
+		if (reg > 1e-4)						
+		{
+			std::cout << "reg is large, use SPD hessian instead." << std::endl;
+			reg = 1e-8;
+			isProj = true;
+			break;
+		}
+	}
+
 	for (; i < numIter; i++)
 	{
 		if(disPlayInfo)
@@ -200,34 +232,18 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	if (i >= numIter)
 		std::cout << "terminate with reaching the maximum iteration, with gradient L2-norm = " << grad.norm() << std::endl;
 
-    double f = objFunc(x0, &grad, &hessian, false);
-    /*Eigen::SparseMatrix<double> I(DIM, DIM), H = hessian;
-    I.setIdentity();
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
-
-    reg = 1e-10;
-    while (solver.info() != Eigen::Success)
-    {
-        if (disPlayInfo)
-        {
-            if (isProj)
-                std::cout << "some small perturb is needed to remove round-off error, current reg = " << reg << std::endl;
-            else
-                std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
-        }
-
-        H = hessian + reg * I;
-        solver.compute(H);
-        reg = std::max(2 * reg, 1e-16);
-    }*/
+    f = objFunc(x0, &grad, NULL, false);
     std::cout << "end up with energy: " << f << ", gradient: " << grad.norm() << std::endl;
-    //std::cout << "mininal evalues of hessian is between: " << reg / 2 << ", " << reg << std::endl;
-
+   
     totalTimer.stop();
     if(disPlayInfo)
     {
         std::cout << "total time costed (s): " << totalTimer.elapsed<std::chrono::milliseconds>() * 1e-3 << ", within that, assembling took: " << totalAssemblingTime << ", LLT solver took: "  << totalSolvingTime << ", line search took: " << totalLineSearchTime << std::endl;
     }
+	if (saveProcess)
+	{
+		saveProcess(x0, savingFolder);
+	}
 		
 }
 

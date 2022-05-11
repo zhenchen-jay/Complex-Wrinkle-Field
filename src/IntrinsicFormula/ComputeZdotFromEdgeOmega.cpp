@@ -37,7 +37,7 @@ double ComputeZdotFromEdgeOmega::computeZdotIntegrationFromQuad(const std::vecto
 	std::complex<double> znext = IntrinsicFormula::getZvalsFromEdgeOmega(bary, vertZvalnext, edgewnext, (deriv || hess) ? &derivNext : NULL, hess ? &hessNext : NULL);
 	std::complex<double> deltaz = znext - zcur;
 
-	double componentWeights = 0.5 * _faceArea[fid] * _quadpts[qid].weight / _dt;
+	double componentWeights = 0.5 * _faceArea[fid] * _quadpts[qid].weight / (_dt * _dt);
 	energy = componentWeights * (deltaz.real() * deltaz.real() + deltaz.imag() * deltaz.imag());
 
 	if (deriv || hess)
