@@ -222,7 +222,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	{
 		_combinedRefOmegaList = refOmegaList;
 		_combinedRefAmpList = refAmpList;
-
+		
 		roundZvalsFromEdgeOmegaVertexMag(_mesh, refOmegaList[numFrames + 1], refAmpList[numFrames + 1], _edgeArea, _vertArea, _pos.rows(), tarZvals);
 	}
 	else
