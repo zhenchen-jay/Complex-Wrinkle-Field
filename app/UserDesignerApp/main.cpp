@@ -615,8 +615,8 @@ void saveForRender()
     int nverts = triV.rows();
     Eigen::VectorXi vertFlags(nverts);
     vertFlags.setZero();
-    Eigen::VectorXd vertAmp;
-    vertAmp.setZero(nverts);
+    Eigen::VectorXd sourceAmp;
+	sourceAmp.setZero(nverts);
     Eigen::MatrixXd verVec;
     verVec.setZero(nverts, 3);
 
@@ -647,16 +647,17 @@ void saveForRender()
         for (int i = 0; i < it.size(); i++)
         {
             int vid = it[i].first;
-            vertAmp(vid) = it[i].second;
+			sourceAmp(vid) = it[i].second;
             maxAmp =  std::max(maxAmp, it[i].second);
         }
     }
-    vertAmp /= maxAmp;
+	sourceAmp /= maxAmp;
 
     std::string renderFolder = workingFolder + "/render/";
     mkdir(renderFolder);
     std::string vertFlagPath = renderFolder + "sourceInfo.cvs";
-    saveSourcePts4Render(vertFlags, verVec, vertAmp, vertFlagPath);
+    saveSourcePts4Render(vertFlags, verVec, sourceAmp, vertFlagPath);
+	saveAmp4Render(vertAmp, renderFolder + "desginedAmp.cvs", vertAmp.minCoeff(), vertAmp.maxCoeff());
 }
 
 bool vizFirstRun = true;

@@ -291,7 +291,7 @@ InitializationType initType = Linear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
-ModelType editModelType = CWF;
+ModelType editModelType = NaiveCWF;
 
 static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
@@ -1603,6 +1603,14 @@ void callback() {
 
 int main(int argc, char** argv)
 {
+	Eigen::MatrixXd testV;
+	Eigen::MatrixXi testF;
+
+	igl::readOBJ("G:/WrinkleEdition_dataset/edgemodel/20fames/userDesign/CWF/face/mesh.obj", testV, testF);
+	double maxSize = std::max(std::max(testV.col(0).maxCoeff() - testV.col(0).minCoeff(), testV.col(1).maxCoeff() - testV.col(1).minCoeff()), testV.col(2).maxCoeff() - testV.col(2).minCoeff());
+	testV /= maxSize;
+	igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/20fames/userDesign/CWF/face/mesh.obj", testV, testF);
+
 	if (!loadProblem())
 	{
 		std::cout << "failed to load file." << std::endl;
