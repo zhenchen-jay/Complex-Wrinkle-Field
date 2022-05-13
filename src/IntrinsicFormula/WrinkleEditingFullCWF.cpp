@@ -479,3 +479,50 @@ double WrinkleEditingFullCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Vec
 	}
 	return energy;
 }
+
+
+void WrinkleEditingFullCWF::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
+{
+	std::cout << "Full CWF model: " << std::endl;
+	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
+		Eigen::VectorXd deriv;
+		Eigen::SparseMatrix<double> H;
+		double E = computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
+
+		if (grad)
+		{
+			(*grad) = deriv;
+		}
+
+		if (hess)
+		{
+			(*hess) = H;
+		}
+
+		return E;
+	};
+	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+		return 1.0;
+	};
+
+	auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
+		getComponentNorm(x, znorm, wnorm);
+	};
+	auto saveTmpRes = [&](const Eigen::VectorXd& x, std::string* folder)
+	{
+		save(x, folder);
+	};
+
+
+
+	OptSolver::testFuncGradHessian(funVal, x);
+
+	auto x0 = x;
+	Eigen::VectorXd grad;
+	Eigen::SparseMatrix<double> hess;
+	double f0 = funVal(x0, &grad, &hess, false);
+	std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
+	OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, std::max(1e-16, xTol), std::max(1e-16, fTol), true, getVecNorm, &workingFolder, saveTmpRes);
+	std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
+	std::cout << "solve finished." << std::endl;
+}
