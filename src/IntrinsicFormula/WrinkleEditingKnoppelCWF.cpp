@@ -60,3 +60,22 @@ void WrinkleEditingKnoppelCWF::convertVariable2List(const Eigen::VectorXd& x)
 		}
 	}
 }
+
+
+void WrinkleEditingKnoppelCWF::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
+{
+	std::cout << "Knoppel model: " << std::endl;
+	// we solve the knoppel things based on edge omega using the cotan edge weight
+	convertVariable2List(x);
+	for (int i = 1; i < _edgeOmegaList.size() - 1; i++)
+	{
+		roundZvalsFromEdgeOmega(_mesh, _edgeOmegaList[i], _edgeCotCoeffs, _vertArea, _vertArea.rows(), _zvalsList[i]);
+		for (int j = 0; j < _zvalsList[i].size(); j++)
+		{
+			if (std::abs(_zvalsList[i][j]))
+				_zvalsList[i][j] *= _combinedRefAmpList[i][j] / std::abs(_zvalsList[i][j]);
+		}
+	}
+	convertList2Variable(x);
+
+}

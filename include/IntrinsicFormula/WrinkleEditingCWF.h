@@ -108,7 +108,7 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
-
+        virtual void solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol = 1e-6, double xTol = 0, double fTol = 0, bool isdisplayInfo = false, std::string workingFolder = "") override;
         virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder) override
         {
             convertVariable2List(x0);

@@ -415,6 +415,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::vector<std::comp
 	}
 }
 
+
 void WrinkleEditingModel::ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau, int zuenkoInner)
 {
 	int nframes = refOmegaList.size();

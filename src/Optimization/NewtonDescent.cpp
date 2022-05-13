@@ -37,6 +37,12 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 
 	std::cout << "pre-check for convex problem" << std::endl;
 	double f = objFunc(x0, &grad, &hessian, false);
+	if (f == 0)
+	{
+		std::cout << "energy = 0, return" << std::endl;
+	}
+
+
 	Eigen::SparseMatrix<double> H = hessian;
 	Eigen::SparseMatrix<double> I(DIM, DIM);
 	I.setIdentity();

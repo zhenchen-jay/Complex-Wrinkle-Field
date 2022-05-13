@@ -31,6 +31,8 @@
 #include "../../include/IntrinsicFormula/WrinkleEditingFullCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingNaiveCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -303,9 +305,13 @@ static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos,
 	{
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingNaiveCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
-	else if (editType == LinearCWF || editType == KnoppelCWF)
+	else if (editType == LinearCWF)
 	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == KnoppelCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
 	else if (editType == FullCWF)
 	{
@@ -727,10 +733,10 @@ void updatePaintingItems()
 	std::cout << "start to update viewer." << std::endl;
 }
 
-void reinitializeKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
+void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
 {
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+	editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
@@ -741,85 +747,38 @@ void reinitializeKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
 
-	/*std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> testEditModel = std::make_shared<IntrinsicFormula::WrinkleEditingNaiveCWF>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	testEditModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-	std::cout << "naive kinetic: " << testEditModel->kineticEnergy(0) << std::endl;
-	std::cout << "actual kinetic: " << editModel->kineticEnergy(0) << std::endl;*/
-
 }
 
-void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
 	Eigen::VectorXd x;
 	editModel->setSaveFolder(workingFolder);
 
-	if (editModelType == LinearCWF)
-	{
-		reinitializeKeyFrames(initAmp, initOmega, faceFlags, wFrames, zFrames, Linear);
-		return;
-	}
-	else if (editModelType == KnoppelCWF)
-	{
-		reinitializeKeyFrames(initAmp, initOmega, faceFlags, wFrames, zFrames, Knoppel);
-		return;
-	}
-	else if (isForceReinitilaize)
+	std::cout << "model Type: " << editModelType << std::endl;
+
+	/*
+	* 	CWF = 0,
+		NaiveCWF = 1,
+		LinearCWF = 2,
+		KnoppelCWF = 3,
+		FullCWF = 4,
+		LocalCWF = 5,
+	*/
+	std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
+
+	if (isForceReinitilaize)
 	{
 		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-		editModel->initialization(initZvals, initOmega, numFrames - 2, Linear, zuenkoTau, zuenkoIter);
+		editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 
-		std::cout << "initilization finished!" << std::endl;
+		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 	}
 	
 	editModel->convertList2Variable(x);
-	
+	editModel->solveIntermeditateFrames(x, numIter, gradTol, xTol, fTol, true, workingFolder);
+	editModel->convertVariable2List(x);
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
-
-
-	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-		Eigen::VectorXd deriv;
-		Eigen::SparseMatrix<double> H;
-		double E = editModel->computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
-
-		if (grad)
-		{
-			(*grad) = deriv;
-		}
-
-		if (hess)
-		{
-			(*hess) = H;
-		}
-
-		return E;
-	};
-	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
-		return 1.0;
-	};
-
-	auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-		editModel->getComponentNorm(x, znorm, wnorm);
-	};
-	auto saveTmpRes = [&](const Eigen::VectorXd& x, std::string* folder)
-	{
-		editModel->save(x, folder);
-	};
-
-
-
-	OptSolver::testFuncGradHessian(funVal, x);
-
-	auto x0 = x;
-	Eigen::VectorXd grad;
-	Eigen::SparseMatrix<double> hess;
-	double f0 = funVal(x0, &grad, &hess, false);
-	std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
-	OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, std::max(1e-16, xTol), std::max(1e-16, fTol), true, getVecNorm, &workingFolder, saveTmpRes);
-	std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
-
-	std::cout << "convert variable to list." << std::endl;
-	editModel->convertVariable2List(x);
 
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
@@ -1560,7 +1519,7 @@ void callback() {
 
 		updateEditionDomain();
 		// solve for the path from source to target
-		reinitializeKeyFrames(initAmp, initOmega, faceFlags, omegaList, zList, Linear);
+		reinitializeKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList, Linear);
 		updatePaintingItems();
 		updateFieldsInView(curFrame);
 	}
@@ -1570,7 +1529,7 @@ void callback() {
 
 		updateEditionDomain();
 		// solve for the path from source to target
-		solveKeyFrames(initAmp, initOmega, faceFlags, omegaList, zList);
+		solveKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList);
 		updatePaintingItems();
 		updateFieldsInView(curFrame);
 	}
