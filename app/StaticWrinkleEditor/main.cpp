@@ -11,6 +11,7 @@
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/cotmatrix_entries.h>
+#include <igl/cylinder.h>
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/surface_mesh.h"
@@ -773,8 +774,15 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 	}
+
+	IntrinsicFormula::WrinkleEditingNaiveCWF testmodel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	testmodel.initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+	testmodel.testFullKneticEnergy();
+	system("pause");
 	
 	editModel->convertList2Variable(x);
+	editModel->testEnergy(x);
+
 	editModel->solveIntermeditateFrames(x, numIter, gradTol, xTol, fTol, true, workingFolder);
 	editModel->convertVariable2List(x);
 	refOmegaList = editModel->getRefWList();
@@ -1569,6 +1577,27 @@ int main(int argc, char** argv)
 	double maxSize = std::max(std::max(testV.col(0).maxCoeff() - testV.col(0).minCoeff(), testV.col(1).maxCoeff() - testV.col(1).minCoeff()), testV.col(2).maxCoeff() - testV.col(2).minCoeff());
 	testV /= maxSize;
 	igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/20fames/userDesign/CWF/face/mesh.obj", testV, testF);
+
+	igl::cylinder(40, 20, testV, testF);
+	testV.col(2) *= 5;
+	igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_reg/mesh.obj", testV, testF);
+
+	/*igl::readOBJ("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/mesh.obj", testV, testF);
+	MeshConnectivity testMesh(testF);
+	Eigen::VectorXd edgeW;
+	std::vector<std::complex<double>> testz;
+	loadEdgeOmega("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/omega.txt", testMesh.nEdges(), edgeW);
+	loadVertexZvals("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/zvals.txt", testV.rows(), testz);*/
+	/*for (int i = 0; i < testz.size(); i++)
+	{
+		testz[i] *= 0.25;
+	}
+	for (int i = 0; i < edgeW.rows(); i++)
+	{
+		edgeW(i) *= 4.0;
+	}
+	saveEdgeOmega("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/omega_new.txt", edgeW);
+	saveVertexZvals("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/zvals_new.txt", testz);*/
 
 	if (!loadProblem())
 	{

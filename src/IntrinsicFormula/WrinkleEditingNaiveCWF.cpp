@@ -208,18 +208,62 @@ double WrinkleEditingNaiveCWF::kineticEnergy(int frameId, Eigen::VectorXd* deriv
 		if (hessT)
 		{
 			hessT->push_back({ 2 * vid, 2 * vid, coeff });
-			hessT->push_back({ DOFsPerframe + 2 * vid, DOFsPerframe + 2 * vid, coeff });
-
-			hessT->push_back({ DOFsPerframe + 2 * vid, 2 * vid, -coeff });
 			hessT->push_back({ 2 * vid, DOFsPerframe + 2 * vid, -coeff });
 
 			hessT->push_back({ 2 * vid + 1, 2 * vid + 1, coeff });
-			hessT->push_back({ DOFsPerframe + 2 * vid + 1, DOFsPerframe + 2 * vid + 1, coeff });
-
 			hessT->push_back({ 2 * vid + 1, DOFsPerframe + 2 * vid + 1, -coeff });
+
+			hessT->push_back({ DOFsPerframe + 2 * vid, DOFsPerframe + 2 * vid, coeff });
+			hessT->push_back({ DOFsPerframe + 2 * vid, 2 * vid, -coeff });
+			
+			hessT->push_back({ DOFsPerframe + 2 * vid + 1, DOFsPerframe + 2 * vid + 1, coeff });
 			hessT->push_back({ DOFsPerframe + 2 * vid + 1, 2 * vid + 1, -coeff });
 
 		}
+	}
+	return energy;
+}
+
+double WrinkleEditingNaiveCWF::fullKneticEnergy(Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess)
+{
+	int nverts = _pos.rows();
+	int numFrames = _zvalsList.size();
+
+	int DOFsPerframe = 2 * nverts;
+
+	int DOFs = numFrames * DOFsPerframe;
+
+	std::vector<Eigen::Triplet<double>> T;
+
+	double energy = 0;
+	if (deriv)
+	{
+		deriv->setZero(DOFs);
+	}
+
+	for (int i = 0; i < _zvalsList.size() - 1; i++)
+	{
+		Eigen::VectorXd curDeriv;
+		std::vector<Eigen::Triplet<double>> curT;
+		energy += kineticEnergy(i, deriv ? &curDeriv : NULL, hess ? &curT : NULL, false);
+
+		if (deriv)
+		{
+			deriv->segment(i * DOFsPerframe, 2 * DOFsPerframe) += curDeriv;	
+		}
+		if (hess)
+		{
+			for (auto& it : curT)
+			{
+				T.push_back({ it.row() + i * DOFsPerframe, it.col() + i * DOFsPerframe , it.value() });
+			}
+		}
+	}
+
+	if (hess)
+	{
+		hess->resize(DOFs, DOFs);
+		hess->setFromTriplets(T.begin(), T.end());
 	}
 	return energy;
 }
@@ -245,7 +289,7 @@ double WrinkleEditingNaiveCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Ve
 	{
 		deriv->setZero(DOFs);
 	}
-
+	
 	std::vector<Eigen::VectorXd> curKDerivList(numFrames + 1);
 	std::vector<std::vector<Eigen::Triplet<double>>> curKTList(numFrames + 1);
 	std::vector<double> keList(numFrames + 1);
@@ -302,7 +346,9 @@ double WrinkleEditingNaiveCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Ve
 			}
 		}
 	}
+	
 
+	/*
 	std::vector<Eigen::VectorXd> ampDerivList(numFrames), knoppelDerivList(numFrames);
 	std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), knoppelTList(numFrames);
 	std::vector<double> ampEnergyList(numFrames), knoppelEnergyList(numFrames);
@@ -343,7 +389,7 @@ double WrinkleEditingNaiveCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Ve
 			}
 		}
 	}
-
+	*/
 	if (hess)
 	{
 		//std::cout << "num of triplets: " << T.size() << std::endl;
@@ -397,4 +443,189 @@ void WrinkleEditingNaiveCWF::solveIntermeditateFrames(Eigen::VectorXd& x, int nu
 	OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, std::max(1e-16, xTol), std::max(1e-16, fTol), true, getVecNorm, &workingFolder, saveTmpRes);
 	std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	std::cout << "solve finished." << std::endl;
+}
+
+void WrinkleEditingNaiveCWF::testFullKneticEnergy()
+{
+	Eigen::VectorXd deriv;
+	Eigen::SparseMatrix<double> hess;
+
+	double ke = fullKneticEnergy(&deriv, &hess);
+
+	std::cout << "ke: " << ke << ", deriv: " << deriv.norm() << ", hess norm: " << hess.norm() << std::endl;
+
+	std::vector<std::vector<std::complex<double>>> zLists = _zvalsList;
+
+	int nverts = _zvalsList[0].size();
+	
+	auto convertList2Vec = [&](const std::vector<std::vector<std::complex<double>>>& zlist, Eigen::VectorXd& x)
+	{
+		int nframes = zlist.size();
+		int npoints = zlist[0].size();
+		x.resize(2 * npoints * nframes);
+
+		for (int i = 0; i < nframes; i++)
+		{
+			for (int j = 0; j < npoints; j++)
+			{
+				x(i * 2 * npoints + 2 * j) = zlist[i][j].real();
+				x(i * 2 * npoints + 2 * j + 1) = zlist[i][j].imag();
+			}
+		}
+	};
+
+	auto convertVec2List = [&](const Eigen::VectorXd& x, std::vector<std::vector<std::complex<double>>>& zlist)
+	{
+		int nframes = zlist.size();
+		int npoints = zlist[0].size();
+		
+		for (int i = 0; i < nframes; i++)
+		{
+			for (int j = 0; j < npoints; j++)
+			{
+				zlist[i][j] = { x(i * 2 * npoints + 2 * j) , x(i * 2 * npoints + 2 * j + 1) };
+			}
+		}
+	};
+
+	Eigen::VectorXd x0, x;
+	convertList2Vec(_zvalsList, x);
+
+	x0 = x;
+	x0.setZero();
+	convertVec2List(x0, _zvalsList);
+
+	Eigen::VectorXd deriv0;
+	Eigen::SparseMatrix<double> hess0;
+	double ke0 = fullKneticEnergy(&deriv0, &hess0);
+
+	std::cout << "hess check: " << (hess - hess0).norm() << ", grad check: " << deriv0.norm() << ", grad-hess: " << (deriv - hess0 * x).norm() << ", energy-hess: " << (ke - 0.5 * x.dot(hess0 * x)) << std::endl;
+	_zvalsList = zLists;
+
+	std::vector<Eigen::Triplet<double>> projT;
+	int row = 0;
+	for (int i = 0; i < _zvalsList.size(); i++)
+	{
+		if (i == 0 || i == _zvalsList.size() - 1)
+			continue;
+		for (int j = 0; j < nverts; j++)
+		{
+			projT.push_back({ row, i * (2 * nverts) + 2 * j, 1.0 });
+			projT.push_back({ row + 1, i * (2 * nverts) + 2 * j + 1, 1.0 });
+			row += 2;
+		}
+	}
+
+	Eigen::SparseMatrix<double> projM;
+	projM.resize(row, _zvalsList.size() * 2 * nverts);
+
+	projM.setFromTriplets(projT.begin(), projT.end());
+
+	Eigen::VectorXd testx, testDeriv, testDeriv0;
+	Eigen::SparseMatrix<double> testHess, testHess0;
+	convertList2Variable(testx);
+	double ke1 = computeEnergy(testx, &testDeriv, &testHess, false);
+
+	Eigen::SparseMatrix<double> projHess = projM * hess * projM.transpose();
+
+	Eigen::VectorXd fixedVar;
+	convertList2Vec(_zvalsList, fixedVar);
+	fixedVar = fixedVar - projM.transpose() * testx;
+
+	Eigen::VectorXd zeroX = testx;
+	zeroX.setZero();
+	double testke0 = computeEnergy(zeroX, &testDeriv0, &testHess0, false);
+	_zvalsList = zLists;
+
+	std::cout << "testKe0 - quad: " << testke0 - 0.5 * fixedVar.dot(hess0 * fixedVar) << std::endl;
+	Eigen::VectorXd by = projM * hess0 * fixedVar;
+	double cy = 0.5 * fixedVar.dot(hess0 * fixedVar);
+	
+	std::cout << "ke1 - ke: " << (ke - ke1) << ", grad check: " << (testDeriv - projM * deriv).norm() << " " << (testDeriv - by - projHess * testx).norm() << ", hess check: " << (testHess - projHess).norm() << std::endl;
+
+}
+
+void WrinkleEditingNaiveCWF::testKneticEnergy(int frameId)
+{
+	Eigen::VectorXd deriv;
+	std::vector<Eigen::Triplet<double>> hessT;
+	Eigen::SparseMatrix<double> hess;
+
+	std::vector<std::complex<double>> prevZvals = _zvalsList[frameId];
+	std::vector<std::complex<double>> curZvals = _zvalsList[frameId + 1];
+
+	double ke = kineticEnergy(frameId, &deriv, &hessT, false);
+	hess.resize(deriv.rows(), deriv.rows());
+	hess.setFromTriplets(hessT.begin(), hessT.end());
+
+	std::cout << "ke: " << ke << ", deriv: " << deriv.norm() << ", hess norm: " << hess.norm() << std::endl;
+
+	int nverts = _zvalsList[frameId].size();
+
+	std::vector<std::complex<double>> zeroZvals;
+	zeroZvals.resize(nverts, 0);
+	_zvalsList[frameId] = zeroZvals;
+	_zvalsList[frameId + 1] = zeroZvals;
+
+	
+
+	Eigen::VectorXd deriv0;
+	std::vector<Eigen::Triplet<double>> hessT0;
+	Eigen::SparseMatrix<double> hess0;
+
+	double ke0 = kineticEnergy(frameId, &deriv0, &hessT0, false);
+	hess0.resize(deriv.rows(), deriv.rows());
+	hess0.setFromTriplets(hessT0.begin(), hessT0.end());
+
+	Eigen::VectorXd x(4 * nverts);
+	for (int i = 0; i < nverts; i++)
+	{
+		x(2 * i) = prevZvals[i].real();
+		x(2 * i + 1) = prevZvals[i].imag();
+
+		x(2 * nverts + 2 * i) = curZvals[i].real();
+		x(2 * nverts + 2 * i + 1) = curZvals[i].imag();
+	}
+
+
+	std::cout << "hess const check: " << (hess - hess0).norm() << std::endl;
+	std::cout << "hess gradient check: " << (deriv - hess0 * x).norm() << std::endl;
+	std::cout << "energy-hess check: " << (0.5 * x.dot(hess0 * x) + x.dot(deriv0) + ke0 - ke) << ", deriv0: " << deriv0.norm() << std::endl;
+
+	Eigen::VectorXd dir = deriv;
+	dir.setRandom();
+	_zvalsList[frameId] = prevZvals;
+	_zvalsList[frameId + 1] = curZvals;
+
+	deriv = hess0 * x;
+	
+	for (int i = 3; i < 10; i++)
+	{
+		double eps = std::pow(0.1, i);
+		for (int j = 0; j < nverts; j++)
+		{
+			_zvalsList[frameId][j] = { prevZvals[j].real() + eps * dir(2 * j), prevZvals[j].imag() + eps * dir(2 * j + 1) };
+			_zvalsList[frameId + 1][j] = { curZvals[j].real() + eps * dir(2 * j + 2 * nverts), curZvals[j].imag() + eps * dir(2 * j + 1 + 2 * nverts) };
+		}
+
+		Eigen::VectorXd x(4 * nverts);
+		for (int i = 0; i < nverts; i++)
+		{
+			x(2 * i) = _zvalsList[frameId][i].real();
+			x(2 * i + 1) = _zvalsList[frameId][i].imag();
+
+			x(2 * nverts + 2 * i) = _zvalsList[frameId + 1][i].real();
+			x(2 * nverts + 2 * i + 1) = _zvalsList[frameId + 1][i].imag();
+		}
+
+		Eigen::VectorXd deriv1;
+		double ke1 = kineticEnergy(frameId, &deriv1, NULL, false);
+		deriv1 = hess0 * x;
+		std::cout << "eps: " << eps << std::endl;
+		std::cout << "energy-gradient: " << (ke1 - ke) / eps - dir.dot(deriv) << std::endl;
+		std::cout << "gradient-hessian: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+	}
+	_zvalsList[frameId] = prevZvals;
+	_zvalsList[frameId + 1] = curZvals;
+
 }
