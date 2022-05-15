@@ -196,6 +196,11 @@ double smoothingRatio = 0.95;
 bool isFixedBnd = false;
 int effectivedistFactor = 6;
 
+bool isShowActualKnoppel = false;
+std::vector<Eigen::VectorXd> knoppelPhiList;
+Eigen::MatrixXd knoppelUpV;
+Eigen::MatrixXi knoppelUpF;
+
 //IntrinsicFormula::WrinkleEditingLocalModel editModel;
 
 struct PickedFace
@@ -589,11 +594,19 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 
 	MeshConnectivity mesh(triF);
 
+    // ToDo: remove this
+    Eigen::SparseMatrix<double> mat;
+    std::vector<int> facemap;
+    std::vector<std::pair<int, Eigen::Vector3d>> bary;
+    meshUpSampling(triV, triF, knoppelUpV, knoppelUpF, upsampleTimes, &mat, &facemap, &bary);
+    knoppelPhiList.resize(zFrames.size());
+
 
 	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
+            IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, wFrames[i], zFrames[i], bary, knoppelPhiList[i]); // knoppel's approach
 			
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
 			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
@@ -811,11 +824,23 @@ void registerMesh(int frameId)
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
 
 	// phase pattern
-	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
-	polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
-	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    if(isShowActualKnoppel && editModelType == KnoppelCWF)
+    {
+        polyscope::registerSurfaceMesh("phase mesh", knoppelUpV, knoppelUpF);
+        mPaint.setNormalization(false);
+        Eigen::MatrixXd phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
+        polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
+        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    }
+    else
+    {
+        polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
+        mPaint.setNormalization(false);
+        Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
+        polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
+        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    }
+
 
 	// amp pattern
 	polyscope::registerSurfaceMesh("upsampled ampliude and frequency mesh", upsampledTriV, upsampledTriF);
@@ -1233,6 +1258,9 @@ bool saveForRender()
     igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
     igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
 
+    if(editModelType == KnoppelCWF)
+        igl::writeOBJ(renderFolder + "knoppelUpmesh.obj", knoppelUpV, knoppelUpF);
+
     saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
 
     std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
@@ -1240,6 +1268,11 @@ bool saveForRender()
 
     std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
     mkdir(outputFolderPhase);
+
+    std::string outputFolderKnoppelPhase = renderFolder + "/upsampledKnoppelPhase/";
+    if(editModelType == KnoppelCWF)
+        mkdir(outputFolderKnoppelPhase);
+
 
     std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
     mkdir(outputFolderWrinkles);
@@ -1269,6 +1302,8 @@ bool saveForRender()
 
             saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
             savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
+            if(editModelType == KnoppelCWF)
+                savePhi4Render(knoppelPhiList[i], outputFolderKnoppelPhase + "upKnoppelPhase" + std::to_string(i) + ".cvs");
             saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
 
             // reference information
@@ -1341,20 +1376,26 @@ void callback() {
 		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
 		{
 			if (ImGui::InputInt("upsampled level", &upsampleTimes))
-			{
-				if (upsampleTimes >= 0)
-				{
-					getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-					updatePaintingItems();
-					updateFieldsInView(curFrame);
-				}
-			}
+            {
+                if (upsampleTimes >= 0)
+                {
+                    getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+                    updatePaintingItems();
+                    updateFieldsInView(curFrame);
+                }
+            }
 			if (ImGui::Checkbox("fix bnd", &isFixedBnd))
 			{
 				getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 				updatePaintingItems();
 				updateFieldsInView(curFrame);
 			}
+            if (ImGui::Checkbox("show actual knoppel", &isShowActualKnoppel))
+            {
+                getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+                updatePaintingItems();
+                updateFieldsInView(curFrame);
+            }
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
@@ -1562,13 +1603,6 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-	Eigen::MatrixXd testV;
-	Eigen::MatrixXi testF;
-
-	igl::readOBJ("G:/WrinkleEdition_dataset/edgemodel/20fames/userDesign/CWF/face/mesh.obj", testV, testF);
-	double maxSize = std::max(std::max(testV.col(0).maxCoeff() - testV.col(0).minCoeff(), testV.col(1).maxCoeff() - testV.col(1).minCoeff()), testV.col(2).maxCoeff() - testV.col(2).minCoeff());
-	testV /= maxSize;
-	igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/20fames/userDesign/CWF/face/mesh.obj", testV, testF);
 
 	if (!loadProblem())
 	{

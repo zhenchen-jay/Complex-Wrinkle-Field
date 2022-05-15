@@ -11,6 +11,7 @@
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/cotmatrix_entries.h>
+#include <igl/triangle/triangulate.h>
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/surface_mesh.h"
@@ -23,11 +24,19 @@
 #include "../../include/CommonTools.h"
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/Visualization/PaintGeometry.h"
+#include "../../include/testMeshGeneration.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingLocalModel.h"
+
 #include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingGlobalModel.h"
+
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingFullCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingNaiveCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
+
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../include/SpherigonSmoothing.h"
@@ -128,16 +137,144 @@ bool isWarmStart = false;
 
 enum ModelType
 {
-	GlobalModel = 0,
-	LocalModel = 1
+    CWF = 0,
+    NaiveCWF = 1,
+    LinearCWF = 2,
+    KnoppelCWF = 3,
+    FullCWF = 4,
+    LocalCWF = 5,
 };
 
 InitializationType initType = Linear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
-ModelType editModelType = GlobalModel;
+ModelType editModelType = NaiveCWF;
+bool isShowActualKnoppel = false;
+std::vector<Eigen::VectorXd> knoppelPhiList;
+Eigen::MatrixXd knoppelUpV;
+Eigen::MatrixXi knoppelUpF;
 
+static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
+{
+    if (editType == CWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+    }
+    else if (editType == NaiveCWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingNaiveCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+    }
+    else if (editType == LinearCWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+    }
+    else if (editType == KnoppelCWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+    }
+    else if (editType == FullCWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+    }
+    else if (editType == LocalCWF)
+    {
+        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+    }
+    else
+    {
+        std::cerr << "error model!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void generateRotationCase(double triarea, double freq)
+{
+    double l = 1;
+    double w = 1;
+
+    Eigen::MatrixXd irregularV, irregularCV;
+    Eigen::MatrixXi irregularF, irregularCF;
+
+    double area = l * w;
+
+    int N = (0.5 * std::sqrt(area / triarea));
+    N = N > 1 ? N : 2;
+    int M = 2 * N + 1;
+
+    Eigen::MatrixXd planeV(2 * M, 2);
+    Eigen::MatrixXi planeE(2 * M + M - 2, 2);
+    planeV.resize(4 * M - 4, 2);
+    planeE.resize(4 * M - 4, 2);
+
+    for (int i = 0; i < M; i++)
+    {
+        planeV.row(i) << 0, i * w / (M - 1);
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(M - 1 + i) << i * l / (M - 1), w;
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(2 * (M - 1) + i) << l, w - i * w / (M - 1);
+    }
+    for (int i = 1; i < M - 1; i++)
+    {
+        planeV.row(3 * (M - 1) + i) << l - i * l / (M - 1), 0;
+    }
+
+    for (int i = 0; i < 4 * (M - 1); i++)
+    {
+        planeE.row(i) << i, (i + 1) % (4 * (M - 1));
+    }
+
+    Eigen::MatrixXd V2d;
+    Eigen::MatrixXi F;
+    Eigen::MatrixXi H(0, 2);
+    const std::string flags = "q20a" + std::to_string(triarea);
+    igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+    irregularV.resize(V2d.rows(), 3);
+    irregularV.setZero();
+    irregularV.block(0, 0, irregularV.rows(), 2) = V2d;
+    irregularF = F;
+
+    MeshConnectivity mesh(F);
+    int nedges = mesh.nEdges();
+    int nverts = irregularV.rows();
+
+    Eigen::MatrixXd enlargedIrregV = 4 * irregularV;
+    Eigen::VectorXd edgeOmega(nedges), edgeOmegaLarge(nedges);
+
+    std::vector<std::complex<double>> vertZList(nverts), vertZListLarge(nverts);
+
+    for(int i = 0; i < nedges; i++)
+    {
+        int v0 = mesh.edgeVertex(i, 0);
+        int v1 = mesh.edgeVertex(i, 1);
+
+        edgeOmega(i) = freq * (irregularV(v1, 0) - irregularV(v0, 0));
+        edgeOmegaLarge(i) = freq * (enlargedIrregV(v1, 0) - enlargedIrregV(v0, 0));
+    }
+
+    for(int i = 0; i < nverts; i++)
+    {
+        double theta = irregularV(i, 0) * freq;
+        double thetaLarge = enlargedIrregV(i, 0) * freq;
+
+        vertZList[i] = std::complex<double>(std::cos(theta), std::sin(theta));
+        vertZListLarge[i] = std::complex<double>(std::cos(thetaLarge), std::sin(thetaLarge));
+    }
+
+    saveVertexZvals("zvals.txt", vertZList);
+    saveVertexZvals("enlarge_zvals.txt", vertZListLarge);
+
+    saveEdgeOmega("omega.txt", edgeOmega);
+    saveEdgeOmega("enlarge_omega.txt", edgeOmegaLarge);
+
+    igl::writeOBJ("plane.obj", irregularV, irregularF);
+    igl::writeOBJ("enlarge_plane.obj", enlargedIrregV, irregularF);
+}
 
 void buildRefInfo(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<Eigen::VectorXd>& didacticRefAmpList, std::vector<Eigen::VectorXd>& didacticRefOmegaList, int numFrames, bool isRotate)
 {
@@ -168,53 +305,61 @@ void buildRefInfo(const std::vector<std::complex<double>>& initZvals, const Eige
         {
             didacticRefAmpList[i] = initAmp;
             didacticRefOmegaList[i] = initOmega;
-            didacticRefOmegaList[i][initOmega.rows() - 1] *= (1 + dt * i);
+            didacticRefOmegaList[i][0] *= (1 + dt * i);
 
         }
     }
 }
 
-void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, 
-	std::vector<Eigen::VectorXd>& magList, 
-	std::vector<Eigen::VectorXd>& phaseList,
-	std::vector<std::vector<std::complex<double>>>& upZFrames)
+void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames,
+                          std::vector<Eigen::VectorXd>& magList,
+                          std::vector<Eigen::VectorXd>& phaseList,
+                          std::vector<std::vector<std::complex<double>>>& upZFrames)
 {
-	magList.resize(wFrames.size());
-	phaseList.resize(wFrames.size());
-	upZFrames.resize(wFrames.size());
+    magList.resize(wFrames.size());
+    phaseList.resize(wFrames.size());
+    upZFrames.resize(wFrames.size());
 
-	subOmegaList.resize(wFrames.size());
-	subFaceOmegaList.resize(wFrames.size());
+    subOmegaList.resize(wFrames.size());
+    subFaceOmegaList.resize(wFrames.size());
 
-	MeshConnectivity mesh(triF);
+    MeshConnectivity mesh(triF);
+
+    // ToDo: remove this
+    Eigen::SparseMatrix<double> mat;
+    std::vector<int> facemap;
+    std::vector<std::pair<int, Eigen::Vector3d>> bary;
+    meshUpSampling(triV, triF, knoppelUpV, knoppelUpF, upsampleTimes, &mat, &facemap, &bary);
+    knoppelPhiList.resize(zFrames.size());
 
 
-	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range)
-	{
-		for (uint32_t i = range.begin(); i < range.end(); ++i)
-		{
-			
-			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
-			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
-			complexLoopOpt->setBndFixFlag(isFixedBnd);
-			complexLoopOpt->SetMesh(secMesh);
-			complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
-			Mesh tmpMesh = complexLoopOpt->GetMesh();
-			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
+    auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, wFrames[i], zFrames[i], bary, knoppelPhiList[i]); // knoppel's approach
 
-			magList[i].setZero(upZFrames[i].size());
-			phaseList[i].setZero(upZFrames[i].size());
+            Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
+            std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+            complexLoopOpt->setBndFixFlag(isFixedBnd);
+            complexLoopOpt->SetMesh(secMesh);
+            complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
+            Mesh tmpMesh = complexLoopOpt->GetMesh();
+            subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
 
-			for (int j = 0; j < magList[i].size(); j++)
-			{
-				magList[i](j) = std::abs(upZFrames[i][j]);
-				phaseList[i](j) = std::arg(upZFrames[i][j]);
-			}
-		}
-	};
+            magList[i].setZero(upZFrames[i].size());
+            phaseList[i].setZero(upZFrames[i].size());
 
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size(), GRAIN_SIZE);
-	tbb::parallel_for(rangex, computeMagPhase);
+            for (int j = 0; j < magList[i].size(); j++)
+            {
+                magList[i](j) = std::abs(upZFrames[i][j]);
+                phaseList[i](j) = std::arg(upZFrames[i][j]);
+            }
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size(), GRAIN_SIZE);
+    tbb::parallel_for(rangex, computeMagPhase);
 
 }
 
@@ -294,14 +439,25 @@ void updatePaintingItems()
 	std::cout << "start to update viewer." << std::endl;
 }
 
-void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
+void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
-	if(editModelType == GlobalModel)
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	else
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+    Eigen::VectorXd x;
+    editModel->setSaveFolder(workingFolder);
+
+    std::cout << "model Type: " << editModelType << std::endl;
+
+    /*
+    * 	CWF = 0,
+        NaiveCWF = 1,
+        LinearCWF = 2,
+        KnoppelCWF = 3,
+        FullCWF = 4,
+        LocalCWF = 5,
+    */
+    std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
 
     buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
+
     Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
     Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
     Eigen::VectorXd faceArea = getFaceArea(triV, triMesh);
@@ -313,78 +469,20 @@ void solveKeyFrames(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& initO
     {
         IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refAmpList.size()-1], edgeArea, vertArea, vertArea.size(), tarZvals);
     }
-    editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() - 1], refAmpList, refOmegaList, initType);
 
+    buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+    editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() - 1], refAmpList, refOmegaList, Linear);
 
-//	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-	
-	std::cout << "initilization finished!" << std::endl;
-	Eigen::VectorXd x;
-	std::cout << "convert list to variable." << std::endl;
-	editModel->convertList2Variable(x);
+    editModel->convertList2Variable(x);
+    editModel->solveIntermeditateFrames(x, numIter, gradTol, xTol, fTol, true, workingFolder);
+    editModel->convertVariable2List(x);
+    refOmegaList = editModel->getRefWList();
+    refAmpList = editModel->getRefAmpList();
 
-	refOmegaList = editModel->getRefWList();
-	refAmpList = editModel->getRefAmpList();
-
-
-	if (isForceOptimize)
-	{
-		if (isWarmStart)
-			editModel->warmstart();
-
-		else
-		{
-
-			auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
-				Eigen::VectorXd deriv;
-				Eigen::SparseMatrix<double> H;
-				double E = editModel->computeEnergy(x, grad ? &deriv : NULL, hess ? &H : NULL, isProj);
-
-				if (grad)
-				{
-					(*grad) = deriv;
-				}
-
-				if (hess)
-				{
-					(*hess) = H;
-				}
-
-				return E;
-			};
-			auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
-				return 1.0;
-			};
-
-			auto getVecNorm = [&](const Eigen::VectorXd& x, double& znorm, double& wnorm) {
-				editModel->getComponentNorm(x, znorm, wnorm);
-			};
-            auto saveTmpRes = [&](const Eigen::VectorXd& x, std::string* folder)
-            {
-                editModel->save(x, folder);
-            };
-
-
-
-			OptSolver::testFuncGradHessian(funVal, x);
-
-			auto x0 = x;
-			Eigen::VectorXd grad;
-			Eigen::SparseMatrix<double> hess;
-			double f0 = funVal(x0, &grad, &hess, false);
-			std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << ", working folder: " << workingFolder << std::endl;
-			OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, xTol, fTol, false, getVecNorm, &workingFolder, saveTmpRes);
-			std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
-
-			std::cout << "convert variable to list." << std::endl;
-			editModel->convertVariable2List(x);
-		}
-	}
-	std::cout << "get w list" << std::endl;
-	wFrames = editModel->getWList();
-	std::cout << "get z list" << std::endl;
-	zFrames = editModel->getVertValsList();
-
+    std::cout << "get w list" << std::endl;
+    wFrames = editModel->getWList();
+    std::cout << "get z list" << std::endl;
+    zFrames = editModel->getVertValsList();
 }
 
 void registerMesh(int frameId)
@@ -410,12 +508,24 @@ void registerMesh(int frameId)
 	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
 
-	// phase pattern
-	polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
-	polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
-	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    // phase pattern
+    if(isShowActualKnoppel && editModelType == KnoppelCWF)
+    {
+        std::cout << "actual knoppel Phase." << std::endl;
+        polyscope::registerSurfaceMesh("phase mesh", knoppelUpV, knoppelUpF);
+        mPaint.setNormalization(false);
+        Eigen::MatrixXd phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
+        polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
+        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    }
+    else
+    {
+        polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
+        mPaint.setNormalization(false);
+        Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
+        polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
+        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    }
 
 	// amp pattern
 	polyscope::registerSurfaceMesh("upsampled ampliude and frequency mesh", upsampledTriV, upsampledTriF);
@@ -468,7 +578,7 @@ bool loadProblem()
 	igl::readOBJ(meshFile, triV, triF);
 	triMesh = MeshConnectivity(triF);
 	initialization(triV, triF, upsampledTriV, upsampledTriF);
-	
+
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
@@ -509,10 +619,11 @@ bool loadProblem()
 		initZValsPath = jval["init_zvals"];
 	}
 
-	if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega)) {
-		std::cout << "missing init edge omega file." << std::endl;
-		return false;
-	}
+	if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega))
+    {
+        std::cout << "missing init edge omega file." << std::endl;
+        return false;
+    }
 
 	if (!loadVertexZvals(workingFolder + initZValsPath, triV.rows(), initZvals))
 	{
@@ -546,7 +657,6 @@ bool loadProblem()
 	std::string optOmega = jval["solution"]["opt_omega"];
 
 	// edge omega List
-	int iter = 0;
 	bool isLoadRef = true;
 	refAmpList.resize(numFrames);
 	refOmegaList.resize(numFrames);
@@ -605,7 +715,7 @@ bool loadProblem()
         vertOpts.clear();
         vertOpts.resize(nverts, { None, false, 0, 1 });
 
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingGlobalModel>(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+        buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
         buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
 
@@ -630,7 +740,7 @@ bool loadProblem()
 			zList = editModel->getVertValsList();
 			omegaList = editModel->getWList();
 		}
-		
+
 	}
 
 	updatePaintingItems();
@@ -702,11 +812,19 @@ bool saveForRender()
     igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
     igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
 
+    if(editModelType == KnoppelCWF)
+        igl::writeOBJ(renderFolder + "knoppelUpmesh.obj", knoppelUpV, knoppelUpF);
+
     std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
     mkdir(outputFolderAmp);
 
     std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
     mkdir(outputFolderPhase);
+
+    std::string outputFolderKnoppelPhase = renderFolder + "/upsampledKnoppelPhase/";
+    if(editModelType == KnoppelCWF)
+        mkdir(outputFolderKnoppelPhase);
+
 
     std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
     mkdir(outputFolderWrinkles);
@@ -736,6 +854,8 @@ bool saveForRender()
 
             saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
             savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
+            if(editModelType == KnoppelCWF)
+                savePhi4Render(knoppelPhiList[i], outputFolderKnoppelPhase + "upKnoppelPhase" + std::to_string(i) + ".cvs");
             saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
 
             // reference information
@@ -822,6 +942,12 @@ void callback() {
 				updatePaintingItems();
 				updateFieldsInView(curFrame);
 			}
+            if (ImGui::Checkbox("show actual knoppel", &isShowActualKnoppel))
+            {
+                getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+                updatePaintingItems();
+                updateFieldsInView(curFrame);
+            }
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
@@ -878,11 +1004,11 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Combo("model type", (int*)&editModelType, "Global\0Local\0");
-		ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
+        ImGui::Combo("model type", (int*)&editModelType, "CWF\0NaiveCWF\0LinearCWF\0Knoppel\0FullCWF\0LocalCWF\0");
+        ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
         if (ImGui::Checkbox("Rotate", &isRotate))
         {
-            
+
         }
 		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
 		{
@@ -952,19 +1078,25 @@ void callback() {
 		ImGui::Checkbox("warm start", &isWarmStart);
 
 	}
+    if (ImGui::Button("Solve", ImVec2(-1, 0)))
+    {
 
-
-	ImGui::Checkbox("Try Optimization", &isForceOptimize);
-
-	if (ImGui::Button("comb fields & updates", ImVec2(-1, 0)))
-	{
         Eigen::VectorXi faceFlags;
-        faceFlags.setOnes(triMesh.nFaces());
-		solveKeyFrames(initAmp, initOmega, faceFlags, omegaList, zList);
-		updatePaintingItems();
-		updateFieldsInView(curFrame);
-	}
+        faceFlags.setOnes(triF.rows());
+        // solve for the path from source to target
+        solveKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList);
+        updatePaintingItems();
+        updateFieldsInView(curFrame);
+    }
 
+    if (ImGui::Button("update viewer", ImVec2(-1, 0)))
+    {
+
+        Eigen::VectorXi faceFlags;
+        faceFlags.setOnes(triF.rows());
+        updatePaintingItems();
+        updateFieldsInView(curFrame);
+    }
 	if (ImGui::Button("output images", ImVec2(-1, 0)))
 	{
 		std::string curFolder = std::filesystem::current_path().string();
@@ -985,6 +1117,7 @@ void callback() {
 
 int main(int argc, char** argv)
 {
+    generateRotationCase(0.01, 10);
 	if (!loadProblem())
 	{
 		std::cout << "failed to load file." << std::endl;

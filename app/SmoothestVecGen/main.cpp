@@ -177,6 +177,7 @@ void loadBaseMesh(const std::string& meshPath)
 	polyscope::registerSurfaceMesh("base mesh", geometry->inputVertexPositions, mesh->getFaceVertexList(), polyscopePermutations(*mesh));
 
 	convertGeoCentralMesh(*mesh, *geometry, triV, triMesh);
+    
 	double shiftx = 1.2 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	Eigen::MatrixXd shiftedV = triV;
 	shiftedV.setZero();

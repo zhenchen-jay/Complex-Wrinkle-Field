@@ -303,6 +303,7 @@ double WrinkleEditingNaiveCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Ve
 		}
 	}
 
+
 	std::vector<Eigen::VectorXd> ampDerivList(numFrames), knoppelDerivList(numFrames);
 	std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), knoppelTList(numFrames);
 	std::vector<double> ampEnergyList(numFrames), knoppelEnergyList(numFrames);
@@ -343,7 +344,7 @@ double WrinkleEditingNaiveCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::Ve
 			}
 		}
 	}
-
+    
 	if (hess)
 	{
 		//std::cout << "num of triplets: " << T.size() << std::endl;
