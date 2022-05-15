@@ -178,6 +178,12 @@ namespace IntrinsicFormula
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 
+
+        double fullKneticEnergy(Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL);
+        void testFullKneticEnergy();
+
+        void testKneticEnergy(int frameId);
+
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)
 		{
