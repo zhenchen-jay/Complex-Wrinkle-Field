@@ -11,6 +11,8 @@ void OptSolver::testFuncGradHessian(std::function<double(const Eigen::VectorXd&,
 
 	double f = objFunc(x0, &grad, &H, false);
 	std::cout << "f: " << f << std::endl;
+    if(f == 0)
+        return;
 
 	for (int i = 3; i < 10; i++)
 	{

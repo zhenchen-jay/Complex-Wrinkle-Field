@@ -1221,5 +1221,4 @@ void WrinkleEditingModel::testEnergy(Eigen::VectorXd x)
 		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
 		std::cout << "gradient-hessian check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
 	}
-	system("pause");
 }
