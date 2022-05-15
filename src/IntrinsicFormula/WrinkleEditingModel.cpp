@@ -1191,10 +1191,21 @@ void WrinkleEditingModel::testEnergy(Eigen::VectorXd x)
 	Eigen::SparseMatrix<double> hess;
 
 	double e = computeEnergy(x, &deriv, &hess, false);
-	std::cout << "energy: " << e << std::endl;
+	Eigen::VectorXd x0 = x;
+	x0.setZero();
+	Eigen::VectorXd deriv0;
+	Eigen::SparseMatrix<double> hess0;
+	double e0 = computeEnergy(x, &deriv0, &hess0, false);
+
+	std::cout << "energy: " << e << ", deriv: " << deriv.norm() << ", hess: " << hess.norm() << std::endl;
+	std::cout << "hess check: " << (hess0 * x + deriv0 - deriv).norm() << " " << (hess - hess0).norm() << ", " << 0.5 * x.dot(hess0 * x) + deriv0.dot(x) + e0 - e << std::endl;
 
 	Eigen::VectorXd dir = deriv;
 	dir.setRandom();
+
+	deriv = hess0 * x + deriv0;
+	e = 0.5 * x.dot(hess0 * x) + deriv0.dot(x) + e0;
+
 
 	for (int i = 3; i < 9; i++)
 	{
@@ -1202,9 +1213,13 @@ void WrinkleEditingModel::testEnergy(Eigen::VectorXd x)
 
 		Eigen::VectorXd deriv1;
 		double e1 = computeEnergy(x + eps * dir, &deriv1, NULL, false);
+		Eigen::VectorXd x1 = x + eps * dir;
+		e1 = 0.5 * x1.dot(hess0 * x1) + deriv0.dot(x1) + e0;
+		deriv1 = hess0 * x1 + deriv0;
 
 		std::cout << "eps: " << eps << std::endl;
 		std::cout << "value-gradient check: " << (e1 - e) / eps - dir.dot(deriv) << std::endl;
 		std::cout << "gradient-hessian check: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
 	}
+	system("pause");
 }
