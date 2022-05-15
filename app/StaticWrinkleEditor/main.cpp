@@ -787,14 +787,9 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 	}
-
-	IntrinsicFormula::WrinkleEditingNaiveCWF testmodel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	testmodel.initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-	testmodel.testFullKneticEnergy();
-	system("pause");
-	
+    
 	editModel->convertList2Variable(x);
-	editModel->testEnergy(x);
+//	editModel->testEnergy(x);
 
 	editModel->solveIntermeditateFrames(x, numIter, gradTol, xTol, fTol, true, workingFolder);
 	editModel->convertVariable2List(x);
@@ -1480,7 +1475,8 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames - 1))
+//		if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames - 1))
+        if (ImGui::DragInt("current frame", &curFrame, 1, 0, numFrames - 1))
 		{
 			curFrame = curFrame % numFrames;
 			updateFieldsInView(curFrame);
