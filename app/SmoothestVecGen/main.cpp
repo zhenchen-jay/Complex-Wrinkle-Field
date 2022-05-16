@@ -731,13 +731,13 @@ void myCallback() {
 
 int main(int argc, char** argv)
 {    
-	Eigen::MatrixXd testV;
+	/*Eigen::MatrixXd testV;
 	Eigen::MatrixXi testF;
 	Eigen::VectorXi map;
-	igl::readOBJ("G:/WrinkleEdition_dataset/meshes/eight.obj", testV, testF);
-	igl::decimate(testV, testF, 2000, testV, testF, map);
-	igl::writeOBJ("G:/WrinkleEdition_dataset/meshes/eight_decimate.obj", testV, testF);
-
+	igl::readOBJ("G:/WrinkleEdition_dataset/edgemodel/paperRes/fertility_globalEnlarge/mesh.obj", testV, testF);
+	double bbx = std::max(std::max(testV.col(0).maxCoeff() - testV.col(0).minCoeff(), testV.col(1).maxCoeff() - testV.col(1).minCoeff()), testV.col(2).maxCoeff() - testV.col(2).minCoeff());
+	igl::writeOBJ("G:/WrinkleEdition_dataset/edgemodel/paperRes/fertility_globalEnlarge/mesh.obj", testV / bbx, testF);
+*/
 
 	// Initialize polyscope
 	polyscope::init();

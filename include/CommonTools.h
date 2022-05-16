@@ -64,6 +64,7 @@ Eigen::VectorXd vertexVec2IntrinsicVec(const Eigen::MatrixXd& v, const Eigen::Ma
 Eigen::MatrixXd vertexVec2IntrinsicHalfEdgeVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);
 Eigen::MatrixXd intrinsicHalfEdgeVec2VertexVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);
 
+Eigen::VectorXd faceVec2IntrinsicEdgeVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);
 Eigen::MatrixXd intrinsicEdgeVec2FaceVec(const Eigen::VectorXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);
 Eigen::MatrixXd intrinsicHalfEdgeVec2FaceVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh);
 
@@ -93,6 +94,7 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& bary, Eigen::Matrix3d& baryGrad);
 
 void mkdir(const std::string& foldername);
+Eigen::VectorXd inconsistencyComputation(const Mesh& mesh, const Eigen::VectorXd& edgeW, const std::vector<std::complex<double>>& zval);
 
 
 // save for render

@@ -579,6 +579,92 @@ void IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(const M
 
 }
 
+void IntrinsicFormula::roundZvalsWithTheGivenReference(const MeshConnectivity& mesh, const Eigen::VectorXd& edgeW, const Eigen::VectorXd& vertAmp, const std::vector<std::complex<double>>& refZvals, const Eigen::VectorXd& vertWeight, const Eigen::VectorXd& edgeWeight, const Eigen::VectorXd& vertArea, const int nverts, std::vector<std::complex<double>>& vertZvals)
+{
+	auto zList2CoordVec = [&](const std::vector<std::complex<double>>& zvals, Eigen::VectorXd& xvec, Eigen::VectorXd& yvec)
+	{
+		xvec.setZero(zvals.size());
+		yvec.setZero(zvals.size());
+
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			xvec(i) = zvals[i].real();
+			yvec(i) = zvals[i].imag();
+		}
+	};
+
+	auto zList2Vec = [&](const std::vector<std::complex<double>>& zvals)
+	{
+		Eigen::VectorXd zvec(2 * zvals.size());
+		for (int i = 0; i < zvals.size(); i++)
+		{
+			zvec(2 * i) = zvals[i].real();
+			zvec(2 * i + 1) = zvals[i].imag();
+		}
+		return zvec;
+	};
+
+	auto vec2zList = [&](const Eigen::VectorXd& zvec)
+	{
+		std::vector<std::complex<double>> zList;
+		for (int i = 0; i < zvec.size() / 2; i++)
+		{
+			zList.push_back(std::complex<double>(zvec(2 * i), zvec(2 * i + 1)));
+		}
+		return zList;
+	};
+
+	
+	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj)
+	{
+		std::vector<std::complex<double>> zList = vec2zList(x);
+		Eigen::VectorXd deriv;
+		std::vector<Eigen::Triplet<double>> T;
+		Eigen::SparseMatrix<double> H;
+		double E = KnoppelEdgeEnergyGivenMag(mesh, edgeW, vertAmp, edgeWeight, zList, grad ? &deriv : NULL, hess ? &T : NULL);
+
+		for (int i = 0; i < zList.size(); i++)
+		{
+			E += 0.5 * vertWeight(i) * std::abs(zList[i] - refZvals[i]) * std::abs(zList[i] - refZvals[i]) * vertArea(i);
+		}
+
+		if (grad)
+		{
+			(*grad) = deriv;
+			for (int i = 0; i < zList.size(); i++)
+			{
+				(*grad)(2 * i) += vertWeight(i) * vertArea(i) * (zList[i] - refZvals[i]).real();
+				(*grad)(2 * i + 1) += vertWeight(i) * vertArea(i) * (zList[i] - refZvals[i]).imag();
+			}
+		}
+		if (hess)
+		{
+			for (int i = 0; i < zList.size(); i++)
+			{
+				T.push_back( { 2 * i, 2 * i, vertWeight(i)* vertArea(i) });
+				T.push_back({ 2 * i + 1, 2 * i + 1, vertWeight(i) * vertArea(i) });
+			}
+			hess->resize(2 * nverts, 2 * nverts);
+			hess->setFromTriplets(T.begin(), T.end());
+		}
+
+		return E;
+	};
+
+	auto maxStep = [&](const Eigen::VectorXd& x, const Eigen::VectorXd& dir) {
+		return 1.0;
+	};
+
+	Eigen::VectorXd x0 = zList2Vec(refZvals);
+	OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, true);
+
+	Eigen::VectorXd deriv;
+	double E = funVal(x0, &deriv, NULL, false);
+	std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << std::endl << std::endl;
+	vertZvals = vec2zList(x0);
+
+}
+
 
 static double lArg(const long &n, const Eigen::Vector3d &bary)
 {
