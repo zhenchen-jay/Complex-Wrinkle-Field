@@ -807,9 +807,6 @@ void wrinkleExtraction()
 	auto pScal = psMesh->addVertexScalarQuantity("amp", vertAmp);
 	pScal->setEnabled(true);
 
-	/*for (int i = 0; i < triV.rows(); i++)
-		if(!vertFlags(i))
-			amp(i) = 0;*/
 
 	Eigen::VectorXd edgeArea, vertArea;
 	edgeArea = getEdgeArea(triV, triMesh);
@@ -819,6 +816,8 @@ void wrinkleExtraction()
 	vertZvals.resize(triV.rows(), 0);
 
 	Eigen::VectorXi freeVerts = Eigen::VectorXi::Ones(triV.rows()) - vertFlags;
+
+	//IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, edgeVec, vertAmp, edgeArea, vertArea, vertArea.rows(), vertZvals);
 
 	IntrinsicFormula::roundZvalsForSpecificDomainFromEdgeOmegaBndValues(triMesh, edgeVec, freeVerts, edgeArea, vertArea, triV.rows(), vertZvals, &vertAmp);
 	for (int i = 0; i < vertZvals.size(); i++)

@@ -16,13 +16,18 @@ namespace IntrinsicFormula
 		{}
 		virtual ~WrinkleEditingModel() = default;
 
-		WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio);
+		WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor);
 		// faceFlag: 0 for unselected faces, 1 for selected faces, -1 for the interface faces
 
 		void faceFlagsSetup(const Eigen::VectorXi& faceFlags);
 
+		void adjustOmegaForConsistency(const std::vector<std::complex<double>>& zvals, const Eigen::VectorXd& amp, Eigen::VectorXd& omega, Eigen::VectorXi* edgeFlag = NULL);
+		void vecFieldSLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag = NULL);
+		void ampFieldLERP(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, std::vector<Eigen::VectorXd>& ampList, int numFrames, Eigen::VectorXi* vertFlag = NULL);
+
 		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau = 0.1, int zuenkoIter = 5);
         void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType);
+		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, int numFrames);
 		void initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList);
 
 		virtual void solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol = 1e-6, double xTol = 0, double fTol = 0, bool isdisplayInfo = false, std::string workingFolder = "") = 0;
@@ -68,6 +73,11 @@ namespace IntrinsicFormula
 		void computeCombinedRefOmegaList(const std::vector<Eigen::VectorXd>& refOmegaList);
 
 
+		Eigen::VectorXd computeCombinedRefAmp(const Eigen::VectorXd& refAmp, Eigen::VectorXd* combinedOmega = NULL);
+
+		Eigen::VectorXd computeCombinedRefOmega(const Eigen::VectorXd& refOmega);
+
+
 		double amplitudeEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
 		double amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, int fid, Eigen::Vector3d* deriv = NULL, Eigen::Matrix3d* hess = NULL);
 
@@ -79,6 +89,8 @@ namespace IntrinsicFormula
 
 		double divFreeEnergy(const Eigen::MatrixXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);
 		double divFreeEnergyPervertex(const Eigen::MatrixXd& w, int vertId, Eigen::VectorXd* deriv = NULL, Eigen::MatrixXd* hess = NULL);
+
+		void buildWeights();
 
 		
 
@@ -137,11 +149,24 @@ namespace IntrinsicFormula
 		double _spatialEdgeRatio;
 		double _spatialKnoppelRatio;
 
+		int _effectiveFactor;
+
 		int _nInterfaces;
 		std::string _savingFolder;
 
 	public:	// should be private, when publishing
 		ComputeZdotFromEdgeOmega _zdotModel;
+
+	protected:
+		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)
+		{
+			return std::exp((x - mu) * (x - mu) / sigma / sigma);
+		}
+
+
+	protected:
+		Eigen::VectorXd _faceWeight;
+		Eigen::VectorXd _vertWeight;
 
 
 	};

@@ -348,6 +348,31 @@ Eigen::MatrixXd SPDProjection(Eigen::MatrixXd A)
 	return posHess;
 }
 
+Eigen::VectorXd faceVec2IntrinsicEdgeVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh)
+{
+	int nedges = mesh.nEdges();
+	Eigen::VectorXd edgeOmega(nedges);
+
+	for (int i = 0; i < nedges; i++)
+	{
+		int fid0 = mesh.edgeFace(i, 0);
+		int fid1 = mesh.edgeFace(i, 1);
+
+		int vid0 = mesh.edgeVertex(i, 0);
+		int vid1 = mesh.edgeVertex(i, 1);
+
+		Eigen::Vector3d e = pos.row(vid1) - pos.row(vid0);
+
+		if (fid0 == -1)
+			edgeOmega(i) = v.row(fid1).dot(e);
+		else if (fid1 == -1)
+			edgeOmega(i) = v.row(fid0).dot(e);
+		else
+			edgeOmega(i) = (v.row(fid0) + v.row(fid1)).dot(e) / 2;
+	}
+	return edgeOmega;
+}
+
 Eigen::VectorXd vertexVec2IntrinsicVec(const Eigen::MatrixXd& v, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh)
 {
 	int nedges = mesh.nEdges();
@@ -1160,4 +1185,28 @@ void saveSourcePts4Render(const Eigen::VectorXi& vertFlags, const Eigen::MatrixX
     {
         ffs << vertFlags(j) << ",\t" << vertAmp(j) << ",\t" << vertVecs(j, 0) << ",\t" << vertVecs(j, 1) << ",\t" << vertVecs(j, 2) << std::endl;
     }
+}
+
+
+Eigen::VectorXd inconsistencyComputation(const Mesh& mesh, const Eigen::VectorXd& edgeW, const std::vector<std::complex<double>>& zval)
+{
+	int nverts = mesh.GetVertCount();
+	int nfaces = mesh.GetFaceCount();
+	Eigen::VectorXd incons = Eigen::VectorXd::Zero(nverts);
+	for(int i = 0; i < nfaces; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int eid = mesh.GetFaceEdges(i)[j];
+			int v0 = mesh.GetEdgeVerts(eid)[0];
+			int v1 = mesh.GetEdgeVerts(eid)[1];
+
+			double theta0 = std::arg(zval[v0]);
+			double theta1 = std::arg(zval[v1]);
+
+			incons(v0) += std::norm(std::complex<double>( std::cos(theta0 + edgeW(eid)), std::sin(theta0 + edgeW(eid)) ) - std::complex<double>( std::cos(theta1), std::sin(theta0) ) );
+			incons(v1) += std::norm(std::complex<double>(std::cos(theta0 + edgeW(eid)), std::sin(theta0 + edgeW(eid))) - std::complex<double>(std::cos(theta1), std::sin(theta0)));
+		}
+	}
+	return incons;
 }

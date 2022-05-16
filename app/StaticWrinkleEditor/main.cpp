@@ -151,6 +151,9 @@ std::vector<Eigen::VectorXd> ampFieldsList;
 std::vector<std::vector<std::complex<double>>> upZList;
 std::vector<Eigen::MatrixXd> wrinkledVList;
 
+std::vector<Eigen::VectorXd> consistencyVec;
+std::vector<Eigen::VectorXd> upConsistencyVec;
+
 // reference amp and omega
 std::vector<Eigen::VectorXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
@@ -170,6 +173,12 @@ int curFrame = 0;
 
 double globalAmpMax = 1;
 double globalAmpMin = 0;
+
+double globalInconMax = 1;
+double globalInconMin = 0;
+
+double globalCoarseInconMax = 1;
+double globalCoarseInconMin = 0;
 
 double dragSpeed = 0.5;
 
@@ -195,7 +204,7 @@ int smoothingTimes = 3;
 double smoothingRatio = 0.95;
 
 bool isFixedBnd = false;
-int effectivedistFactor = 6;
+int effectivedistFactor = 4;
 
 bool isShowActualKnoppel = false;
 std::vector<Eigen::VectorXd> knoppelPhiList;
@@ -590,6 +599,9 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 	phaseList.resize(wFrames.size());
 	upZFrames.resize(wFrames.size());
 
+	consistencyVec.resize(wFrames.size());
+	upConsistencyVec.resize(wFrames.size());
+
 	subOmegaList.resize(wFrames.size());
 	subFaceOmegaList.resize(wFrames.size());
 
@@ -610,11 +622,17 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
             IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, wFrames[i], zFrames[i], bary, knoppelPhiList[i]); // knoppel's approach
 			
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
+
+			consistencyVec[i] = inconsistencyComputation(secMesh, edgeVec, zFrames[i]);
+
 			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
 			complexLoopOpt->setBndFixFlag(isFixedBnd);
 			complexLoopOpt->SetMesh(secMesh);
 			complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
 			Mesh tmpMesh = complexLoopOpt->GetMesh();
+
+			upConsistencyVec[i] = inconsistencyComputation(tmpMesh, subOmegaList[i], upZFrames[i]);
+
 			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
 
 			magList[i].setZero(upZFrames[i].size());
@@ -744,6 +762,28 @@ void updatePaintingItems()
 		globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), refAmpList[i].minCoeff()));
 	}
 
+	// update global maximum amplitude
+	std::cout << "update max and min consistency. " << std::endl;
+
+	globalInconMax = upConsistencyVec[0].maxCoeff();
+	globalInconMin = upConsistencyVec[0].minCoeff();
+	for (int i = 1; i < upConsistencyVec.size(); i++)
+	{
+		globalInconMax = std::max(globalInconMax, upConsistencyVec[i].maxCoeff());
+		globalInconMin = std::min(globalInconMin, upConsistencyVec[i].minCoeff());
+	}
+
+	// update global maximum amplitude
+	std::cout << "update max and min consistency. " << std::endl;
+
+	globalCoarseInconMax = consistencyVec[0].maxCoeff();
+	globalCoarseInconMin = consistencyVec[0].minCoeff();
+	for (int i = 1; i < upConsistencyVec.size(); i++)
+	{
+		globalCoarseInconMax = std::max(globalCoarseInconMax, consistencyVec[i].maxCoeff());
+		globalCoarseInconMin = std::min(globalCoarseInconMin, consistencyVec[i].minCoeff());
+	}
+
 	std::cout << "start to update viewer." << std::endl;
 }
 
@@ -787,7 +827,6 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 	}
-    
 	editModel->convertList2Variable(x);
 //	editModel->testEnergy(x);
 
@@ -817,6 +856,9 @@ void registerMesh(int frameId)
     auto baseAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("opt amplitude", baseAmplitude);
     baseAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
     polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("opt frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
+
+	auto consPatterns = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("inconsistency", consistencyVec[frameId]);
+	consPatterns->setMapRange(std::pair<double, double>(globalCoarseInconMin, globalCoarseInconMax));
 
 
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
@@ -851,6 +893,8 @@ void registerMesh(int frameId)
 	auto ampPatterns = polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("vertex amplitude", ampFieldsList[frameId]);
 	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
+	auto upconsPatterns = polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addVertexScalarQuantity("inconsistency", upConsistencyVec[frameId]);
+	upconsPatterns->setMapRange(std::pair<double, double>(globalInconMin, globalInconMax));
 
 	// wrinkle mesh
 	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
@@ -1597,6 +1641,25 @@ void callback() {
 			//polyscope::options::screenshotExtension = ".jpg";
 			std::string name = curFolder + "/output_" + std::to_string(i) + ".jpg";
 			polyscope::screenshot(name);
+		}
+	}
+
+	if (ImGui::Button("test", ImVec2(-1, 0)))
+	{
+		for (int i = 0; i < zList.size(); i++)
+		{
+			double knoppel = editModel->spatialKnoppelEnergy(i);
+
+			double ampDiff = editModel->temporalAmpDifference(i);
+			std::cout << "frame: " << i << ", knoppel: " << knoppel << ", amp diff: " << ampDiff;
+
+			if (i < zList.size() - 1)
+			{
+				double kinetic = editModel->kineticEnergy(i);
+				std::cout << ", kinetic: " << kinetic << std::endl;
+			}
+			else
+				std::cout << std::endl;
 		}
 	}
 
