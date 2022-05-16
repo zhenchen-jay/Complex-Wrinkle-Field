@@ -304,7 +304,7 @@ enum ModelType
 	LocalCWF = 5,
 };
 
-InitializationType initType = Linear;
+InitializationType initType = SeperateLinear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
@@ -789,6 +789,19 @@ void updatePaintingItems()
 
 void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
 {
+    std::cout << "model Type: " << editModelType << std::endl;
+
+    /*
+    * 	CWF = 0,
+        NaiveCWF = 1,
+        LinearCWF = 2,
+        KnoppelCWF = 3,
+        FullCWF = 4,
+        LocalCWF = 5,
+    */
+    std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
+    std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
+
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 	editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 
@@ -800,6 +813,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, c
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
+    std::cout << (wFrames[0] - initOmega).norm() << std::endl;
 
 }
 
@@ -839,6 +853,8 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
+
+    std::cout << (wFrames[0] - initOmega).norm() << std::endl;
 }
 
 void registerMesh(int frameId)
@@ -1140,7 +1156,7 @@ bool loadProblem()
 	{
 		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-		editModel->initialization(initZvals, initOmega, numFrames - 2, Linear, 0.1);
+		editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -1534,7 +1550,10 @@ void callback() {
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Combo("model type", (int*)&editModelType, "CWF\0NaiveCWF\0LinearCWF\0Knoppel\0FullCWF\0LocalCWF\0");
-		ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
+		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
+        {
+            std::cout << "init type: " << initType << std::endl;
+        }
 		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
 		{
 			if (zuenkoTau < 0)
@@ -1608,7 +1627,7 @@ void callback() {
 
 		updateEditionDomain();
 		// solve for the path from source to target
-		reinitializeKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList, Linear);
+		reinitializeKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList, initType);
 		updatePaintingItems();
 		updateFieldsInView(curFrame);
 	}
