@@ -41,7 +41,7 @@ enum VecMotionType
 enum InitializationType
 {
     Linear = 0,
-    Zuenko = 1, 
+    SeperateLinear = 1,
     Knoppel = 2
 };
 

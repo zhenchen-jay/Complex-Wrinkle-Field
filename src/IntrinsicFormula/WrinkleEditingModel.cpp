@@ -277,6 +277,9 @@ void WrinkleEditingModel::adjustOmegaForConsistency(const std::vector<std::compl
 		int v0 = _mesh.edgeVertex(i, 0);
 		int v1 = _mesh.edgeVertex(i, 1);
 
+        if(amp(v0) == 0 || amp(v1) == 0)
+            continue;
+
 		double theta1 = std::arg(amp(v0)*zvals[v1]);
 		double theta0 = std::arg(amp(v1)*zvals[v0]);
 
@@ -288,6 +291,39 @@ void WrinkleEditingModel::adjustOmegaForConsistency(const std::vector<std::compl
 
 	}
 
+}
+
+void WrinkleEditingModel::vecFieldLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag)
+{
+    vecList.resize(numFrames + 2);
+    vecList[0] = initVec;
+    vecList[numFrames + 1] = tarVec;
+
+    Eigen::MatrixXd initFaceVec, tarFaceVec;
+    initFaceVec = intrinsicEdgeVec2FaceVec(initVec, _pos, _mesh);
+    tarFaceVec = intrinsicEdgeVec2FaceVec(tarVec, _pos, _mesh);
+
+    Eigen::VectorXd theta(initFaceVec.rows());
+
+    Eigen::MatrixXd faceNormals;
+    igl::per_face_normals(_pos, _mesh.faces(), faceNormals);
+
+    double dt = 1. / (numFrames + 1);
+
+    for (int j = 1; j < numFrames + 1; j++)
+    {
+        double t = dt * j;
+        vecList[j] = (1 - t) * initVec + t * tarVec;
+
+        if (edgeFlag)
+        {
+            for (int v = 0; v < initVec.rows(); v++)
+            {
+                if ((*edgeFlag)(v))
+                    vecList[j][v] = initVec[v];
+            }
+        }
+    }
 }
 
 void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag)
@@ -322,30 +358,7 @@ void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Ei
 			}
 				
 			double angle = std::acos(cos);
-
-			Eigen::Vector3d axis = faceNormals.row(i);
-
-			double ux = axis(0) / axis.norm(), uy = axis(1) / axis.norm(), uz = axis(2) / axis.norm();
-			Eigen::Matrix3d rotMat, rotMat1;
-
-			double c = std::cos(angle);
-			double s = std::sin(angle);;
-			rotMat << c + ux * ux * (1 - c), ux* uy* (1 - c) - uz * s, ux* uz* (1 - c) + uy * s,
-				uy* ux* (1 - c) + uz * s, c + uy * uy * (1 - c), uy* uz* (1 - c) - ux * s,
-				uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);
-
-			c = std::cos(-angle);
-			s = std::sin(-angle);;
-			rotMat1 << c + ux * ux * (1 - c), ux* uy* (1 - c) - uz * s, ux* uz* (1 - c) + uy * s,
-				uy* ux* (1 - c) + uz * s, c + uy * uy * (1 - c), uy* uz* (1 - c) - ux * s,
-				uz* ux* (1 - c) - uy * s, uz* uy* (1 - c) + ux * s, c + uz * uz * (1 - c);
-
-
-
-			if ((rotMat * e0 - e1).norm() > (rotMat1 * e0 - e1).norm())
-				theta(i) = 2 * M_PI - angle;
-			else
-				theta(i) = angle;
+            theta(i) = angle;
 		}
 			
 		else
@@ -448,6 +461,8 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 	ampFieldLERP(initAmp, tarAmp, _combinedRefAmpList, numFrames);
 	vecFieldSLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames);
+
+    _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
 }
 
 void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau, int zuenkoInner)
@@ -493,6 +508,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 	std::cout << "initialize bnd zvals." << std::endl;
 	std::vector<std::complex<double>> tarZvals;
+    _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
 
 	if (!_nInterfaces)
 	{
@@ -592,19 +608,49 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 			}
 		}
 	}
-	else if(initType == Zuenko)
+	else if(initType == SeperateLinear)
 	{
-		ZuenkoAlgorithm(initZvals, _combinedRefOmegaList, _zvalsList, zuenkoTau, zuenkoInner);
+//		ZuenkoAlgorithm(initZvals, _combinedRefOmegaList, _zvalsList, zuenkoTau, zuenkoInner);
+//
+//		for (int i = 0; i <= numFrames + 1; i++)
+//		{
+//			for (int j = 0; j < _zvalsList[i].size(); j++)
+//			{
+//				_zvalsList[i][j] *= _combinedRefAmpList[i][j];
+//			}
+//		}
+        std::cout << "new initialization" << std::endl;
 
-		for (int i = 0; i <= numFrames + 1; i++)
-		{
-			for (int j = 0; j < _zvalsList[i].size(); j++)
-			{
-				_zvalsList[i][j] *= _combinedRefAmpList[i][j];
-			}
-		}
+        for (int i = 1; i <= numFrames; i++)
+        {
+            double t = i * dt;
+
+            _zvalsList[i] = tarZvals;
+
+            for (int j = 0; j < tarZvals.size(); j++)
+            {
+                _zvalsList[i][j] = (1 - t) * initZvals[j] + t * tarZvals[j];
+            }
+        }
+
+        Eigen::VectorXd deltaOmega0 = initOmega, deltaOmega1 = _combinedRefOmegaList[numFrames + 1];
+        adjustOmegaForConsistency(initZvals, initAmp, deltaOmega0);
+        deltaOmega0 = deltaOmega0 - initOmega;
+
+        adjustOmegaForConsistency(tarZvals, _combinedRefAmpList[numFrames + 1], deltaOmega1);
+        deltaOmega1 = deltaOmega1 - _combinedRefOmegaList[numFrames + 1];
+
+        vecFieldLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
+
+        _edgeOmegaList = _combinedRefOmegaList;
+
+        for(int i = 0; i < _edgeOmegaList.size(); i++)
+        {
+            _edgeOmegaList[i] += _deltaOmegaList[i];
+        }
+
 	}
-	else
+    else
 	{
 		for (int i = 1; i <= numFrames; i++)
 		{
@@ -663,6 +709,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
     _zvalsList[0] = initZvals;
     _zvalsList[numFrames + 1] = tarZvals;
+    _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
 
     double dt = 1.0 / (numFrames + 1);
 

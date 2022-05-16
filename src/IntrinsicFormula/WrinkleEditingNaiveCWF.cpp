@@ -122,7 +122,7 @@ double WrinkleEditingNaiveCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd
 		double r0 = _combinedRefAmpList[frameId](vid0) / aveAmp;
 		double r1 = _combinedRefAmpList[frameId](vid1) / aveAmp;
 
-		std::complex<double> expw0 = std::complex<double>(std::cos(_combinedRefOmegaList[frameId](eid)), std::sin(_combinedRefOmegaList[frameId](eid)));
+		std::complex<double> expw0 = std::complex<double>(std::cos(_edgeOmegaList[frameId](eid)), std::sin(_edgeOmegaList[frameId](eid)));
 
 		std::complex<double> z0 = _zvalsList[frameId][vid0];
 		std::complex<double> z1 = _zvalsList[frameId][vid1];

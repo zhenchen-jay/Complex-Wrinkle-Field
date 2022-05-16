@@ -23,6 +23,7 @@ namespace IntrinsicFormula
 
 		void adjustOmegaForConsistency(const std::vector<std::complex<double>>& zvals, const Eigen::VectorXd& amp, Eigen::VectorXd& omega, Eigen::VectorXi* edgeFlag = NULL);
 		void vecFieldSLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag = NULL);
+        void vecFieldLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag = NULL);
 		void ampFieldLERP(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, std::vector<Eigen::VectorXd>& ampList, int numFrames, Eigen::VectorXi* vertFlag = NULL);
 
 		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau = 0.1, int zuenkoIter = 5);
@@ -34,7 +35,13 @@ namespace IntrinsicFormula
 
 		void ZuenkoAlgorithm(const std::vector<std::complex<double>>& initZvals, const std::vector<Eigen::VectorXd>& refOmegaList, std::vector<std::vector<std::complex<double>>>& zList, double zuenkoTau = 0.1, int zuenkoIter = 5);
 
-		std::vector<Eigen::VectorXd> getWList() { return _edgeOmegaList; }
+		std::vector<Eigen::VectorXd> getWList()
+        {
+            std::vector<Eigen::VectorXd> finalWList = _edgeOmegaList;
+            for(int i = 0;  i < _edgeOmegaList.size(); i++)
+                finalWList[i] -= _deltaOmegaList[i];
+            return finalWList;
+        }
 		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
 
 		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
@@ -50,6 +57,8 @@ namespace IntrinsicFormula
 		{
 			_zvalsList = zList;
 			_edgeOmegaList = wList;
+
+            _deltaOmegaList.resize(_edgeOmegaList.size(), Eigen::VectorXd::Zero(_mesh.nEdges()));
 		}
 
 		void getVertIdinGivenDomain(const std::vector<int> faceList, Eigen::VectorXi& vertFlags);
@@ -132,6 +141,7 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> _combinedRefOmegaList;
 
 		std::vector<Eigen::VectorXd> _edgeOmegaList;
+        std::vector<Eigen::VectorXd> _deltaOmegaList;
 		std::vector<std::vector<std::complex<double>>> _zvalsList;
 
 		int _quadOrd;
