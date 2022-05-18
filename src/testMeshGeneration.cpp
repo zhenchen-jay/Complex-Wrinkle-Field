@@ -541,3 +541,104 @@ void generateCylinderWaves(double radius, double height, double triarea, double 
             (*restF) = irregularF;
     }
 }
+
+void generateWhirlPool(const Eigen::MatrixXd& triV, double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow, std::vector<Eigen::Vector2cd> *gradZ)
+{
+    z.resize(triV.rows());
+    w.resize(triV.rows(), 2);
+    std::cout << "whirl pool center: " << centerx << ", " << centery << std::endl;
+    bool isnegative = false;
+    if(pow < 0)
+    {
+        isnegative = true;
+        pow *= -1;
+    }
+
+    for (int i = 0; i < z.size(); i++)
+    {
+        double x = triV(i, 0) - centerx;
+        double y = triV(i, 1) - centery;
+        double rsquare = x * x + y * y;
+
+        if(isnegative)
+        {
+            z[i] = std::pow(std::complex<double>(x, -y), pow);
+
+            if (std::abs(std::sqrt(rsquare)) < 1e-10)
+                w.row(i) << 0, 0;
+            else
+                w.row(i) << pow * y / rsquare, -pow * x / rsquare;
+        }
+        else
+        {
+            z[i] = std::pow(std::complex<double>(x, y), pow);
+
+            if (std::abs(std::sqrt(rsquare)) < 1e-10)
+                w.row(i) << 0, 0;
+            else
+                w.row(i) << -pow * y / rsquare, pow * x / rsquare;
+        }
+    }
+
+    if(gradZ)
+    {
+        gradZ->resize(triV.rows());
+        for(int i = 0; i < gradZ->size(); i++)
+        {
+            double x = triV(i, 0) - centerx;
+            double y = triV(i, 1) - centery;
+
+            Eigen::Vector2cd tmpGrad;
+            tmpGrad << 1, std::complex<double>(0, 1);
+            if(isnegative)
+                tmpGrad(1) *= -1;
+
+            (*gradZ)[i] = std::pow(std::complex<double>(x, y), pow - 1) * tmpGrad;
+            (*gradZ)[i] *= pow;
+
+        }
+
+    }
+}
+
+void generatePlaneWave(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, const Eigen::Vector2d& w, Eigen::VectorXd& edgeOmega, std::vector<std::complex<double>>& vertZvals, std::vector<Eigen::Vector2cd>* gradVertZvals)
+{
+    int nverts = triV.rows();
+    MeshConnectivity triMesh(triF);
+    int nedges = triMesh.nEdges();
+    vertZvals.resize(nverts);
+    edgeOmega.setZero(nedges);
+
+    Eigen::MatrixXd vertOmega(nverts, 2);
+    for(int i = 0; i < nverts; i++)
+    {
+        double theta = w.dot(triV.row(i).segment<2>(0));
+        double x = std::cos(theta);
+        double y = std::sin(theta);
+        vertZvals[i] = {x, y};
+        vertOmega.row(i) = w;
+    }
+
+    for(int i = 0; i < nedges; i++)
+    {
+        int v0 = triMesh.edgeVertex(i, 0);
+        int v1 = triMesh.edgeVertex(i, 1);
+        Eigen::Vector2d e = (triV.row(v1) - triV.row(v0)).segment<2>(0);
+        edgeOmega(i) = e.dot(w);
+    }
+
+    if(gradVertZvals)
+    {
+        gradVertZvals->resize(triV.rows());
+        for(int i = 0; i < gradVertZvals->size(); i++)
+        {
+            double theta = w.dot(triV.row(i).segment<2>(0));
+            double x = std::cos(theta);
+            double y = std::sin(theta);
+            std::complex<double> tmpZ = std::complex<double>(x, y);
+            std::complex<double> I = std::complex<double>(0, 1);
+
+            (*gradVertZvals)[i] << I * tmpZ * w(0), I * tmpZ * w(1);
+        }
+    }
+}
