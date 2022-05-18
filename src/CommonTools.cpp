@@ -913,7 +913,7 @@ void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eige
 
 }
 
-void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio, int opTimes)
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio, int opTimes, bool isFixBnd)
 {
 	newData = oldData;
 	if (opTimes == 0)
@@ -949,9 +949,19 @@ void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, cons
 
 	Eigen::SparseMatrix<double> smoothL = idmat - smoothingRatio * L;
 
+    std::vector<int> bnd;
+    if(isFixBnd)
+        igl::boundary_loop(F, bnd);
+
 	for (int i = 0; i < opTimes; i++)
 	{
 		newData = smoothL * newData;
+
+        if (isFixBnd)
+        {
+            for (int j = 0; j < bnd.size(); j++)
+                newData(bnd[j]) = oldData(bnd[j]);
+        }
 	}
 }
 

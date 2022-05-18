@@ -39,10 +39,7 @@
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
-#include "../../include/SpherigonSmoothing.h"
-#include "../../dep/SecStencils/types.h"
-#include "../../dep/SecStencils/Subd.h"
-#include "../../dep/SecStencils/utils.h"
+#include "../../include/testMeshGeneration.h"
 
 #include "../../include/json.hpp"
 #include "../../include/ComplexLoop/ComplexLoop.h"
@@ -65,6 +62,11 @@ Mesh secMesh, subSecMesh;
 Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
 std::vector<std::complex<double>> initZvals;
+
+// target information
+Eigen::VectorXd tarAmp;
+Eigen::VectorXd tarOmega;
+std::vector<std::complex<double>> tarZvals;
 
 // base mesh information list
 std::vector<Eigen::VectorXd> omegaList;
@@ -276,6 +278,123 @@ void generateRotationCase(double triarea, double freq)
     igl::writeOBJ("enlarge_plane.obj", enlargedIrregV, irregularF);
 }
 
+void generateFrequncyCascadeCase(double triarea, double freq1, double freq2)
+{
+    double l = 1;
+    double w = 1;
+
+    Eigen::MatrixXd irregularV, irregularCV;
+    Eigen::MatrixXi irregularF, irregularCF;
+
+    double area = l * w;
+
+    int N = (0.5 * std::sqrt(area / triarea));
+    N = N > 1 ? N : 2;
+    int M = 2 * N + 1;
+
+    Eigen::MatrixXd planeV(2 * M, 2);
+    Eigen::MatrixXi planeE(2 * M + M - 2, 2);
+    planeV.resize(4 * M - 4, 2);
+    planeE.resize(4 * M - 4, 2);
+
+    for (int i = 0; i < M; i++)
+    {
+        planeV.row(i) << 0, i * w / (M - 1);
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(M - 1 + i) << i * l / (M - 1), w;
+    }
+    for (int i = 1; i < M; i++)
+    {
+        planeV.row(2 * (M - 1) + i) << l, w - i * w / (M - 1);
+    }
+    for (int i = 1; i < M - 1; i++)
+    {
+        planeV.row(3 * (M - 1) + i) << l - i * l / (M - 1), 0;
+    }
+
+    for (int i = 0; i < 4 * (M - 1); i++)
+    {
+        planeE.row(i) << i, (i + 1) % (4 * (M - 1));
+    }
+
+    Eigen::MatrixXd V2d;
+    Eigen::MatrixXi F;
+    Eigen::MatrixXi H(0, 2);
+    const std::string flags = "q20a" + std::to_string(triarea);
+    igl::triangle::triangulate(planeV, planeE, H, flags, V2d, F);
+    irregularV.resize(V2d.rows(), 3);
+    irregularV.setZero();
+    irregularV.block(0, 0, irregularV.rows(), 2) = V2d;
+    irregularF = F;
+
+    MeshConnectivity mesh(F);
+    int nedges = mesh.nEdges();
+    int nverts = irregularV.rows();
+
+    Eigen::Vector2d w1, w2;
+    w1 << freq1, 0;
+    w2 << freq2, 0;
+
+    std::vector<std::complex<double>> yshapeZvals;
+    std::vector<std::complex<double>> planeWaveZvals;
+
+    Eigen::VectorXd yshapeOmega;
+    Eigen::VectorXd planeWaveOmage;
+
+    Eigen::VectorXd pw1, pw2;
+    std::vector<std::complex<double>> pz1, pz2;
+    std::vector<Eigen::Vector2cd> gradPZ1, gradPZ2;
+    std::vector<std::complex<double>> upsampledPZ1, upsampledPZ2;
+
+    generatePlaneWave(irregularV, irregularF, w1, pw1, pz1, &gradPZ1);
+    generatePlaneWave(irregularV, irregularF, w2, pw2, pz2, &gradPZ2);
+
+    yshapeZvals = pz1;
+    yshapeOmega = pw1;
+
+    planeWaveZvals = pz1;
+    planeWaveOmage = pw1;
+
+    double ymax = irregularV.col(1).maxCoeff();
+    double ymin = irregularV.col(1).minCoeff();
+
+    Eigen::MatrixXd yshapeVertOmega;
+    yshapeVertOmega.resize(nverts, 2);
+
+    for (int i = 0; i < yshapeZvals.size(); i++)
+    {
+
+        double weight = (irregularV(i, 1) - irregularV.col(1).minCoeff()) / (irregularV.col(1).maxCoeff() - irregularV.col(1).minCoeff());
+        yshapeZvals[i] = (1 - weight) * pz1[i] + weight * pz2[i];
+        Eigen::Vector2cd dz = (1 - weight) * gradPZ1[i] + weight * gradPZ2[i];
+
+        double wx = 0;
+        double wy = 1 / (ymax - ymin);
+
+        yshapeVertOmega.row(i) = (std::conj(yshapeZvals[i]) * dz).imag() / (std::abs(yshapeZvals[i]) * std::abs(yshapeZvals[i]));
+    }
+
+    MeshConnectivity irregMesh(irregularF);
+
+    for(int i = 0; i < pw1.rows(); i++)
+    {
+        int v0 = irregMesh.edgeVertex(i, 0);
+        int v1 = irregMesh.edgeVertex(i, 1);
+        Eigen::Vector2d e = (irregularV.row(v1) - irregularV.row(v0)).segment<2>(0);
+        yshapeOmega(i) = (e.dot(yshapeVertOmega.row(v0)) + e.dot(yshapeVertOmega.row(v1))) / 2;
+    }
+
+    saveVertexZvals("yshape_zvals.txt", yshapeZvals);
+    saveVertexZvals("plane_zvals.txt", planeWaveZvals);
+
+    saveEdgeOmega("yshape_omega.txt", yshapeOmega);
+    saveEdgeOmega("plane_omega.txt", planeWaveOmage);
+
+    igl::writeOBJ("mesh.obj", irregularV, irregularF);
+}
+
 void buildRefInfo(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<Eigen::VectorXd>& didacticRefAmpList, std::vector<Eigen::VectorXd>& didacticRefOmegaList, int numFrames, bool isRotate)
 {
 
@@ -456,23 +575,13 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
     */
     std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
 
-    buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
-
     Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
     Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
     Eigen::VectorXd faceArea = getFaceArea(triV, triMesh);
-
-    std::vector<std::complex<double>> tarZvals;
-    if(!isRotate)
-        tarZvals = initZvals;
-    else
-    {
-        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refAmpList.size()-1], edgeArea, vertArea, vertArea.size(), tarZvals);
-    }
+    
 
     buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-    editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() - 1], refAmpList, refOmegaList, Linear);
-
+    editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames);
     editModel->convertList2Variable(x);
     editModel->solveIntermeditateFrames(x, numIter, gradTol, xTol, fTol, true, workingFolder);
     editModel->convertVariable2List(x);
@@ -491,6 +600,8 @@ void registerMesh(int frameId)
 	polyscope::registerSurfaceMesh("base mesh", triV, triF);
 	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
+    std::cout << faceOmegaList[0].row(0).norm() << ", " << faceOmegaList[numFrames / 2].row(0).norm() << " " << faceOmegaList[numFrames - 1].row(0).norm() << std::endl;
+
     Eigen::VectorXd baseAmplitude = refAmpList[frameId];
     for(int i = 0 ; i < refAmpList[frameId].size(); i++)
     {
@@ -507,6 +618,13 @@ void registerMesh(int frameId)
 	auto refAmp = polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
 	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
+
+    // wrinkle mesh
+    Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
+    laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
+    polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
+    polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+    polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
 
     // phase pattern
     if(isShowActualKnoppel && editModelType == KnoppelCWF)
@@ -525,6 +643,26 @@ void registerMesh(int frameId)
         Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
         polyscope::getSurfaceMesh("phase mesh")->translate({ 2 * shiftx, 0, 0 });
         polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+
+        // smoothed phase list
+        Eigen::VectorXd smoothedPhaseList = Eigen::VectorXd::Zero(lapWrinkledV.rows());
+        Eigen::VectorXd realZ(lapWrinkledV.rows()), imagZ(lapWrinkledV.rows());
+
+        for(int i = 0; i < lapWrinkledV.rows(); i++)
+        {
+            realZ(i) = upZList[frameId][i].real();
+            imagZ(i) = upZList[frameId][i].imag();
+        }
+        laplacianSmoothing(upsampledTriV, upsampledTriF, realZ, realZ, smoothingRatio, smoothingTimes, isFixedBnd);
+        Eigen::VectorXd lapPhase = phaseFieldsList[frameId];
+        for(int i = 0; i < lapPhase.rows(); i++)
+        {
+            lapPhase(i) = std::arg(std::complex<double>(realZ(i), imagZ(i)));
+        }
+
+        phaseColor = mPaint.paintPhi(lapPhase);
+        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi smoothed", phaseColor);
+
     }
 
 	// amp pattern
@@ -534,12 +672,7 @@ void registerMesh(int frameId)
 	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("upsampled ampliude and frequency mesh")->addFaceVectorQuantity("subdivided frequency field", vecratio * subFaceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
-	// wrinkle mesh
-	Eigen::MatrixXd lapWrinkledV = wrinkledVList[frameId];
-	laplacianSmoothing(wrinkledVList[frameId], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
-	polyscope::registerSurfaceMesh("wrinkled mesh", lapWrinkledV, upsampledTriF);
-	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 4 * shiftx, 0, 0 });
+
 }
 
 void updateFieldsInView(int frameId)
@@ -649,6 +782,57 @@ bool loadProblem()
 			initAmp(i) = std::abs(initZvals[i]);
 	}
 
+    // target information
+    std::string tarAmpPath = "tar_amp.txt";
+    std::string tarOmegaPath = "tar_omega.txt:";
+    std::string tarZValsPath = "tar_zvals.txt";
+
+    if (jval.contains(std::string_view{ "tar_amp" }))
+    {
+        tarAmpPath = jval["tar_amp"];
+    }
+
+    if (jval.contains(std::string_view{ "tar_omega" }))
+    {
+        tarOmegaPath = jval["tar_omega"];
+    }
+
+
+    if (jval.contains(std::string_view{ "tar_zvals" }))
+    {
+        tarZValsPath = jval["tar_zvals"];
+    }
+
+    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega))
+    {
+        std::cout << "missing tar edge omega file." << std::endl;
+        return false;
+    }
+
+    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
+    {
+        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
+        {
+            std::cout << "missing tar amp file: " << std::endl;
+            return false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, triV.rows(), tarZvals);
+        }
+    }
+    else
+    {
+        tarAmp.setZero(triV.rows());
+        for (int i = 0; i < tarZvals.size(); i++)
+            tarAmp(i) = std::abs(tarZvals[i]);
+    }
+
 
 	std::string refAmp = jval["reference"]["ref_amp"];
 	std::string refOmega = jval["reference"]["ref_omega"];
@@ -717,21 +901,7 @@ bool loadProblem()
 
         buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-        buildRefInfo(initZvals, initOmega, refAmpList, refOmegaList, numFrames - 2, isRotate);
-
-        Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
-        Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
-        Eigen::VectorXd faceArea = getFaceArea(triV, triMesh);
-
-        std::vector<std::complex<double>> tarZvals;
-        if(!isRotate)
-            tarZvals = initZvals;
-        else
-        {
-            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, refOmegaList[refOmegaList.size() - 1], refAmpList[refAmpList.size()-1], edgeArea, vertArea, vertArea.size(), tarZvals);
-        }
-
-        editModel->initialization(initZvals, initOmega, tarZvals, refOmegaList[refOmegaList.size() -1], refAmpList, refOmegaList, Linear);
+        editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2);
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -1117,7 +1287,8 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-    generateRotationCase(0.01, 10);
+    generateRotationCase(0.01, 3 * M_PI);
+//    generateFrequncyCascadeCase(0.01, 2 * M_PI, 4 * M_PI);
 	if (!loadProblem())
 	{
 		std::cout << "failed to load file." << std::endl;

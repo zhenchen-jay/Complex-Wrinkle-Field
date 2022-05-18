@@ -84,7 +84,7 @@ Eigen::VectorXd getVertArea(const Eigen::MatrixXd& V, const MeshConnectivity& me
 
 void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& newV, double smoothingRatio = 0.95, int opTimes = 3, bool isFixBnd = false);
 
-void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio = 0.95, int opTimes = 3);
+void laplacianSmoothing(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& oldData, Eigen::VectorXd& newData, double smoothingRatio = 0.95, int opTimes = 3, bool isFixBnd = false);
 
 
 void curvedPNTriangleUpsampling(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd& VN, const std::vector<std::pair<int, Eigen::Vector3d>>& baryList, Eigen::MatrixXd& NV, Eigen::MatrixXd& newVN);
