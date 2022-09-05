@@ -1160,6 +1160,7 @@ void saveAmp4Render(const Eigen::VectorXd& vertAmp, const std::string& filename,
 	std::ofstream afs(filename);
     if(ampMin >= ampMax)
         ampMin = 0;
+    ampMin = 0;
 
 	for(int j = 0; j < vertAmp.rows(); j++)
 	{

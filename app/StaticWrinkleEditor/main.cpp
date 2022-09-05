@@ -1541,6 +1541,11 @@ void callback() {
 			curFrame = curFrame % numFrames;
 			updateFieldsInView(curFrame);
 		}
+        if (ImGui::SliderInt("current frame slider bar", &curFrame, 0, numFrames - 1))
+        {
+            curFrame = curFrame % numFrames;
+            updateFieldsInView(curFrame);
+        }
 		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.00005, 0, 1))
 		{
 			updateFieldsInView(curFrame);
