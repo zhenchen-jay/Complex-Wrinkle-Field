@@ -245,7 +245,7 @@ void generateRotationCase(double triarea, double freq)
     int nedges = mesh.nEdges();
     int nverts = irregularV.rows();
 
-    Eigen::MatrixXd enlargedIrregV = 4 * irregularV;
+    Eigen::MatrixXd enlargedIrregV = 8 * irregularV;
     Eigen::VectorXd edgeOmega(nedges), edgeOmegaLarge(nedges);
 
     std::vector<std::complex<double>> vertZList(nverts), vertZListLarge(nverts);
