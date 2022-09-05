@@ -21,6 +21,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+
 ### Compiler options
 set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
 
@@ -74,75 +75,49 @@ else()
   message( FATAL_ERROR "Unrecognized compiler [${CMAKE_CXX_COMPILER_ID}]" )
 endif()
 
-# Find Eigen
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+# polyscope
+message("build with polyscope")
+include(polyscope)
 
-# Add polyscope
-message("\n\n == CMAKE recursively building Polyscope\n")
-add_subdirectory("dep/polyscope")
+#libigl
+message("build with libigl")
+option(LIBIGL_GLFW                "Build target igl::glfw"                OFF)
+option(LIBIGL_PNG                 "Build target igl::png"                 OFF)
+option(LIBIGL_IMGUI               "Build target igl::imgui"               OFF)
+option(LIBIGL_OPENGL              "Build target igl::opengl"              OFF)
+option(LIBIGL_PREDICATES          "Build target igl::predicates"          ON)
+option(LIBIGL_COPYLEFT_COMISO     "Build target igl_copyleft::comiso"     ON)
+option(LIBIGL_COPYLEFT_CORE       "Build target igl_copyleft::core"       ON)
+option(LIBIGL_COPYLEFT_TETGEN     "Build target igl_copyleft::tetgen"     ON)
+option(LIBIGL_COPYLEFT_CGAL       "Build target igl_copyleft::cgal"       OFF)
+option(LIBIGL_RESTRICTED_TRIANGLE "Build target igl_restricted::triangle" ON)
+include(libigl)
 
-# Add libIGL
-option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" OFF)
-option(LIBIGL_WITH_ANTTWEAKBAR       "Use AntTweakBar"    OFF)
-option(LIBIGL_WITH_CGAL              "Use CGAL"           OFF)
-option(LIBIGL_WITH_COMISO            "Use CoMiso"         ON)
-option(LIBIGL_WITH_CORK              "Use Cork"           OFF)
-option(LIBIGL_WITH_EMBREE            "Use Embree"         OFF)
-option(LIBIGL_WITH_LIM               "Use LIM"            OFF)
-option(LIBIGL_WITH_MATLAB            "Use Matlab"         OFF)
-option(LIBIGL_WITH_MOSEK             "Use MOSEK"          OFF)
-option(LIBIGL_WITH_OPENGL            "Use OpenGL"         ON)
-option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"           ON)
-option(LIBIGL_WITH_OPENGL_GLFW_IMGUI "Use ImGui"          ON)
-option(LIBIGL_WITH_PNG               "Use PNG"            ON)
-option(LIBIGL_WITH_PYTHON            "Use Python"         OFF)
-option(LIBIGL_WITH_TETGEN            "Use Tetgen"         OFF)
-option(LIBIGL_WITH_TRIANGLE          "Use Triangle"       ON)
-option(LIBIGL_WITH_VIEWER            "Use OpenGL viewer"  ON)
-option(LIBIGL_WITH_XML               "Use XML"            OFF)
-
-find_package(LIBIGL REQUIRED)
-include_directories(${LIBIGL_INCLUDE_DIR})
-
-
-# Include settings
-# target_include_directories(phaseInterp-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/dep/libigl/include")
-
-
-#  option(NASOQ "Use NASOQ" ON)
-
-#  if(NASOQ)
-#    find_package(NASOQ REQUIRED)
-#    find_package(MKL REQUIRED)
-#    include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR})
-#    # include_directories(${NASOQ_INCLUDE_DIRS} ${MKL_INCLUDE_DIR} ${METIS_INCLUDE_DIR})
-#    # target_link_libraries( phaseInterp-polyscope-example ${NASOQ_LIBRARIES}  ${MKL_LIBRARIES} ${METIS_LIBRARIES})
-#    message("found NASOQ at ${NASOQ_INCLUDE_DIRS}, MKL at ${MKL_INCLUDE_DIR}, ${MKL_LIBRARIES}")
-#  endif()
-
+#tbb
+set(TBB_BUILD_STATIC ON CACHE BOOL " " FORCE)
+set(TBB_BUILD_SHARED OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC_PROXY OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TESTS OFF CACHE BOOL " " FORCE)
 option(BUILD_WITH_TBB        "Enable TBB"         ON)
+include(tbb)
 
-if(BUILD_WITH_TBB)
-  message("-- Building with TBB.")
-  set(TBB_FIND_RELEASE_ONLY TRUE)
-	find_package(TBB REQUIRED)    
-	message("TBB found at:  version: ${TBB_VERSION}")
-endif()
-if(MSVC)
-  add_compile_definitions(__TBB_NO_IMPLICIT_LINKAGE=1)
+#spectra
+include(spectra)
+FetchContent_GetProperties(spectra)
+if(NOT spectra_POPULATED)
+  FetchContent_Populate(spectra)
 endif()
 
+add_library(spectra INTERFACE)
+target_include_directories(spectra INTERFACE ${spectra_SOURCE_DIR}/spectra/include)
+
+#geometry-central
+include(geometry-central)
+
+#suite-sparse
 find_package(SuiteSparse REQUIRED)
 include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 
-
-find_package(SPECTRA REQUIRED)
-
-
-# if(NASOQ)
-#   target_link_libraries(phaseInterp-polyscope-example ${MKL_LIBRARIES})
-# endif()
-
 # Binary executables
 add_subdirectory(app)
-add_subdirectory(dep/geometry-central)
