@@ -21,5 +21,8 @@ mkdir build
 cd build
 cmake ..
 make -j4
-./bin/staticWrinkleEditor_bin
+./bin/staticWrinkleEditor_bin ../data/bunny_localRotation/data.json
 ```
+
+## Results
+Once you run that command, you will see a gui pop up, then click solve, you will get our local rotation bunny results shown in the paper.
