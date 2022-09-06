@@ -7,6 +7,7 @@
 
 namespace IntrinsicFormula
 {
+    // this is a simple implementation of Knoppel's approach, where we manaully blend to get omega, and for each frame, we apply Knoppel's algorithm to compute the corresponding zvals. Notice that, in this way, there is no guarantee that the zvals will be temproally continuous.
 	class WrinkleEditingKnoppelCWF : public WrinkleEditingModel
 	{
 	public:

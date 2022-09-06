@@ -7,6 +7,7 @@
 
 namespace IntrinsicFormula
 {
+	// this is a variantion of the one we used to generate the paper results, where we manaully blend to get omega_tar, and ask the w-z consistency for (z, w), and our variables are (z, w). We also added a term penalize the difference between w and w_tar. The only difference between this and WrinkleEditingHalfFullCWF is the consistent term
 	class WrinkleEditingFullCWF : public WrinkleEditingModel
 	{
 	public:

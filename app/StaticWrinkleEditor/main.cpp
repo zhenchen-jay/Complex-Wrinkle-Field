@@ -28,10 +28,10 @@
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
 
-#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingFullCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingNaiveCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
 
@@ -297,18 +297,18 @@ bool isForceReinitilaize = true;
 enum ModelType
 {
 	CWF = 0,
-	NaiveCWF = 1,
-	LinearCWF = 2,
-	KnoppelCWF = 3,
-	FullCWF = 4,
-	LocalCWF = 5,
+	HalfFullCWF = 1,
+	FullCWF = 2,
+	LocalCWF = 3,
+	LinearCWF = 4,
+	KnoppelCWF = 5,
 };
 
 InitializationType initType = SeperateLinear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
-ModelType editModelType = NaiveCWF;
+ModelType editModelType = CWF;
 
 static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
@@ -316,17 +316,9 @@ static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos,
 	{
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
-	else if (editType == NaiveCWF)
+	else if (editType == HalfFullCWF)
 	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingNaiveCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == LinearCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == KnoppelCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingHalfFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
 	else if (editType == FullCWF)
 	{
@@ -335,6 +327,14 @@ static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos,
 	else if (editType == LocalCWF)
 	{
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+	}
+	else if (editType == LinearCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == KnoppelCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
 	else
 	{
@@ -646,7 +646,7 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 		}
 	};
 
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size(), GRAIN_SIZE);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)upZFrames.size());
 	tbb::parallel_for(rangex, computeMagPhase);
 
 }
@@ -670,7 +670,7 @@ void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const st
 		}
 	};
 
-	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size(), GRAIN_SIZE);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)interpZList.size());
 	tbb::parallel_for(rangex, computeWrinkles);
 
 
@@ -792,14 +792,14 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, c
     std::cout << "model Type: " << editModelType << std::endl;
 
     /*
-    * 	CWF = 0,
-        NaiveCWF = 1,
-        LinearCWF = 2,
-        KnoppelCWF = 3,
-        FullCWF = 4,
-        LocalCWF = 5,
+    * 		CWF = 0,
+			HalfFullCWF = 1,
+			FullCWF = 2,
+			LocalCWF = 3,
+			LinearCWF = 4,
+			KnoppelCWF = 5,
     */
-    std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
+    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)" << std::endl;
     std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
@@ -824,15 +824,15 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 	std::cout << "model Type: " << editModelType << std::endl;
 
-	/*
-	* 	CWF = 0,
-		NaiveCWF = 1,
-		LinearCWF = 2,
-		KnoppelCWF = 3,
-		FullCWF = 4,
-		LocalCWF = 5,
-	*/
-	std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
+    /*
+    * 		CWF = 0,
+			HalfFullCWF = 1,
+			FullCWF = 2,
+			LocalCWF = 3,
+			LinearCWF = 4,
+			KnoppelCWF = 5,
+    */
+    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)" << std::endl;
 
 	if (isForceReinitilaize)
 	{
@@ -1386,7 +1386,7 @@ bool saveForRender()
         }
     };
 
-    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
     tbb::parallel_for(rangex, savePerFrame);
 
 //    for (int i = 0; i < nframes; i++)
@@ -1554,7 +1554,15 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::Combo("model type", (int*)&editModelType, "CWF\0NaiveCWF\0LinearCWF\0Knoppel\0FullCWF\0LocalCWF\0");
+		   /*
+     		CWF = 0,
+			HalfFullCWF = 1,
+			FullCWF = 2,
+			LocalCWF = 3,
+			LinearCWF = 4,
+			KnoppelCWF = 5,
+    		*/
+		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0");
 		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
         {
             std::cout << "init type: " << initType << std::endl;
