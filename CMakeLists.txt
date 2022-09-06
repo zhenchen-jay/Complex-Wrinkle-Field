@@ -96,21 +96,16 @@ include(libigl)
 #tbb
 set(TBB_BUILD_STATIC ON CACHE BOOL " " FORCE)
 set(TBB_BUILD_SHARED OFF CACHE BOOL " " FORCE)
-set(TBB_BUILD_TBBMALLOC OFF CACHE BOOL " " FORCE)
-set(TBB_BUILD_TBBMALLOC_PROXY OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC ON CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC_PROXY ON CACHE BOOL " " FORCE)
 set(TBB_BUILD_TESTS OFF CACHE BOOL " " FORCE)
 option(BUILD_WITH_TBB        "Enable TBB"         ON)
 include(tbb)
 
 #spectra
+message("build with spectra")
 include(spectra)
-FetchContent_GetProperties(spectra)
-if(NOT spectra_POPULATED)
-  FetchContent_Populate(spectra)
-endif()
-
-add_library(spectra INTERFACE)
-target_include_directories(spectra INTERFACE ${spectra_SOURCE_DIR}/spectra/include)
+# find_package(SPECTRA REQUIRED)
 
 #geometry-central
 include(geometry-central)
