@@ -37,11 +37,13 @@ set_target_properties(${PROJECT_NAME}_bin PROPERTIES CXX_STANDARD 17)
 set_target_properties(${PROJECT_NAME}_bin PROPERTIES CXX_STANDARD_REQUIRED ON)
 
 # Link settings
+target_include_directories(${PROJECT_NAME}_bin PUBLIC ${spectra_SOURCE_DIR}/include/Spectra)
 target_link_libraries( ${PROJECT_NAME}_bin 
         polyscope 
         geometry-central
-        spectra
         TBB::tbb 
+        tbb_static 
+        tbbmalloc_static
         igl::core 
         igl_restricted::triangle 
         igl_copyleft::comiso 

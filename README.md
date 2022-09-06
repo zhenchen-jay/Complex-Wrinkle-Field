@@ -1,14 +1,25 @@
 # Funny Wrinkle Edition Tool
-To download
+
+## To download
 ```
-git clone git@github.com:csyzzkdcz/PhaseInterpolation_polyscope.git -b refactor --recurse-submodule 
+git clone git@github.com:csyzzkdcz/PhaseInterpolation_polyscope.git 
 ```
 
-To build this, try
+## Dependencies
+- [Libigl](https://github.com/libigl/libigl.git)
+- [Polyscope](https://github.com/nmwsharp/polyscope.git)
+- [Geometry-Central](https://github.com/nmwsharp/geometry-central.git) 
+- [TBB](https://github.com/wjakob/tbb.git)
+- [Spectra](https://github.com/yixuan/spectra.git)
+- [Suite Sparse](https://people.engr.tamu.edu/davis/suitesparse.html)
+All the dependencies are solved by Fetcontent, except Suite Sparse. 
+
+
+## To build this, try
 ```
 mkdir build
 cd build
-cmake -DCMAKE_CXX_COMPILER=`which g++-11` ..
-make -j
-./bin/userDesignerApp_bin "your mesh file"
+cmake ..
+make -j4
+./bin/staticWrinkleEditor_bin
 ```
