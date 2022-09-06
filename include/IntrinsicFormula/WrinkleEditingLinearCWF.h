@@ -7,6 +7,7 @@
 
 namespace IntrinsicFormula
 {
+    // this is a simple implementation of linear approach, where we manaully blend to get omega, and linear interpolate z values between begin and end frame. Due to the missing of the consistent term, this will give you a really funny (broken pieces) wrinkle patterns after upsampling. 
 	class WrinkleEditingLinearCWF : public WrinkleEditingModel
 	{
 	public:

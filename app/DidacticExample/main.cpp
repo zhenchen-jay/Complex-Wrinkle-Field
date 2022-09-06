@@ -33,7 +33,7 @@
 #include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingFullCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingNaiveCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
 
@@ -139,19 +139,19 @@ bool isWarmStart = false;
 
 enum ModelType
 {
-    CWF = 0,
-    NaiveCWF = 1,
-    LinearCWF = 2,
-    KnoppelCWF = 3,
-    FullCWF = 4,
-    LocalCWF = 5,
+	CWF = 0,
+	HalfFullCWF = 1,
+	FullCWF = 2,
+	LocalCWF = 3,
+	LinearCWF = 4,
+	KnoppelCWF = 5,
 };
 
 InitializationType initType = Linear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
-ModelType editModelType = NaiveCWF;
+ModelType editModelType = CWF;
 bool isShowActualKnoppel = false;
 std::vector<Eigen::VectorXd> knoppelPhiList;
 Eigen::MatrixXd knoppelUpV;
@@ -159,35 +159,35 @@ Eigen::MatrixXi knoppelUpF;
 
 static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
-    if (editType == CWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-    }
-    else if (editType == NaiveCWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingNaiveCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-    }
-    else if (editType == LinearCWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-    }
-    else if (editType == KnoppelCWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-    }
-    else if (editType == FullCWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-    }
-    else if (editType == LocalCWF)
-    {
-        editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
-    }
-    else
-    {
-        std::cerr << "error model!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+   if (editType == CWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == HalfFullCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingHalfFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == FullCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == LocalCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
+	}
+	else if (editType == LinearCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == KnoppelCWF)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else
+	{
+		std::cerr << "error model!" << std::endl;
+		exit(EXIT_FAILURE);
+	}
 }
 
 void generateRotationCase(double triarea, double freq)
@@ -565,15 +565,18 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
     std::cout << "model Type: " << editModelType << std::endl;
 
+    std::cout << "model Type: " << editModelType << std::endl;
+
     /*
-    * 	CWF = 0,
-        NaiveCWF = 1,
-        LinearCWF = 2,
-        KnoppelCWF = 3,
-        FullCWF = 4,
-        LocalCWF = 5,
+    * 		CWF = 0,
+			HalfFullCWF = 1,
+			FullCWF = 2,
+			LocalCWF = 3,
+			LinearCWF = 4,
+			KnoppelCWF = 5,
     */
-    std::cout << "0: CWF, 1: Naive CWF, 2: Linear, 3: Knoppel, 4: Full CWF, 5 Local CWF" << std::endl;
+    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)" << std::endl;
+
 
     Eigen::VectorXd vertArea = getVertArea(triV, triMesh);
     Eigen::VectorXd edgeArea = getEdgeArea(triV, triMesh);
@@ -1174,7 +1177,19 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-        ImGui::Combo("model type", (int*)&editModelType, "CWF\0NaiveCWF\0LinearCWF\0Knoppel\0FullCWF\0LocalCWF\0");
+          /*
+     		CWF = 0,
+			HalfFullCWF = 1,
+			FullCWF = 2,
+			LocalCWF = 3,
+			LinearCWF = 4,
+			KnoppelCWF = 5,
+    		*/
+		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0");
+		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
+        {
+            std::cout << "init type: " << initType << std::endl;
+        }
         ImGui::Combo("Initialization type", (int*)&initType, "Linear\0Zuenko\0Knoppel\0");
         if (ImGui::Checkbox("Rotate", &isRotate))
         {

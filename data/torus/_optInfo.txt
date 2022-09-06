@@ -1,3 +1,0 @@
-Newton solver with termination criterion: 
-
-iter: 0

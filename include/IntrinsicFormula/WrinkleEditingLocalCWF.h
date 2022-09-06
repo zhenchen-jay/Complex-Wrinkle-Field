@@ -4,6 +4,7 @@
 
 namespace IntrinsicFormula
 {
+	// this is the variantion of the one we used to generate the paper results, where we manaully blend to get omega (w_blend + dw_blend), and ask the w-z consistency for (z, w_blend), and our variables are the vertex zvals. But instead of solving the problem globally, we solve only solve the problem for the editing domain. This will lead to unexpected unsmoothness near the interface, while get a faster solving speed.
 	class WrinkleEditingLocalCWF : public WrinkleEditingModel
 	{
 	public:

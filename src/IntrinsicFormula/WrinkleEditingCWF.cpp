@@ -10,7 +10,6 @@
 
 using namespace IntrinsicFormula;
 
-
 void WrinkleEditingCWF::convertList2Variable(Eigen::VectorXd& x)
 {
 	int nverts = _pos.rows();
@@ -18,7 +17,7 @@ void WrinkleEditingCWF::convertList2Variable(Eigen::VectorXd& x)
 
 	int numFrames = _zvalsList.size() - 2;
 
-	int DOFsPerframe = (2 * nverts + nedges);
+	int DOFsPerframe = 2 * nverts;
 
 	int DOFs = numFrames * DOFsPerframe;
 
@@ -31,11 +30,6 @@ void WrinkleEditingCWF::convertList2Variable(Eigen::VectorXd& x)
 			x(i * DOFsPerframe + 2 * j) = _zvalsList[i + 1][j].real();
 			x(i * DOFsPerframe + 2 * j + 1) = _zvalsList[i + 1][j].imag();
 		}
-
-		for (int j = 0; j < nedges; j++)
-		{
-			x(i * DOFsPerframe + 2 * nverts + j) = _edgeOmegaList[i + 1](j);
-		}
 	}
 }
 
@@ -46,18 +40,15 @@ void WrinkleEditingCWF::convertVariable2List(const Eigen::VectorXd& x)
 
 	int numFrames = _zvalsList.size() - 2;
 
-	int DOFsPerframe = (2 * nverts + nedges);
+	int DOFsPerframe = 2 * nverts;
+
+	int DOFs = numFrames * DOFsPerframe;
 
 	for (int i = 0; i < numFrames; i++)
 	{
 		for (int j = 0; j < nverts; j++)
 		{
 			_zvalsList[i + 1][j] = std::complex<double>(x(i * DOFsPerframe + 2 * j), x(i * DOFsPerframe + 2 * j + 1));
-		}
-
-		for (int j = 0; j < nedges; j++)
-		{
-			_edgeOmegaList[i + 1](j) = x(i * DOFsPerframe + 2 * nverts + j);
 		}
 	}
 }
@@ -111,33 +102,6 @@ double WrinkleEditingCWF::temporalAmpDifference(int frameId, Eigen::VectorXd* de
 	return energy;
 }
 
-double WrinkleEditingCWF::temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
-{
-	int nedges = _mesh.nEdges();
-	double energy = 0;
-
-	if (deriv)
-		deriv->setZero(nedges);
-
-	for (int eid = 0; eid < nedges; eid++)
-	{
-		double ce = _spatialEdgeRatio * _edgeArea(eid) * (_refAmpAveList[frameId] * _refAmpAveList[frameId]);
-
-		energy += ce * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid)) * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid));
-
-		if (deriv) 
-		{
-			(*deriv)(eid) += 2 * ce * (_edgeOmegaList[frameId](eid) - _combinedRefOmegaList[frameId](eid));
-		}
-
-		if (hessT) 
-		{
-			hessT->push_back(Eigen::Triplet<double>(eid, eid, 2 * ce));
-		}
-	}
-
-	return energy;
-}
 
 double WrinkleEditingCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
@@ -158,7 +122,7 @@ double WrinkleEditingCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* der
 		double r0 = _combinedRefAmpList[frameId](vid0) / aveAmp;
 		double r1 = _combinedRefAmpList[frameId](vid1) / aveAmp;
 
-		std::complex<double> expw0 = std::complex<double>(std::cos(_combinedRefOmegaList[frameId](eid)), std::sin(_combinedRefOmegaList[frameId](eid)));
+		std::complex<double> expw0 = std::complex<double>(std::cos(_edgeOmegaList[frameId](eid)), std::sin(_edgeOmegaList[frameId](eid)));
 
 		std::complex<double> z0 = _zvalsList[frameId][vid0];
 		std::complex<double> z1 = _zvalsList[frameId][vid1];
@@ -216,95 +180,47 @@ double WrinkleEditingCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* der
 	return energy;
 }
 
+
 double WrinkleEditingCWF::kineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
-	double energy = 0;
-	if (frameId >= _zvalsList.size() - 1)
-	{
-		std::cerr << "frame id overflows" << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	int nedges = _mesh.nEdges();
 	int nverts = _pos.rows();
-	int nfaces = _mesh.nFaces();
-	int nDOFs = 2 * nverts + nedges;
+	double dt = 1. / (_zvalsList.size() - 1);
+	double energy = 0;
+
+	int DOFsPerframe = 2 * nverts;
 
 	if (deriv)
-		deriv->setZero(2 * nDOFs);
-	if (hessT)
-		hessT->clear();
+		deriv->setZero(4 * nverts);
 
-	for (int fid = 0; fid < nfaces; fid++)
+	for (int vid = 0; vid < nverts; vid++)
 	{
-		Eigen::Matrix<double, 18, 1> faceDeriv;
-		Eigen::Matrix<double, 18, 18> faceHess;
-
-		energy += _zdotModel.computeZdotIntegrationPerface(_zvalsList[frameId], _edgeOmegaList[frameId], _zvalsList[frameId + 1], _edgeOmegaList[frameId + 1], fid, deriv ? &faceDeriv : NULL, hessT ? &faceHess : NULL, isProj) * _faceWeight(fid); // 1 / 2 is already included in the computation
+		Eigen::Vector2d diff;
+		double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid];
+		diff << (_zvalsList[frameId + 1][vid] - _zvalsList[frameId][vid]).real(), (_zvalsList[frameId + 1][vid] - _zvalsList[frameId][vid]).imag();
+		energy += 0.5 * coeff * diff.squaredNorm();
 
 		if (deriv)
 		{
-			for (int j = 0; j < 3; j++)
-			{
-				int vid = _mesh.faceVertex(fid, j);
-				int eid = _mesh.faceEdge(fid, j);
-
-				(*deriv)(2 * vid) += faceDeriv(2 * j) * _faceWeight(fid);
-				(*deriv)(2 * vid + 1) += faceDeriv(2 * j + 1) * _faceWeight(fid);
-				(*deriv)(eid + 2 * nverts) += faceDeriv(6 + j) * _faceWeight(fid);
-
-				(*deriv)(2 * vid + nDOFs) += faceDeriv(9 + 2 * j) * _faceWeight(fid);
-				(*deriv)(2 * vid + 1 + nDOFs) += faceDeriv(9 + 2 * j + 1) * _faceWeight(fid);
-				(*deriv)(eid + 2 * nverts + nDOFs) += faceDeriv(15 + j) * _faceWeight(fid);
-			}
+			deriv->segment<2>(2 * vid) += -coeff * diff;
+			deriv->segment<2>(2 * vid + DOFsPerframe) += coeff * diff;
 		}
 
 		if (hessT)
 		{
-			for (int j = 0; j < 3; j++)
-			{
-				int vid = _mesh.faceVertex(fid, j);
-				int eid = _mesh.faceEdge(fid, j);
+			hessT->push_back({ 2 * vid, 2 * vid, coeff });
+			hessT->push_back({ 2 * vid, DOFsPerframe + 2 * vid, -coeff });
 
-				for (int k = 0; k < 3; k++)
-				{
-					int vid1 = _mesh.faceVertex(fid, k);
-					int eid1 = _mesh.faceEdge(fid, k);
+			hessT->push_back({ 2 * vid + 1, 2 * vid + 1, coeff });
+			hessT->push_back({ 2 * vid + 1, DOFsPerframe + 2 * vid + 1, -coeff });
 
-					for (int m1 = 0; m1 < 2; m1++)
-					{
-						for (int m2 = 0; m2 < 2; m2++)
-						{
-							hessT->push_back({ 2 * vid + m1, 2 * vid1 + m2,  faceHess(2 * j + m1, 2 * k + m2) * _faceWeight(fid) });
-							hessT->push_back({ 2 * vid + m1, 2 * vid1 + m2 + nDOFs,  faceHess(2 * j + m1, 9 + 2 * k + m2) * _faceWeight(fid) });
+			hessT->push_back({ DOFsPerframe + 2 * vid, DOFsPerframe + 2 * vid, coeff });
+			hessT->push_back({ DOFsPerframe + 2 * vid, 2 * vid, -coeff });
+			
+			hessT->push_back({ DOFsPerframe + 2 * vid + 1, DOFsPerframe + 2 * vid + 1, coeff });
+			hessT->push_back({ DOFsPerframe + 2 * vid + 1, 2 * vid + 1, -coeff });
 
-							hessT->push_back({ 2 * vid + m1 + nDOFs, 2 * vid1 + m2,  faceHess(9 + 2 * j + m1, 2 * k + m2) * _faceWeight(fid) });
-							hessT->push_back({ 2 * vid + m1 + nDOFs, 2 * vid1 + m2 + nDOFs,  faceHess(9 + 2 * j + m1, 9 + 2 * k + m2) * _faceWeight(fid) });
-						}
-
-						hessT->push_back({ 2 * vid + m1, eid1 + 2 * nverts,  faceHess(2 * j + m1, 6 + k) * _faceWeight(fid) });
-						hessT->push_back({ eid + 2 * nverts, 2 * vid1 + m1, faceHess(6 + j, 2 * k + m1) * _faceWeight(fid) });
-
-						hessT->push_back({ 2 * vid + m1, eid1 + 2 * nverts + nDOFs, faceHess(2 * j + m1, 15 + k) * _faceWeight(fid) });
-						hessT->push_back({ eid + 2 * nverts + nDOFs, 2 * vid1 + m1, faceHess(15 + j, 2 * k + m1) * _faceWeight(fid) });
-
-						hessT->push_back({ 2 * vid + m1 + nDOFs, eid1 + 2 * nverts,  faceHess(9 + 2 * j + m1, 6 + k) * _faceWeight(fid) });
-						hessT->push_back({ eid + 2 * nverts, 2 * vid1 + m1 + nDOFs, faceHess(6 + j, 9 + 2 * k + m1) * _faceWeight(fid) });
-
-						hessT->push_back({ 2 * vid + m1 + nDOFs, eid1 + 2 * nverts + nDOFs,  faceHess(9 + 2 * j + m1, 15 + k) * _faceWeight(fid) });
-						hessT->push_back({ eid + 2 * nverts + nDOFs, 2 * vid1 + m1 + nDOFs,  faceHess(15 + j, 9 + 2 * k + m1) * _faceWeight(fid) });
-
-					}
-					hessT->push_back({ eid + 2 * nverts, eid1 + 2 * nverts, faceHess(6 + j, 6 + k) * _faceWeight(fid) });
-					hessT->push_back({ eid + 2 * nverts, eid1 + 2 * nverts + nDOFs, faceHess(6 + j, 15 + k) * _faceWeight(fid) });
-					hessT->push_back({ eid + 2 * nverts + nDOFs, eid1 + 2 * nverts, faceHess(15 + j, 6 + k) * _faceWeight(fid) });
-					hessT->push_back({ eid + 2 * nverts + nDOFs, eid1 + 2 * nverts + nDOFs, faceHess(15 + j, 15 + k) * _faceWeight(fid) });
-				}
-
-
-			}
 		}
 	}
-
 	return energy;
 }
 
@@ -315,7 +231,7 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 
 	int numFrames = _zvalsList.size() - 2;
 
-	int DOFsPerframe = (2 * nverts + nedges);
+	int DOFsPerframe = 2 * nverts;
 
 	int DOFs = numFrames * DOFsPerframe;
 
@@ -329,7 +245,7 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 	{
 		deriv->setZero(DOFs);
 	}
-
+	
 	std::vector<Eigen::VectorXd> curKDerivList(numFrames + 1);
 	std::vector<std::vector<Eigen::Triplet<double>>> curKTList(numFrames + 1);
 	std::vector<double> keList(numFrames + 1);
@@ -344,6 +260,7 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames + 1, GRAIN_SIZE);
 	tbb::parallel_for(rangex, kineticEnergyPerframe);
+
 
 	for (int i = 0; i < _zvalsList.size() - 1; i++)
 	{
@@ -386,16 +303,15 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 		}
 	}
 
-	std::vector<Eigen::VectorXd> ampDerivList(numFrames), omegaDerivList(numFrames), knoppelDerivList(numFrames);
-	std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), omegaTList(numFrames), knoppelTList(numFrames);
-	std::vector<double> ampEnergyList(numFrames), omegaEnergyList(numFrames), knoppelEnergyList(numFrames);
+	std::vector<Eigen::VectorXd> ampDerivList(numFrames), knoppelDerivList(numFrames);
+	std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), knoppelTList(numFrames);
+	std::vector<double> ampEnergyList(numFrames), knoppelEnergyList(numFrames);
 
 	auto otherEnergiesPerframe = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
 			ampEnergyList[i] = temporalAmpDifference(i + 1, deriv ? &ampDerivList[i] : NULL, hess ? &ampTList[i] : NULL, isProj);
-			omegaEnergyList[i] = temporalOmegaDifference(i + 1, deriv ? &omegaDerivList[i] : NULL, hess ? &omegaTList[i] : NULL, isProj);
 			knoppelEnergyList[i] = spatialKnoppelEnergy(i + 1, deriv ? &knoppelDerivList[i] : NULL, hess ? &knoppelTList[i] : NULL, isProj);
 		}
 	};
@@ -407,13 +323,12 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 	for (int i = 0; i < numFrames; i++)
 	{
 		energy += ampEnergyList[i];
-		energy += omegaEnergyList[i];
 		energy += knoppelEnergyList[i];
 
 		if (deriv) 
 		{
-			deriv->segment(i * DOFsPerframe, 2 * nverts) += ampDerivList[i] + knoppelDerivList[i];
-			deriv->segment(i * DOFsPerframe + 2 * nverts, nedges) += omegaDerivList[i];
+			deriv->segment(i * DOFsPerframe, DOFsPerframe) += knoppelDerivList[i];
+			deriv->segment(i * DOFsPerframe, 2 * nverts) += ampDerivList[i];
 		}
 
 		if (hess) 
@@ -426,13 +341,8 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 			{
 				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), it.value() });
 			}
-			for (auto& it : omegaTList[i])
-			{
-				T.push_back({ i * DOFsPerframe + it.row() + 2 * nverts, i * DOFsPerframe + it.col() + 2 * nverts, it.value() });
-			}
 		}
 	}
-
 	if (hess)
 	{
 		//std::cout << "num of triplets: " << T.size() << std::endl;
@@ -442,10 +352,9 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 	return energy;
 }
 
-
 void WrinkleEditingCWF::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
 {
-	std::cout << "CWF model: " << std::endl;
+	std::cout << " CWF model: " << std::endl;
 	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 		Eigen::VectorXd deriv;
 		Eigen::SparseMatrix<double> H;
