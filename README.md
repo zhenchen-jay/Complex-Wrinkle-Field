@@ -26,3 +26,5 @@ make -j4
 
 ## Results
 Once you run that command, you will see a gui pop up, then click solve, you will get our local rotation bunny results shown in the paper.
+
+![bunny_local_rotation](https://user-images.githubusercontent.com/29785561/188839142-906f3b2e-1051-458d-9c80-bd189e9bca07.gif)
