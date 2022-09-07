@@ -12,7 +12,7 @@ git clone git@github.com:csyzzkdcz/PhaseInterpolation_polyscope.git
 - [TBB](https://github.com/wjakob/tbb.git)
 - [Spectra](https://github.com/yixuan/spectra.git)
 - [Suite Sparse](https://people.engr.tamu.edu/davis/suitesparse.html)
-All the dependencies are solved by Fetcontent, except Suite Sparse. 
+All the dependencies are solved by Fetcontent, except Suite Sparse and Spectra (need Eigen installed.). 
 
 
 ## To build this, try
