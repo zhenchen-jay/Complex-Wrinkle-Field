@@ -5,711 +5,711 @@ line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 5.74974, f_new: 4.24363, grad norm: 8.85729, delta x: 0.209482, delta_f: 1.50611
 z grad: 1.55409, w grad: 0, z change: 0.00889117, w change: 0
 timing info (in total seconds): 
-assembling took: 0.047, LLT solver took: 0.677, line search took: 0
+assembling took: 0.028, LLT solver took: 0.545, line search took: 0
 
 iter: 1
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 4.24363, f_new: 3.44357, grad norm: 8.30119, delta x: 0.180513, delta_f: 0.800061
 z grad: 1.19569, w grad: 0, z change: 0.0106937, w change: 0
 timing info (in total seconds): 
-assembling took: 0.142, LLT solver took: 1.428, line search took: 0.001
+assembling took: 0.054, LLT solver took: 1.089, line search took: 0
 
 iter: 2
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 3.44357, f_new: 2.95599, grad norm: 5.16105, delta x: 0.132232, delta_f: 0.487576
 z grad: 0.84738, w grad: 0, z change: 0.00800301, w change: 0
 timing info (in total seconds): 
-assembling took: 0.204, LLT solver took: 2.113, line search took: 0.001
+assembling took: 0.079, LLT solver took: 1.632, line search took: 0
 
 iter: 3
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.95599, f_new: 2.73911, grad norm: 2.64582, delta x: 0.0833235, delta_f: 0.216883
 z grad: 0.522755, w grad: 0, z change: 0.00654873, w change: 0
 timing info (in total seconds): 
-assembling took: 0.255, LLT solver took: 2.793, line search took: 0.001
+assembling took: 0.104, LLT solver took: 2.172, line search took: 0.001
 
 iter: 4
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.73911, f_new: 2.64194, grad norm: 1.79657, delta x: 0.0587954, delta_f: 0.0971669
 z grad: 0.264169, w grad: 0, z change: 0.00426117, w change: 0
 timing info (in total seconds): 
-assembling took: 0.31, LLT solver took: 3.54, line search took: 0.002
+assembling took: 0.129, LLT solver took: 2.707, line search took: 0.002
 
 iter: 5
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.64194, f_new: 2.57772, grad norm: 1.52493, delta x: 0.0493428, delta_f: 0.0642229
 z grad: 0.191073, w grad: 0, z change: 0.00461906, w change: 0
 timing info (in total seconds): 
-assembling took: 0.375, LLT solver took: 4.369, line search took: 0.003
+assembling took: 0.156, LLT solver took: 3.24, line search took: 0.002
 
 iter: 6
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.57772, f_new: 2.5304, grad norm: 1.35456, delta x: 0.04401, delta_f: 0.0473254
 z grad: 0.231302, w grad: 0, z change: 0.00470042, w change: 0
 timing info (in total seconds): 
-assembling took: 0.483, LLT solver took: 5.156, line search took: 0.003
+assembling took: 0.182, LLT solver took: 3.787, line search took: 0.002
 
 iter: 7
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.5304, f_new: 2.49614, grad norm: 1.13731, delta x: 0.0371332, delta_f: 0.0342507
 z grad: 0.209841, w grad: 0, z change: 0.00348217, w change: 0
 timing info (in total seconds): 
-assembling took: 0.535, LLT solver took: 5.88, line search took: 0.003
+assembling took: 0.207, LLT solver took: 4.324, line search took: 0.002
 
 iter: 8
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.49614, f_new: 2.47012, grad norm: 1.01198, delta x: 0.032633, delta_f: 0.0260215
 z grad: 0.203754, w grad: 0, z change: 0.0027108, w change: 0
 timing info (in total seconds): 
-assembling took: 0.623, LLT solver took: 6.622, line search took: 0.004
+assembling took: 0.233, LLT solver took: 4.894, line search took: 0.002
 
 iter: 9
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.47012, f_new: 2.44941, grad norm: 0.87917, delta x: 0.0294751, delta_f: 0.0207161
 z grad: 0.198438, w grad: 0, z change: 0.00263169, w change: 0
 timing info (in total seconds): 
-assembling took: 0.699, LLT solver took: 7.329, line search took: 0.005
+assembling took: 0.259, LLT solver took: 5.435, line search took: 0.002
 
 iter: 10
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.44941, f_new: 2.43315, grad norm: 0.780762, delta x: 0.0264512, delta_f: 0.0162593
 z grad: 0.151592, w grad: 0, z change: 0.00302622, w change: 0
 timing info (in total seconds): 
-assembling took: 0.768, LLT solver took: 8.112, line search took: 0.006
+assembling took: 0.284, LLT solver took: 5.992, line search took: 0.002
 
 iter: 11
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.43315, f_new: 2.42005, grad norm: 0.723556, delta x: 0.0237225, delta_f: 0.0130978
 z grad: 0.140767, w grad: 0, z change: 0.00248975, w change: 0
 timing info (in total seconds): 
-assembling took: 0.834, LLT solver took: 8.787, line search took: 0.006
+assembling took: 0.31, LLT solver took: 6.566, line search took: 0.002
 
 iter: 12
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.42005, f_new: 2.4079, grad norm: 0.687855, delta x: 0.0227075, delta_f: 0.0121477
 z grad: 0.14514, w grad: 0, z change: 0.00356102, w change: 0
 timing info (in total seconds): 
-assembling took: 0.904, LLT solver took: 9.533, line search took: 0.006
+assembling took: 0.338, LLT solver took: 7.109, line search took: 0.002
 
 iter: 13
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.4079, f_new: 2.39721, grad norm: 0.623535, delta x: 0.022189, delta_f: 0.0106968
 z grad: 0.126949, w grad: 0, z change: 0.00432777, w change: 0
 timing info (in total seconds): 
-assembling took: 0.968, LLT solver took: 10.221, line search took: 0.007
+assembling took: 0.364, LLT solver took: 7.65, line search took: 0.002
 
 iter: 14
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.39721, f_new: 2.38891, grad norm: 0.540134, delta x: 0.0190577, delta_f: 0.00829236
 z grad: 0.100492, w grad: 0, z change: 0.00209056, w change: 0
 timing info (in total seconds): 
-assembling took: 1.036, LLT solver took: 10.913, line search took: 0.008
+assembling took: 0.392, LLT solver took: 8.188, line search took: 0.002
 
 iter: 15
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.38891, f_new: 2.38204, grad norm: 0.492549, delta x: 0.0175109, delta_f: 0.0068763
 z grad: 0.0953151, w grad: 0, z change: 0.00229028, w change: 0
 timing info (in total seconds): 
-assembling took: 1.128, LLT solver took: 11.594, line search took: 0.009
+assembling took: 0.417, LLT solver took: 8.74, line search took: 0.002
 
 iter: 16
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.38204, f_new: 2.3764, grad norm: 0.460038, delta x: 0.0157442, delta_f: 0.00563913
 z grad: 0.112176, w grad: 0, z change: 0.00204422, w change: 0
 timing info (in total seconds): 
-assembling took: 1.196, LLT solver took: 12.284, line search took: 0.009
+assembling took: 0.442, LLT solver took: 9.279, line search took: 0.002
 
 iter: 17
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3764, f_new: 2.3717, grad norm: 0.430804, delta x: 0.0141783, delta_f: 0.00469683
 z grad: 0.116237, w grad: 0, z change: 0.00150653, w change: 0
 timing info (in total seconds): 
-assembling took: 1.275, LLT solver took: 12.977, line search took: 0.009
+assembling took: 0.468, LLT solver took: 9.817, line search took: 0.003
 
 iter: 18
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3717, f_new: 2.36772, grad norm: 0.402914, delta x: 0.0128923, delta_f: 0.00397884
 z grad: 0.14043, w grad: 0, z change: 0.00170029, w change: 0
 timing info (in total seconds): 
-assembling took: 1.35, LLT solver took: 13.658, line search took: 0.01
+assembling took: 0.493, LLT solver took: 10.349, line search took: 0.003
 
 iter: 19
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.36772, f_new: 2.36433, grad norm: 0.367159, delta x: 0.0118659, delta_f: 0.00339023
 z grad: 0.131199, w grad: 0, z change: 0.00184984, w change: 0
 timing info (in total seconds): 
-assembling took: 1.431, LLT solver took: 14.473, line search took: 0.011
+assembling took: 0.518, LLT solver took: 10.883, line search took: 0.003
 
 iter: 20
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.36433, f_new: 2.36152, grad norm: 0.320123, delta x: 0.0109332, delta_f: 0.00281385
 z grad: 0.0825697, w grad: 0, z change: 0.00170617, w change: 0
 timing info (in total seconds): 
-assembling took: 1.493, LLT solver took: 15.17, line search took: 0.011
+assembling took: 0.543, LLT solver took: 11.418, line search took: 0.003
 
 iter: 21
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.36152, f_new: 2.35928, grad norm: 0.279116, delta x: 0.0100007, delta_f: 0.00224161
 z grad: 0.0645647, w grad: 0, z change: 0.00145277, w change: 0
 timing info (in total seconds): 
-assembling took: 1.565, LLT solver took: 15.847, line search took: 0.011
+assembling took: 0.568, LLT solver took: 11.951, line search took: 0.003
 
 iter: 22
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35928, f_new: 2.35749, grad norm: 0.245397, delta x: 0.00910558, delta_f: 0.00178364
 z grad: 0.046619, w grad: 0, z change: 0.00145478, w change: 0
 timing info (in total seconds): 
-assembling took: 1.632, LLT solver took: 16.514, line search took: 0.012
+assembling took: 0.593, LLT solver took: 12.484, line search took: 0.003
 
 iter: 23
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35749, f_new: 2.35605, grad norm: 0.219561, delta x: 0.00832088, delta_f: 0.00143864
 z grad: 0.0472081, w grad: 0, z change: 0.00113256, w change: 0
 timing info (in total seconds): 
-assembling took: 1.707, LLT solver took: 17.214, line search took: 0.012
+assembling took: 0.619, LLT solver took: 13.017, line search took: 0.003
 
 iter: 24
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35605, f_new: 2.35485, grad norm: 0.204274, delta x: 0.00766015, delta_f: 0.00120379
 z grad: 0.0484305, w grad: 0, z change: 0.000972265, w change: 0
 timing info (in total seconds): 
-assembling took: 1.792, LLT solver took: 17.941, line search took: 0.012
+assembling took: 0.645, LLT solver took: 13.552, line search took: 0.003
 
 iter: 25
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35485, f_new: 2.35378, grad norm: 0.193228, delta x: 0.00721523, delta_f: 0.00107134
 z grad: 0.0501121, w grad: 0, z change: 0.00111556, w change: 0
 timing info (in total seconds): 
-assembling took: 1.851, LLT solver took: 18.72, line search took: 0.013
+assembling took: 0.671, LLT solver took: 14.153, line search took: 0.004
 
 iter: 26
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35378, f_new: 2.35281, grad norm: 0.180037, delta x: 0.00687639, delta_f: 0.000963965
 z grad: 0.0538722, w grad: 0, z change: 0.00110893, w change: 0
 timing info (in total seconds): 
-assembling took: 1.928, LLT solver took: 19.513, line search took: 0.014
+assembling took: 0.699, LLT solver took: 14.764, line search took: 0.005
 
 iter: 27
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35281, f_new: 2.35199, grad norm: 0.164951, delta x: 0.00644737, delta_f: 0.000827387
 z grad: 0.046145, w grad: 0, z change: 0.00102219, w change: 0
 timing info (in total seconds): 
-assembling took: 2.009, LLT solver took: 20.502, line search took: 0.015
+assembling took: 0.729, LLT solver took: 15.335, line search took: 0.005
 
 iter: 28
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35199, f_new: 2.3513, grad norm: 0.151108, delta x: 0.0059379, delta_f: 0.000688945
 z grad: 0.0344365, w grad: 0, z change: 0.000865468, w change: 0
 timing info (in total seconds): 
-assembling took: 2.12, LLT solver took: 21.359, line search took: 0.016
+assembling took: 0.754, LLT solver took: 15.96, line search took: 0.005
 
 iter: 29
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3513, f_new: 2.35072, grad norm: 0.140784, delta x: 0.00547964, delta_f: 0.000582335
 z grad: 0.0351499, w grad: 0, z change: 0.000602184, w change: 0
 timing info (in total seconds): 
-assembling took: 2.198, LLT solver took: 22.039, line search took: 0.017
+assembling took: 0.783, LLT solver took: 16.499, line search took: 0.005
 
 iter: 30
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35072, f_new: 2.35021, grad norm: 0.133462, delta x: 0.00512563, delta_f: 0.000510116
 z grad: 0.0346117, w grad: 0, z change: 0.000640398, w change: 0
 timing info (in total seconds): 
-assembling took: 2.262, LLT solver took: 22.719, line search took: 0.017
+assembling took: 0.811, LLT solver took: 17.033, line search took: 0.006
 
 iter: 31
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.35021, f_new: 2.34975, grad norm: 0.126142, delta x: 0.004839, delta_f: 0.000456202
 z grad: 0.0322672, w grad: 0, z change: 0.000651876, w change: 0
 timing info (in total seconds): 
-assembling took: 2.334, LLT solver took: 23.48, line search took: 0.018
+assembling took: 0.836, LLT solver took: 17.579, line search took: 0.006
 
 iter: 32
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34975, f_new: 2.34934, grad norm: 0.117744, delta x: 0.00457972, delta_f: 0.000405951
 z grad: 0.0302866, w grad: 0, z change: 0.000619519, w change: 0
 timing info (in total seconds): 
-assembling took: 2.418, LLT solver took: 24.283, line search took: 0.019
+assembling took: 0.861, LLT solver took: 18.115, line search took: 0.006
 
 iter: 33
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34934, f_new: 2.34899, grad norm: 0.109197, delta x: 0.00432392, delta_f: 0.000355749
 z grad: 0.0303376, w grad: 0, z change: 0.000539499, w change: 0
 timing info (in total seconds): 
-assembling took: 2.499, LLT solver took: 24.956, line search took: 0.02
+assembling took: 0.889, LLT solver took: 18.656, line search took: 0.007
 
 iter: 34
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34899, f_new: 2.34868, grad norm: 0.1022, delta x: 0.00407705, delta_f: 0.00031052
 z grad: 0.0302179, w grad: 0, z change: 0.00042947, w change: 0
 timing info (in total seconds): 
-assembling took: 2.591, LLT solver took: 25.661, line search took: 0.021
+assembling took: 0.915, LLT solver took: 19.206, line search took: 0.007
 
 iter: 35
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34868, f_new: 2.3484, grad norm: 0.097822, delta x: 0.00386136, delta_f: 0.000276082
 z grad: 0.0298705, w grad: 0, z change: 0.000361084, w change: 0
 timing info (in total seconds): 
-assembling took: 2.669, LLT solver took: 26.347, line search took: 0.022
+assembling took: 0.94, LLT solver took: 19.748, line search took: 0.007
 
 iter: 36
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3484, f_new: 2.34815, grad norm: 0.0963171, delta x: 0.00369406, delta_f: 0.000254489
 z grad: 0.0292201, w grad: 0, z change: 0.000353208, w change: 0
 timing info (in total seconds): 
-assembling took: 2.75, LLT solver took: 27.143, line search took: 0.023
+assembling took: 0.965, LLT solver took: 20.349, line search took: 0.008
 
 iter: 37
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34815, f_new: 2.3479, grad norm: 0.0977238, delta x: 0.00358381, delta_f: 0.000245537
 z grad: 0.0287948, w grad: 0, z change: 0.0003951, w change: 0
 timing info (in total seconds): 
-assembling took: 2.849, LLT solver took: 27.935, line search took: 0.024
+assembling took: 0.992, LLT solver took: 20.891, line search took: 0.008
 
 iter: 38
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3479, f_new: 2.34765, grad norm: 0.10216, delta x: 0.00353606, delta_f: 0.000249303
 z grad: 0.0345074, w grad: 0, z change: 0.00046379, w change: 0
 timing info (in total seconds): 
-assembling took: 2.918, LLT solver took: 28.604, line search took: 0.025
+assembling took: 1.017, LLT solver took: 21.457, line search took: 0.008
 
 iter: 39
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34765, f_new: 2.34739, grad norm: 0.109745, delta x: 0.00355925, delta_f: 0.00026727
 z grad: 0.0414374, w grad: 0, z change: 0.000552508, w change: 0
 timing info (in total seconds): 
-assembling took: 2.983, LLT solver took: 29.27, line search took: 0.026
+assembling took: 1.043, LLT solver took: 22, line search took: 0.008
 
 iter: 40
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34739, f_new: 2.34708, grad norm: 0.120023, delta x: 0.00366212, delta_f: 0.000301628
 z grad: 0.0489215, w grad: 0, z change: 0.00066344, w change: 0
 timing info (in total seconds): 
-assembling took: 3.047, LLT solver took: 30, line search took: 0.026
+assembling took: 1.069, LLT solver took: 22.552, line search took: 0.008
 
 iter: 41
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34708, f_new: 2.34673, grad norm: 0.131097, delta x: 0.00384565, delta_f: 0.000352298
 z grad: 0.0548686, w grad: 0, z change: 0.000789284, w change: 0
 timing info (in total seconds): 
-assembling took: 3.12, LLT solver took: 30.679, line search took: 0.027
+assembling took: 1.095, LLT solver took: 23.092, line search took: 0.008
 
 iter: 42
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34673, f_new: 2.34632, grad norm: 0.138933, delta x: 0.00408091, delta_f: 0.000410003
 z grad: 0.0550072, w grad: 0, z change: 0.000905107, w change: 0
 timing info (in total seconds): 
-assembling took: 3.18, LLT solver took: 31.353, line search took: 0.027
+assembling took: 1.12, LLT solver took: 23.621, line search took: 0.008
 
 iter: 43
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34632, f_new: 2.34587, grad norm: 0.139619, delta x: 0.00429611, delta_f: 0.000451167
 z grad: 0.0497643, w grad: 0, z change: 0.00095786, w change: 0
 timing info (in total seconds): 
-assembling took: 3.239, LLT solver took: 32.02, line search took: 0.028
+assembling took: 1.145, LLT solver took: 24.171, line search took: 0.009
 
 iter: 44
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34587, f_new: 2.34542, grad norm: 0.134471, delta x: 0.00438962, delta_f: 0.000451445
 z grad: 0.0492691, w grad: 0, z change: 0.000892489, w change: 0
 timing info (in total seconds): 
-assembling took: 3.299, LLT solver took: 32.761, line search took: 0.028
+assembling took: 1.17, LLT solver took: 24.71, line search took: 0.009
 
 iter: 45
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34542, f_new: 2.345, grad norm: 0.128183, delta x: 0.00430418, delta_f: 0.000417274
 z grad: 0.0601912, w grad: 0, z change: 0.000877567, w change: 0
 timing info (in total seconds): 
-assembling took: 3.38, LLT solver took: 33.547, line search took: 0.028
+assembling took: 1.196, LLT solver took: 25.262, line search took: 0.009
 
 iter: 46
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.345, f_new: 2.34462, grad norm: 0.122852, delta x: 0.0041611, delta_f: 0.000380572
 z grad: 0.0665723, w grad: 0, z change: 0.000950389, w change: 0
 timing info (in total seconds): 
-assembling took: 3.429, LLT solver took: 34.234, line search took: 0.029
+assembling took: 1.222, LLT solver took: 25.79, line search took: 0.009
 
 iter: 47
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34462, f_new: 2.34427, grad norm: 0.115465, delta x: 0.00400358, delta_f: 0.000346875
 z grad: 0.0650451, w grad: 0, z change: 0.000980613, w change: 0
 timing info (in total seconds): 
-assembling took: 3.491, LLT solver took: 34.924, line search took: 0.029
+assembling took: 1.247, LLT solver took: 26.344, line search took: 0.01
 
 iter: 48
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34427, f_new: 2.34396, grad norm: 0.105511, delta x: 0.00385603, delta_f: 0.000310784
 z grad: 0.0547853, w grad: 0, z change: 0.000934454, w change: 0
 timing info (in total seconds): 
-assembling took: 3.555, LLT solver took: 35.585, line search took: 0.029
+assembling took: 1.273, LLT solver took: 26.892, line search took: 0.01
 
 iter: 49
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34396, f_new: 2.34369, grad norm: 0.0947194, delta x: 0.00369008, delta_f: 0.000269837
 z grad: 0.038547, w grad: 0, z change: 0.000796931, w change: 0
 timing info (in total seconds): 
-assembling took: 3.614, LLT solver took: 36.337, line search took: 0.03
+assembling took: 1.307, LLT solver took: 27.431, line search took: 0.01
 
 iter: 50
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34369, f_new: 2.34346, grad norm: 0.0875272, delta x: 0.00352775, delta_f: 0.000234056
 z grad: 0.0257071, w grad: 0, z change: 0.000595409, w change: 0
 timing info (in total seconds): 
-assembling took: 3.685, LLT solver took: 37.018, line search took: 0.031
+assembling took: 1.332, LLT solver took: 27.968, line search took: 0.01
 
 iter: 51
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34346, f_new: 2.34325, grad norm: 0.0855603, delta x: 0.0034118, delta_f: 0.00021388
 z grad: 0.0290923, w grad: 0, z change: 0.000469423, w change: 0
 timing info (in total seconds): 
-assembling took: 3.747, LLT solver took: 37.688, line search took: 0.032
+assembling took: 1.358, LLT solver took: 28.507, line search took: 0.01
 
 iter: 52
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34325, f_new: 2.34304, grad norm: 0.0873254, delta x: 0.00336584, delta_f: 0.00021004
 z grad: 0.0327079, w grad: 0, z change: 0.000523063, w change: 0
 timing info (in total seconds): 
-assembling took: 3.819, LLT solver took: 38.352, line search took: 0.033
+assembling took: 1.384, LLT solver took: 29.071, line search took: 0.01
 
 iter: 53
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34304, f_new: 2.34282, grad norm: 0.0910475, delta x: 0.0033853, delta_f: 0.000217794
 z grad: 0.0361756, w grad: 0, z change: 0.000571434, w change: 0
 timing info (in total seconds): 
-assembling took: 3.885, LLT solver took: 39.02, line search took: 0.033
+assembling took: 1.409, LLT solver took: 29.609, line search took: 0.01
 
 iter: 54
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34282, f_new: 2.34259, grad norm: 0.0953184, delta x: 0.00345252, delta_f: 0.000232246
 z grad: 0.038806, w grad: 0, z change: 0.000603523, w change: 0
 timing info (in total seconds): 
-assembling took: 3.979, LLT solver took: 39.759, line search took: 0.034
+assembling took: 1.44, LLT solver took: 30.156, line search took: 0.01
 
 iter: 55
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34259, f_new: 2.34234, grad norm: 0.0989121, delta x: 0.00354469, delta_f: 0.000248766
 z grad: 0.0396238, w grad: 0, z change: 0.000605883, w change: 0
 timing info (in total seconds): 
-assembling took: 4.049, LLT solver took: 40.441, line search took: 0.035
+assembling took: 1.465, LLT solver took: 30.696, line search took: 0.01
 
 iter: 56
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34234, f_new: 2.34207, grad norm: 0.10084, delta x: 0.00363671, delta_f: 0.000262747
 z grad: 0.039912, w grad: 0, z change: 0.00062347, w change: 0
 timing info (in total seconds): 
-assembling took: 4.114, LLT solver took: 41.106, line search took: 0.036
+assembling took: 1.49, LLT solver took: 31.234, line search took: 0.01
 
 iter: 57
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34207, f_new: 2.3418, grad norm: 0.100591, delta x: 0.00370717, delta_f: 0.000270572
 z grad: 0.0403072, w grad: 0, z change: 0.000674895, w change: 0
 timing info (in total seconds): 
-assembling took: 4.177, LLT solver took: 41.861, line search took: 0.037
+assembling took: 1.515, LLT solver took: 31.78, line search took: 0.01
 
 iter: 58
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3418, f_new: 2.34153, grad norm: 0.0983968, delta x: 0.00374325, delta_f: 0.000270641
 z grad: 0.0377434, w grad: 0, z change: 0.000709215, w change: 0
 timing info (in total seconds): 
-assembling took: 4.252, LLT solver took: 42.658, line search took: 0.038
+assembling took: 1.54, LLT solver took: 32.318, line search took: 0.01
 
 iter: 59
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34153, f_new: 2.34127, grad norm: 0.0952814, delta x: 0.00373954, delta_f: 0.000263528
 z grad: 0.0327507, w grad: 0, z change: 0.000711366, w change: 0
 timing info (in total seconds): 
-assembling took: 4.31, LLT solver took: 43.364, line search took: 0.038
+assembling took: 1.566, LLT solver took: 32.862, line search took: 0.01
 
 iter: 60
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34127, f_new: 2.34102, grad norm: 0.0925157, delta x: 0.00369584, delta_f: 0.0002516
 z grad: 0.0272204, w grad: 0, z change: 0.000670467, w change: 0
 timing info (in total seconds): 
-assembling took: 4.382, LLT solver took: 44.059, line search took: 0.038
+assembling took: 1.591, LLT solver took: 33.403, line search took: 0.01
 
 iter: 61
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34102, f_new: 2.34078, grad norm: 0.0906214, delta x: 0.00361578, delta_f: 0.000237852
 z grad: 0.0309061, w grad: 0, z change: 0.00058757, w change: 0
 timing info (in total seconds): 
-assembling took: 4.468, LLT solver took: 44.734, line search took: 0.038
+assembling took: 1.616, LLT solver took: 33.945, line search took: 0.01
 
 iter: 62
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34078, f_new: 2.34055, grad norm: 0.0891211, delta x: 0.00351489, delta_f: 0.00022447
 z grad: 0.0337611, w grad: 0, z change: 0.00053039, w change: 0
 timing info (in total seconds): 
-assembling took: 4.539, LLT solver took: 45.421, line search took: 0.039
+assembling took: 1.644, LLT solver took: 34.48, line search took: 0.01
 
 iter: 63
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34055, f_new: 2.34034, grad norm: 0.0870523, delta x: 0.00340767, delta_f: 0.000211276
 z grad: 0.0352239, w grad: 0, z change: 0.000499992, w change: 0
 timing info (in total seconds): 
-assembling took: 4.649, LLT solver took: 46.156, line search took: 0.04
+assembling took: 1.67, LLT solver took: 35.023, line search took: 0.01
 
 iter: 64
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34034, f_new: 2.34015, grad norm: 0.0834442, delta x: 0.00329102, delta_f: 0.000196214
 z grad: 0.034804, w grad: 0, z change: 0.000451536, w change: 0
 timing info (in total seconds): 
-assembling took: 4.726, LLT solver took: 46.836, line search took: 0.041
+assembling took: 1.696, LLT solver took: 35.564, line search took: 0.01
 
 iter: 65
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.34015, f_new: 2.33997, grad norm: 0.077898, delta x: 0.00315855, delta_f: 0.000177815
 z grad: 0.0322184, w grad: 0, z change: 0.000423644, w change: 0
 timing info (in total seconds): 
-assembling took: 4.801, LLT solver took: 47.567, line search took: 0.042
+assembling took: 1.721, LLT solver took: 36.104, line search took: 0.011
 
 iter: 66
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33997, f_new: 2.33981, grad norm: 0.0709974, delta x: 0.00301244, delta_f: 0.00015668
 z grad: 0.0277373, w grad: 0, z change: 0.000387111, w change: 0
 timing info (in total seconds): 
-assembling took: 4.872, LLT solver took: 48.466, line search took: 0.043
+assembling took: 1.746, LLT solver took: 36.669, line search took: 0.011
 
 iter: 67
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33981, f_new: 2.33968, grad norm: 0.0638642, delta x: 0.00285532, delta_f: 0.000134938
 z grad: 0.0221733, w grad: 0, z change: 0.000342627, w change: 0
 timing info (in total seconds): 
-assembling took: 4.943, LLT solver took: 49.202, line search took: 0.043
+assembling took: 1.772, LLT solver took: 37.231, line search took: 0.011
 
 iter: 68
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33968, f_new: 2.33956, grad norm: 0.0576194, delta x: 0.00269667, delta_f: 0.000115249
 z grad: 0.0165947, w grad: 0, z change: 0.000289821, w change: 0
 timing info (in total seconds): 
-assembling took: 5.05, LLT solver took: 49.895, line search took: 0.043
+assembling took: 1.798, LLT solver took: 37.77, line search took: 0.011
 
 iter: 69
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33956, f_new: 2.33946, grad norm: 0.0528008, delta x: 0.00254756, delta_f: 9.92802e-05
 z grad: 0.0154248, w grad: 0, z change: 0.00023459, w change: 0
 timing info (in total seconds): 
-assembling took: 5.128, LLT solver took: 50.563, line search took: 0.044
+assembling took: 1.824, LLT solver took: 38.31, line search took: 0.011
 
 iter: 70
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33946, f_new: 2.33938, grad norm: 0.0492901, delta x: 0.00241453, delta_f: 8.71239e-05
 z grad: 0.0154024, w grad: 0, z change: 0.000184954, w change: 0
 timing info (in total seconds): 
-assembling took: 5.2, LLT solver took: 51.232, line search took: 0.044
+assembling took: 1.849, LLT solver took: 38.854, line search took: 0.011
 
 iter: 71
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33938, f_new: 2.3393, grad norm: 0.0467001, delta x: 0.00229861, delta_f: 7.79595e-05
 z grad: 0.0153298, w grad: 0, z change: 0.000151076, w change: 0
 timing info (in total seconds): 
-assembling took: 5.275, LLT solver took: 51.994, line search took: 0.045
+assembling took: 1.875, LLT solver took: 39.391, line search took: 0.011
 
 iter: 72
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3393, f_new: 2.33923, grad norm: 0.0446906, delta x: 0.00219788, delta_f: 7.08705e-05
 z grad: 0.0152099, w grad: 0, z change: 0.000150366, w change: 0
 timing info (in total seconds): 
-assembling took: 5.352, LLT solver took: 52.84, line search took: 0.046
+assembling took: 1.904, LLT solver took: 39.951, line search took: 0.012
 
 iter: 73
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33923, f_new: 2.33916, grad norm: 0.0430429, delta x: 0.00210959, delta_f: 6.51768e-05
 z grad: 0.0150459, w grad: 0, z change: 0.000149379, w change: 0
 timing info (in total seconds): 
-assembling took: 5.426, LLT solver took: 53.542, line search took: 0.047
+assembling took: 1.93, LLT solver took: 40.495, line search took: 0.012
 
 iter: 74
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33916, f_new: 2.3391, grad norm: 0.0416325, delta x: 0.00203122, delta_f: 6.04435e-05
 z grad: 0.014841, w grad: 0, z change: 0.000148134, w change: 0
 timing info (in total seconds): 
-assembling took: 5.497, LLT solver took: 54.247, line search took: 0.048
+assembling took: 1.956, LLT solver took: 41.037, line search took: 0.012
 
 iter: 75
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3391, f_new: 2.33905, grad norm: 0.040391, delta x: 0.00196077, delta_f: 5.64033e-05
 z grad: 0.014599, w grad: 0, z change: 0.000146651, w change: 0
 timing info (in total seconds): 
-assembling took: 5.584, LLT solver took: 54.937, line search took: 0.048
+assembling took: 1.984, LLT solver took: 41.588, line search took: 0.012
 
 iter: 76
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33905, f_new: 2.33899, grad norm: 0.0392804, delta x: 0.00189674, delta_f: 5.28881e-05
 z grad: 0.0143233, w grad: 0, z change: 0.000144951, w change: 0
 timing info (in total seconds): 
-assembling took: 5.677, LLT solver took: 55.992, line search took: 0.049
+assembling took: 2.012, LLT solver took: 42.129, line search took: 0.012
 
 iter: 77
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33899, f_new: 2.33894, grad norm: 0.0382788, delta x: 0.00183796, delta_f: 4.97878e-05
 z grad: 0.0140178, w grad: 0, z change: 0.000143057, w change: 0
 timing info (in total seconds): 
-assembling took: 5.757, LLT solver took: 56.764, line search took: 0.05
+assembling took: 2.038, LLT solver took: 42.687, line search took: 0.012
 
 iter: 78
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33894, f_new: 2.3389, grad norm: 0.037373, delta x: 0.00178361, delta_f: 4.70269e-05
 z grad: 0.013686, w grad: 0, z change: 0.000140994, w change: 0
 timing info (in total seconds): 
-assembling took: 5.831, LLT solver took: 57.438, line search took: 0.051
+assembling took: 2.064, LLT solver took: 43.239, line search took: 0.012
 
 iter: 79
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3389, f_new: 2.33885, grad norm: 0.0365547, delta x: 0.00173302, delta_f: 4.45516e-05
 z grad: 0.0133316, w grad: 0, z change: 0.000138787, w change: 0
 timing info (in total seconds): 
-assembling took: 5.903, LLT solver took: 58.112, line search took: 0.051
+assembling took: 2.09, LLT solver took: 43.79, line search took: 0.012
 
 iter: 80
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33885, f_new: 2.33881, grad norm: 0.0358182, delta x: 0.00168572, delta_f: 4.23217e-05
 z grad: 0.0129578, w grad: 0, z change: 0.000136461, w change: 0
 timing info (in total seconds): 
-assembling took: 5.979, LLT solver took: 58.866, line search took: 0.051
+assembling took: 2.116, LLT solver took: 44.348, line search took: 0.012
 
 iter: 81
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33881, f_new: 2.33877, grad norm: 0.0351581, delta x: 0.00164129, delta_f: 4.03056e-05
 z grad: 0.0125674, w grad: 0, z change: 0.000134039, w change: 0
 timing info (in total seconds): 
-assembling took: 6.054, LLT solver took: 59.542, line search took: 0.052
+assembling took: 2.142, LLT solver took: 44.948, line search took: 0.012
 
 iter: 82
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33877, f_new: 2.33873, grad norm: 0.0345698, delta x: 0.00159944, delta_f: 3.84785e-05
 z grad: 0.0121625, w grad: 0, z change: 0.00013154, w change: 0
 timing info (in total seconds): 
-assembling took: 6.125, LLT solver took: 60.255, line search took: 0.052
+assembling took: 2.171, LLT solver took: 45.575, line search took: 0.013
 
 iter: 83
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33873, f_new: 2.33869, grad norm: 0.0340488, delta x: 0.00155996, delta_f: 3.68202e-05
 z grad: 0.0117446, w grad: 0, z change: 0.000128981, w change: 0
 timing info (in total seconds): 
-assembling took: 6.193, LLT solver took: 60.951, line search took: 0.052
+assembling took: 2.198, LLT solver took: 46.171, line search took: 0.013
 
 iter: 84
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33869, f_new: 2.33866, grad norm: 0.0335884, delta x: 0.00152263, delta_f: 3.53118e-05
 z grad: 0.0113145, w grad: 0, z change: 0.00012637, w change: 0
 timing info (in total seconds): 
-assembling took: 6.273, LLT solver took: 61.886, line search took: 0.053
+assembling took: 2.224, LLT solver took: 46.728, line search took: 0.013
 
 iter: 85
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33866, f_new: 2.33862, grad norm: 0.0331788, delta x: 0.00148726, delta_f: 3.39353e-05
 z grad: 0.0108719, w grad: 0, z change: 0.000123705, w change: 0
 timing info (in total seconds): 
-assembling took: 6.342, LLT solver took: 62.657, line search took: 0.053
+assembling took: 2.254, LLT solver took: 47.301, line search took: 0.014
 
 iter: 86
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33862, f_new: 2.33859, grad norm: 0.0328074, delta x: 0.00145367, delta_f: 3.26722e-05
 z grad: 0.0104154, w grad: 0, z change: 0.000120971, w change: 0
 timing info (in total seconds): 
-assembling took: 6.453, LLT solver took: 63.577, line search took: 0.053
+assembling took: 2.279, LLT solver took: 47.896, line search took: 0.014
 
 iter: 87
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33859, f_new: 2.33856, grad norm: 0.0324618, delta x: 0.00142171, delta_f: 3.15054e-05
 z grad: 0.00994524, w grad: 0, z change: 0.000118165, w change: 0
 timing info (in total seconds): 
-assembling took: 6.544, LLT solver took: 64.936, line search took: 0.054
+assembling took: 2.305, LLT solver took: 48.464, line search took: 0.015
 
 iter: 88
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33856, f_new: 2.33853, grad norm: 0.0321261, delta x: 0.00139121, delta_f: 3.04158e-05
 z grad: 0.00986389, w grad: 0, z change: 0.000115268, w change: 0
 timing info (in total seconds): 
-assembling took: 6.654, LLT solver took: 65.816, line search took: 0.054
+assembling took: 2.331, LLT solver took: 49.017, line search took: 0.015
 
 iter: 89
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33853, f_new: 2.3385, grad norm: 0.0317813, delta x: 0.00136194, delta_f: 2.93832e-05
 z grad: 0.0101015, w grad: 0, z change: 0.000114435, w change: 0
 timing info (in total seconds): 
-assembling took: 6.736, LLT solver took: 66.608, line search took: 0.055
+assembling took: 2.357, LLT solver took: 49.572, line search took: 0.015
 
 iter: 90
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.3385, f_new: 2.33847, grad norm: 0.0314097, delta x: 0.00133373, delta_f: 2.83879e-05
 z grad: 0.0102571, w grad: 0, z change: 0.000117358, w change: 0
 timing info (in total seconds): 
-assembling took: 6.827, LLT solver took: 67.407, line search took: 0.056
+assembling took: 2.383, LLT solver took: 50.125, line search took: 0.015
 
 iter: 91
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33847, f_new: 2.33844, grad norm: 0.030993, delta x: 0.00130638, delta_f: 2.74104e-05
 z grad: 0.0103196, w grad: 0, z change: 0.000119377, w change: 0
 timing info (in total seconds): 
-assembling took: 6.922, LLT solver took: 68.182, line search took: 0.057
+assembling took: 2.416, LLT solver took: 50.682, line search took: 0.015
 
 iter: 92
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33844, f_new: 2.33842, grad norm: 0.0305149, delta x: 0.00127965, delta_f: 2.64326e-05
 z grad: 0.0102807, w grad: 0, z change: 0.000120364, w change: 0
 timing info (in total seconds): 
-assembling took: 7.044, LLT solver took: 69, line search took: 0.058
+assembling took: 2.442, LLT solver took: 51.265, line search took: 0.015
 
 iter: 93
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33842, f_new: 2.33839, grad norm: 0.0299628, delta x: 0.00125333, delta_f: 2.54397e-05
 z grad: 0.0101358, w grad: 0, z change: 0.000120218, w change: 0
 timing info (in total seconds): 
-assembling took: 7.129, LLT solver took: 69.741, line search took: 0.058
+assembling took: 2.467, LLT solver took: 51.815, line search took: 0.015
 
 iter: 94
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33839, f_new: 2.33837, grad norm: 0.0293294, delta x: 0.00122724, delta_f: 2.44211e-05
 z grad: 0.00988492, w grad: 0, z change: 0.000118872, w change: 0
 timing info (in total seconds): 
-assembling took: 7.225, LLT solver took: 70.484, line search took: 0.059
+assembling took: 2.494, LLT solver took: 52.364, line search took: 0.015
 
 iter: 95
 line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 2.33837, f_new: 2.33834, grad norm: 0.0286137, delta x: 0.00120122, delta_f: 2.33722e-05
 z grad: 0.00953341, w grad: 0, z change: 0.000116311, w change: 0
 timing info (in total seconds): 
-assembling took: 7.303, LLT solver took: 71.215, line search took: 0.06
+assembling took: 2.52, LLT solver took: 52.922, line search took: 0.015
 
 iter: 96
 line search rate : 0.5, actual hessian : 1, reg = 5e-09
 f_old: 2.33834, f_new: 2.33818, grad norm: 0.190721, delta x: 0.0276947, delta_f: 0.00016916
 z grad: 0.0626121, w grad: 0, z change: 0.00238633, w change: 0
 timing info (in total seconds): 
-assembling took: 7.384, LLT solver took: 71.94, line search took: 0.061
+assembling took: 2.544, LLT solver took: 53.498, line search took: 0.016
 
 iter: 97
 line search rate : 1, actual hessian : 1, reg = 2.5e-09
 f_old: 2.33818, f_new: 2.33794, grad norm: 0.0279712, delta x: 0.010645, delta_f: 0.000231341
 z grad: 0.0112754, w grad: 0, z change: 0.00105182, w change: 0
 timing info (in total seconds): 
-assembling took: 7.463, LLT solver took: 72.646, line search took: 0.061
+assembling took: 2.57, LLT solver took: 54.073, line search took: 0.017
 
 iter: 98
 line search rate : 1, actual hessian : 1, reg = 1.25e-09
 f_old: 2.33794, f_new: 2.33791, grad norm: 0.0305992, delta x: 0.0121689, delta_f: 3.48764e-05
 z grad: 0.00397027, w grad: 0, z change: 0.000892251, w change: 0
 timing info (in total seconds): 
-assembling took: 7.53, LLT solver took: 73.377, line search took: 0.062
+assembling took: 2.595, LLT solver took: 54.629, line search took: 0.017
 
 iter: 99
 line search rate : 1, actual hessian : 1, reg = 6.25e-10
 f_old: 2.33791, f_new: 2.3379, grad norm: 0.00138084, delta x: 0.002365, delta_f: 5.43859e-06
 z grad: 0.0002611, w grad: 0, z change: 0.000249576, w change: 0
 timing info (in total seconds): 
-assembling took: 7.601, LLT solver took: 74.07, line search took: 0.062
+assembling took: 2.62, LLT solver took: 55.184, line search took: 0.017
 
 iter: 100
 line search rate : 1, actual hessian : 1, reg = 3.125e-10
 f_old: 2.3379, f_new: 2.3379, grad norm: 0.000168454, delta x: 0.000848001, delta_f: 1.26121e-07
 z grad: 2.6829e-05, w grad: 0, z change: 8.58777e-05, w change: 0
 timing info (in total seconds): 
-assembling took: 7.667, LLT solver took: 74.879, line search took: 0.063
+assembling took: 2.646, LLT solver took: 55.723, line search took: 0.018
 
 iter: 101
 line search rate : 1, actual hessian : 1, reg = 1.5625e-10
-f_old: 2.3379, f_new: 2.3379, grad norm: 7.31941e-08, delta x: 1.59271e-05, delta_f: 1.67687e-10
+f_old: 2.3379, f_new: 2.3379, grad norm: 7.31941e-08, delta x: 1.59271e-05, delta_f: 1.67688e-10
 z grad: 2.2369e-08, w grad: 0, z change: 2.12624e-06, w change: 0
 timing info (in total seconds): 
-assembling took: 7.743, LLT solver took: 75.581, line search took: 0.063
+assembling took: 2.67, LLT solver took: 56.289, line search took: 0.018
