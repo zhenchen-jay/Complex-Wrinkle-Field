@@ -691,7 +691,6 @@ void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, 
 
 void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
-	
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 	selectedFids.setZero(triMesh.nFaces());
 	interfaceFids = selectedFids;
