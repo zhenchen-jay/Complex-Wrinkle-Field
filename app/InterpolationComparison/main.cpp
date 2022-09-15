@@ -45,10 +45,10 @@
 Eigen::MatrixXd triV, upsampledTriV;
 Eigen::MatrixXi triF, upsampledTriF;
 MeshConnectivity triMesh;
-Mesh secMesh, subSecMesh;
+Mesh secMesh, upSecMesh;
 
-std::vector<std::vector<std::complex<double>>> zList;
-std::vector<Eigen::VectorXd> omegaList;
+std::vector<std::vector<std::complex<double>>> zList, upZList;
+std::vector<Eigen::VectorXd> omegaList, upOmegaList;
 
 int upsamplingLevel = 2;
 float wrinkleAmpScalingRatio = 0.1;
@@ -59,14 +59,14 @@ int curFrame = 0;
 static void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
     secMesh = convert2SecMesh(triV, triF);
-    subSecMesh = secMesh;
+    upSecMesh = secMesh;
 
     std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
     complexLoopOpt->setBndFixFlag(true);
     complexLoopOpt->SetMesh(secMesh);
     complexLoopOpt->meshSubdivide(upsamplingLevel);
-    subSecMesh = complexLoopOpt->GetMesh();
-    parseSecMesh(subSecMesh, upsampledTriV, upsampledTriF);
+    upSecMesh = complexLoopOpt->GetMesh();
+    parseSecMesh(upSecMesh, upsampledTriV, upsampledTriF);
 }
 
 static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
@@ -74,6 +74,57 @@ static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& t
     getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 }
 
+static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, std::vector<Eigen::VectorXd>& upPhiList, int upLevel)
+{
+    int nframes = edgeOmegaList.size();
+    Eigen::SparseMatrix<double> mat;
+    std::vector<int> facemap;
+    std::vector<std::pair<int, Eigen::Vector3d>> bary;
+
+
+    meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
+    upPhiList.resize(nframes);
+
+    MeshConnectivity mesh(F);
+
+    auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiList[i]); // knoppel's approach
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
+    tbb::parallel_for(rangex, frameUpsampling);
+}
+
+static void getOursUpsamplingRes(const Mesh& secMesh, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Mesh& upMesh, std::vector<Eigen::VectorXd>& upEdgeOmegaList, std::vector<std::vector<std::complex<double>>>& upZvalsList, int upLevel)
+{
+    int nframes = edgeOmegaList.size();
+    upEdgeOmegaList.resize(nframes);
+    upZvalsList.resize(nframes);
+
+    auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
+    {
+        for (uint32_t i = range.begin(); i < range.end(); ++i)
+        {
+            Eigen::VectorXd edgeVec = swapEdgeVec(triF, edgeOmegaList[i], 0);
+
+            std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
+            complexLoopOpt->setBndFixFlag(true);
+            complexLoopOpt->SetMesh(secMesh);
+            complexLoopOpt->Subdivide(edgeVec, zvalsList[i], upEdgeOmegaList[i], upZvalsList[i], upLevel);
+            if(i == 0)
+            {
+                upMesh = complexLoopOpt->GetMesh();
+            }
+        }
+    };
+
+    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
+    tbb::parallel_for(rangex, frameUpsampling);
+}
 
 static bool loadProblem()
 {
@@ -154,12 +205,20 @@ static bool loadProblem()
     return true;
 }
 
-void updateView()
+
+
+static void updateEveryThing()
+{
+    // get the upsampled phase, amplitude and wrinkles from our approach
+
+}
+
+static void updateView()
 {
 
 }
 
-void callback() {
+static void callback() {
 	ImGui::PushItemWidth(100);
 	float w = ImGui::GetContentRegionAvailWidth();
 	float p = ImGui::GetStyle().FramePadding.x;
@@ -224,7 +283,7 @@ int main(int argc, char** argv)
 
 	polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
 
-	updateFieldsInView();
+    updateView();
 	// Show the gui
 	polyscope::show();
 

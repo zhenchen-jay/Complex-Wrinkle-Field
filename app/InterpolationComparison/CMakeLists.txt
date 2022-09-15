@@ -16,6 +16,7 @@ file(GLOB SRCFILES
     ../../include/Optimization/*.h
     ../../include/IntrinsicFormula/*.h
     ../../include/ComplexLoop/*.h
+    ../../include/InterpolationScheme/*.h
     *.h
 
     ../../dep/SecStencils/*.cpp
