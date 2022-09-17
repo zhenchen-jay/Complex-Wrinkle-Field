@@ -75,7 +75,7 @@ Scalar cubicSideVertexInterpolation(const std::vector<Scalar>& vertVal, const st
             Scalar df1 = verDeriv[k].dot(e);
             double t = bary[k] / sum;
 
-            HermiteInterpolation(f0, f1, df0, df1, t, Fsi);
+            HermiteInterpolation1D(f0, f1, df0, df1, t, Fsi);
         }
 
         F += (1 - bary[i]) * Fsi + bary[i] * vertVal[i];
@@ -128,13 +128,15 @@ Scalar WojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const s
 
             Scalar dftan, dfnormal;
             Scalar Fsi = 0;
-            HermiteInterpolation(f0, f1, df0, df1, t, Fsi, &dftan);
+            HermiteInterpolation1D(f0, f1, df0, df1, t, Fsi, &dftan);
 
             Scalar nf0 = verDeriv[j].dot(binormal);
             Scalar nf1 = verDeriv[k].dot(binormal);
+            Scalar dnf0 = 0;
+            Scalar dnf1 = 0;
 
             dfnormal = 0;
-            HermiteInterpolation(nf0, nf1, 0, 0, t, dfnormal);
+            HermiteInterpolation1D(nf0, nf1, dnf0, dnf1, t, dfnormal);
 
             projFsDeriv[i] = dfnormal * binormal + dftan * e;
             Fs[i] = Fsi;
