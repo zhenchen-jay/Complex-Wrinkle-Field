@@ -79,7 +79,7 @@ Scalar intrinsicCubicSideVertexInterpolation(const std::vector<Scalar>& vertVal,
             Scalar df1 = edgeDeriv[i];
             double t = bary[k] / sum;
 
-            HermiteInterpolation(f0, f1, df0, df1, t, Fsi);
+            HermiteInterpolation1D(f0, f1, df0, df1, t, Fsi);
         }
 
         F += (1 - bary[i]) * Fsi + bary[i] * vertVal[i];
@@ -99,7 +99,7 @@ Scalar intrinsicCubicSideVertexInterpolation(const std::vector<Scalar>& vertVal,
  * edgeDeriv[i] is the one form on the edge i (V_{i+1}, V_{i+2}), which can be viewed as grad_F.dot(e_i). e_i = V_{i + 2} - V_{i + 1}
  */
 template <typename Scalar>
-Scalar WojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const std::vector<Scalar>& edgeDeriv, const std::vector<Eigen::Vector3d>& tri, const Eigen::Vector3d& bary)
+Scalar intrinsicWojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const std::vector<Scalar>& edgeDeriv, const std::vector<Eigen::Vector3d>& tri, const Eigen::Vector3d& bary)
 {
     double sum = 0;
     for(int i = 0; i < 3; i++)
@@ -136,7 +136,7 @@ Scalar WojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const s
 
             Scalar dftan, dfnormal;
             Scalar Fsi = 0;
-            HermiteInterpolation(f0, f1, df0, df1, t, Fsi, &dftan);
+            HermiteInterpolation1D(f0, f1, df0, df1, t, Fsi, &dftan);
 
             // for the normal part, it is kinda tricky
             Eigen::Vector3d ei = e;
@@ -160,9 +160,11 @@ Scalar WojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const s
 
             Scalar nf0 = sj[0] * edgeDeriv[i] + sj[1] * edgeDeriv[k];
             Scalar nf1 = sk[0] * edgeDeriv[i] + sk[1] * edgeDeriv[j];
+            Scalar dnf0 = 0;
+            Scalar dnf1 = 0;
 
             dfnormal = 0;
-            HermiteInterpolation(nf0, nf1, 0, 0, t, dfnormal);
+            HermiteInterpolation1D(nf0, nf1, dnf0, dnf1, t, dfnormal);
 
             projFsDeriv[i] = dfnormal * binormal + dftan * e;
             Fs[i] = Fsi;
