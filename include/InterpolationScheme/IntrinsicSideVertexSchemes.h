@@ -31,7 +31,7 @@ Scalar intrinsicLinearSideVertexInterpolation(const std::vector<Scalar>& vertVal
         else
             Fsi = bary[j] / sum * vertVal[j] + bary[k] / sum * vertVal[k];
 
-        F += (1 - bary[i]) * Fsi + bary[i] * vertVal[i];
+        F += ((1 - bary[i]) * Fsi - bary[i] * vertVal[i]);
     }
     return F;
 }
@@ -82,7 +82,7 @@ Scalar intrinsicCubicSideVertexInterpolation(const std::vector<Scalar>& vertVal,
             HermiteInterpolation1D(f0, f1, df0, df1, t, Fsi);
         }
 
-        F += (1 - bary[i]) * Fsi + bary[i] * vertVal[i];
+        F += ((1 - bary[i]) * Fsi - bary[i] * vertVal[i]);
     }
     return F;
 }
