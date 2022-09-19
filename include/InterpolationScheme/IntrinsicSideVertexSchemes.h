@@ -16,6 +16,24 @@
 template <typename Scalar>
 Scalar intrinsicLinearSideVertexInterpolation(const std::vector<Scalar>& vertVal, const Eigen::Vector3d& bary)          // no difference between this and linearSideVertexInterpolation implemented in the SideVertexInterplation.h
 {
+    double zeroSum = 0;
+    for (int i = 0; i < 3; i++)
+        zeroSum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
+    if (zeroSum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
+
     Scalar F = 0;
     for(int i = 0; i < 3; i++)
     {
@@ -51,6 +69,24 @@ Scalar intrinsicLinearSideVertexInterpolation(const std::vector<Scalar>& vertVal
 template <typename Scalar>
 Scalar intrinsicCubicSideVertexInterpolation(const std::vector<Scalar>& vertVal, const std::vector<Scalar>& edgeDeriv, const std::vector<Eigen::Vector3d>& tri, const Eigen::Vector3d& bary)
 {
+    double zeroSum = 0;
+    for (int i = 0; i < 3; i++)
+        zeroSum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
+    if (zeroSum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
+
     Scalar F = 0;
     for(int i = 0; i < 3; i++)
     {
@@ -105,6 +141,21 @@ Scalar intrinsicWojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal
     for(int i = 0; i < 3; i++)
         sum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
 
+    if (sum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
+
     Eigen::Vector3d faceNormal;
     Eigen::Vector3d e0 = tri[1] - tri[0];
     Eigen::Vector3d e1 = tri[2] - tri[0];
@@ -132,7 +183,7 @@ Scalar intrinsicWojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal
 
             Eigen::VectorXd binormal = e.cross(faceNormal);
 
-            double t = bary[k] / sum;
+            double t = bary[k] / (bary[k] + bary[j]);
 
             Scalar dftan, dfnormal;
             Scalar Fsi = 0;

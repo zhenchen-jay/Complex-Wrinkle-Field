@@ -62,6 +62,7 @@ double globalAmpMax = 1;
 float vecratio = 0.001;
 bool isUseV2 = false;
 std::string workingFolder = "";
+bool isShowEveryThing = false;
 
 PaintGeometry mPaint;
 
@@ -180,20 +181,24 @@ static void updateView()
 	initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	n++;
 	
-	// wrinkle mesh
-	polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV, loopTriF);
-	polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-	polyscope::getSurfaceMesh("wrinkled mesh")->translate({ n * shiftx, 0, 0 });
-	n++;
+	if (isShowEveryThing)
+	{
+		// wrinkle mesh
+		polyscope::registerSurfaceMesh("wrinkled mesh", wrinkledV, loopTriF);
+		polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+		polyscope::getSurfaceMesh("wrinkled mesh")->translate({ n * shiftx, 0, 0 });
+		n++;
 
 
-	// amp pattern
-	polyscope::registerSurfaceMesh("upsampled ampliude mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("upsampled ampliude mesh")->translate({ n * shiftx, 0, 0 });
-	auto ampPatterns = polyscope::getSurfaceMesh("upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmp);
-	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	ampPatterns->setEnabled(true);
-	n++;
+		// amp pattern
+		polyscope::registerSurfaceMesh("upsampled ampliude mesh", loopTriV, loopTriF);
+		polyscope::getSurfaceMesh("upsampled ampliude mesh")->translate({ n * shiftx, 0, 0 });
+		auto ampPatterns = polyscope::getSurfaceMesh("upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmp);
+		ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+		ampPatterns->setEnabled(true);
+		n++;
+	}
+	
 
 	// ours phase pattern
 	mPaint.setNormalization(false);
@@ -205,12 +210,12 @@ static void updateView()
 	n++;
 
 	// knoppel pahse pattern
-	polyscope::registerSurfaceMesh("knoppel phase mesh", upsampledTriV, upsampledTriF);
+	/*polyscope::registerSurfaceMesh("knoppel phase mesh", upsampledTriV, upsampledTriF);
 	polyscope::getSurfaceMesh("knoppel phase mesh")->translate({ n * shiftx, 0, 0 });
 	phaseColor = mPaint.paintPhi(knoppelPhi);
 	auto knoppelPhasePatterns = polyscope::getSurfaceMesh("knoppel phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	knoppelPhasePatterns->setEnabled(true);
-	n++;
+	n++;*/
 
 
 	// linear side vertex pahse pattern
@@ -365,6 +370,7 @@ static void callback() {
 		}
 
 	}
+	if (ImGui::Checkbox("Show wrinkles and Amp", &isShowEveryThing)) {}
 
 	if (ImGui::Button("recompute", ImVec2(-1, 0)))
 	{
