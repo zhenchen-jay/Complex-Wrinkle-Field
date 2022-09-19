@@ -1,0 +1,7 @@
+{
+    "amp": "amp.txt",
+    "omega": "whirlpool_omega.txt",
+    "zvals": "whirlpool-zvals.txt",
+    "mesh_name": "equal_tri.obj",
+    "upsampled_times": 1
+}
