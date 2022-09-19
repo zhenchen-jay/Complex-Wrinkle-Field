@@ -16,6 +16,24 @@
 template <typename Scalar>
 Scalar linearSideVertexInterpolation(const std::vector<Scalar>& vertVal, const Eigen::Vector3d& bary)
 {
+    double zeroSum = 0;
+    for (int i = 0; i < 3; i++)
+        zeroSum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
+    if (zeroSum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
+
      Scalar F = 0;
      for(int i = 0; i < 3; i++)
      {
@@ -47,6 +65,24 @@ Scalar linearSideVertexInterpolation(const std::vector<Scalar>& vertVal, const E
 template <typename Scalar>
 Scalar cubicSideVertexInterpolation(const std::vector<Scalar>& vertVal, const std::vector<Eigen::Matrix<Scalar, 3, 1>>& verDeriv, const std::vector<Eigen::Vector3d>& tri, const Eigen::Vector3d& bary)
 {
+    double zeroSum = 0;
+    for (int i = 0; i < 3; i++)
+        zeroSum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
+    if (zeroSum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
+
     Scalar F = 0;
     for(int i = 0; i < 3; i++)
     {
@@ -96,6 +132,21 @@ Scalar WojtanSideVertexInterpolation(const std::vector<Scalar>& vertVal, const s
     double sum = 0;
     for(int i = 0; i < 3; i++)
         sum += bary[i] * bary[i] * bary[(i + 1) % 3] * bary[(i + 1) % 3];
+
+    if (sum < 1e-15) // two numerical zeros in the bary
+    {
+        int flag = 0;
+        double max = bary[flag];
+        for (int i = 1; i < 3; i++)
+        {
+            if (max < bary[i])
+            {
+                max = bary[i];
+                flag = i;
+            }
+        }
+        return vertVal[flag];
+    }
 
     Eigen::Vector3d faceNormal;
     Eigen::Vector3d e0 = tri[1] - tri[0];
