@@ -288,8 +288,11 @@ static bool loadProblem(std::string *inputpath = NULL)
 
 	std::string zvalFile = jval["zvals"];
 	std::string edgeOmegaFile = jval["omega"];
-	std::string phiFile = jval["phi"];
-
+	std::string phiFile = "";
+	if (jval.contains(std::string_view{ "region_local_details" }))
+	{
+		phiFile = jval["phi"];
+	}
 	zvalFile = workingFolder + "/" + zvalFile;
 	edgeOmegaFile = workingFolder + "/" + edgeOmegaFile;
 	phiFile = workingFolder + "/" + phiFile;
@@ -313,23 +316,31 @@ static bool loadProblem(std::string *inputpath = NULL)
 
 	if (!pfs)
 	{
-		std::cerr << "invalid ref amp file name" << std::endl;
-		exit(EXIT_FAILURE);
+		std::cerr << "invalid ref phase file name, use the arg of zvals" << std::endl;
+		phi.setZero(triV.rows());
+		for (int j = 0; j < triV.rows(); j++)
+		{
+			phi[j] = std::arg(zvals[j]);
+		}
 	}
-
-	phi.setZero(triV.rows());
-
-	for (int j = 0; j < triV.rows(); j++)
+	else
 	{
-		std::string line;
-		std::getline(pfs, line);
-		std::stringstream ss(line);
-		std::string x;
-		ss >> x;
-		if (!ss)
-			exit(EXIT_FAILURE);
-		phi(j) = std::stod(x);
+		phi.setZero(triV.rows());
+
+		for (int j = 0; j < triV.rows(); j++)
+		{
+			std::string line;
+			std::getline(pfs, line);
+			std::stringstream ss(line);
+			std::string x;
+			ss >> x;
+			if (!ss)
+				exit(EXIT_FAILURE);
+			phi(j) = std::stod(x);
+		}
 	}
+
+	
 
 	if (isLoadOpt)
 	{
