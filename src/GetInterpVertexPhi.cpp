@@ -74,12 +74,9 @@ void getSideVertexPhi(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, co
 
         int k2 = std::round((vertVals[0] - vertVals[2] - triEdgeOmega[1]) / 2 / M_PI);
         int k1 = std::round((vertVals[0] - vertVals[1] + triEdgeOmega[2]) / 2 / M_PI);
-
         vertVals[1] += 2 * k1 * M_PI;
         vertVals[2] += 2 * k2 * M_PI;
-
-
-
+        
         if (interpType == 0)
         {
             upPhi[i] = intrinsicLinearSideVertexInterpolation<double>(vertVals, bcoord);
