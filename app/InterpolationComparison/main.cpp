@@ -65,7 +65,7 @@ int curFrame = 0;
 
 double globalAmpMin = 0;
 double globalAmpMax = 1;
-float vecratio = 0.001;
+float vecratio = 0.01;
 bool isUseV2 = false;
 bool isShowEveryThing = false;
 
@@ -270,12 +270,12 @@ static void updateView(int frameId)
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	int n = 0;
 
-	polyscope::registerSurfaceMesh("base mesh", triV, triF);
-	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-	auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", ampList[frameId]);
-	initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	n++;
-	
+    auto baseSurf = polyscope::registerSurfaceMesh("base mesh", triV, triF);
+    auto freqFields = polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
+    auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", ampList[frameId]);
+    initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+    n++;
+
 	if (isShowEveryThing)
 	{
 		// wrinkle mesh
@@ -314,7 +314,8 @@ static void updateView(int frameId)
 
 
 	// linear side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Linear-side phase mesh", upsampledTriV, upsampledTriF);
+	auto linearSideSurf = polyscope::registerSurfaceMesh("Linear-side phase mesh", upsampledTriV, upsampledTriF);
+    linearSideSurf->setSmoothShade(true);
 	polyscope::getSurfaceMesh("Linear-side phase mesh")->translate({ n * shiftx, 0, 0 });
 	phaseColor = mPaint.paintPhi(sideVertexLinearPhiList[frameId]);
 	auto linearPhasePatterns = polyscope::getSurfaceMesh("Linear-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
@@ -323,7 +324,8 @@ static void updateView(int frameId)
 
 
 	// cubic side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Cubic-side phase mesh", upsampledTriV, upsampledTriF);
+	auto ClouhTocherSurf = polyscope::registerSurfaceMesh("Cubic-side phase mesh", upsampledTriV, upsampledTriF);
+    ClouhTocherSurf->setSmoothShade(true);
 	polyscope::getSurfaceMesh("Cubic-side phase mesh")->translate({ n * shiftx, 0, 0 });
 	phaseColor = mPaint.paintPhi(sideVertexCubicPhiList[frameId]);
 	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Cubic-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
@@ -332,7 +334,8 @@ static void updateView(int frameId)
 
 
 	// wojtan side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
+	auto WojtanSurf = polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
+    WojtanSurf->setSmoothShade(true);
 	polyscope::getSurfaceMesh("Wojtan-side phase mesh")->translate({ n * shiftx, 0, 0 });
 	phaseColor = mPaint.paintPhi(sideVertexWojtanPhiList[frameId]);
 	auto wojtanPhasePatterns = polyscope::getSurfaceMesh("Wojtan-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
@@ -453,6 +456,14 @@ static void callback() {
 			if (wrinkleAmpScalingRatio >= 0)
 				updateView(curFrame);
 		}
+
+        if (ImGui::DragFloat("freq scaling ratio", &vecratio, 0.0005, 0, 1))
+        {
+            if (vecratio >= 0)
+            {
+                polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[curFrame], polyscope::VectorType::AMBIENT);
+            }
+        }
 
 	}
 	if (ImGui::SliderInt("current frame slider bar", &curFrame, 0, numFrames - 1))
