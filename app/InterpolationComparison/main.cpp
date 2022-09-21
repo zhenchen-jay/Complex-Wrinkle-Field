@@ -40,7 +40,7 @@
 
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
-#include "../../include/GetSideVertexPhi.h"
+#include "../../include/GetInterpVertexPhi.h"
 
 Eigen::MatrixXd triV, upsampledTriV, loopTriV;
 Eigen::MatrixXi triF, upsampledTriF, loopTriF;
@@ -109,9 +109,10 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
         {
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListLinear[i], upLevel, 0);
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i], upLevel, 1);
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListWojtan[i], upLevel, 2);
+			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListLinear[i], 0);
+			//getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i], 1);
+			getClouhTocherPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i]);
+			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListWojtan[i], 2);
 		}
 	};
 
