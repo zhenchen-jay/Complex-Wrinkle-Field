@@ -84,7 +84,7 @@ static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& t
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 }
 
-static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const Eigen::VectorXd& vertPhi, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upPhiCubic, Eigen::VectorXd& upPhiWojtan, int upLevel)
+static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upPhiCubic, Eigen::VectorXd& upPhiWojtan, int upLevel)
 {
 	Eigen::SparseMatrix<double> mat;
 	std::vector<int> facemap;
@@ -95,9 +95,9 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 	MeshConnectivity mesh(F);
 	MeshConnectivity upMesh;
 
-	getSideVertexPhi(V, mesh, edgeOmega, vertPhi, bary, upPhiLinear, upLevel, 0);
-	getSideVertexPhi(V, mesh, edgeOmega, vertPhi, bary, upPhiCubic, upLevel, 1);
-	getSideVertexPhi(V, mesh, edgeOmega, vertPhi, bary, upPhiWojtan, upLevel, 2);
+	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiLinear, upLevel, 0);
+	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic, upLevel, 1);
+	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiWojtan, upLevel, 2);
 }
 
 static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
@@ -141,7 +141,7 @@ static void upsamplingEveryThingForComparison()
 {
 	getOursUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upZvals, upsamplingLevel);
 	getKnoppelUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, knoppelPhi, upsamplingLevel);
-	getSideVertexUpsamplingPhi(triV, triF, omega, phi, upsampledTriV, upsampledTriF, sideVertexLinearPhi, sideVertexCubicPhi, sideVertexWojtanPhi, upsamplingLevel);
+	getSideVertexUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearPhi, sideVertexCubicPhi, sideVertexWojtanPhi, upsamplingLevel);
 
 	parseSecMesh(upSecMesh, loopTriV, loopTriF);
 
@@ -289,7 +289,7 @@ static bool loadProblem(std::string *inputpath = NULL)
 	std::string zvalFile = jval["zvals"];
 	std::string edgeOmegaFile = jval["omega"];
 	std::string phiFile = "";
-	if (jval.contains(std::string_view{ "region_local_details" }))
+	if (jval.contains(std::string_view{ "phi" }))
 	{
 		phiFile = jval["phi"];
 	}
@@ -313,15 +313,13 @@ static bool loadProblem(std::string *inputpath = NULL)
 	}
 
 	std::ifstream pfs(phiFile);
+    bool loadPhiFile = true;
 
 	if (!pfs)
 	{
 		std::cerr << "invalid ref phase file name, use the arg of zvals" << std::endl;
-		phi.setZero(triV.rows());
-		for (int j = 0; j < triV.rows(); j++)
-		{
-			phi[j] = std::arg(zvals[j]);
-		}
+        loadPhiFile = false;
+
 	}
 	else
 	{
@@ -335,10 +333,23 @@ static bool loadProblem(std::string *inputpath = NULL)
 			std::string x;
 			ss >> x;
 			if (!ss)
-				exit(EXIT_FAILURE);
+            {
+                std::cerr << "invalid ref phase file format in: " << phiFile << ", use the arg of zvals" << std::endl;
+                loadPhiFile = false;
+                break;
+            }
 			phi(j) = std::stod(x);
 		}
 	}
+
+    if(!loadPhiFile)
+    {
+        phi.setZero(triV.rows());
+        for (int j = 0; j < triV.rows(); j++)
+        {
+            phi[j] = std::arg(zvals[j]);
+        }
+    }
 
 	
 

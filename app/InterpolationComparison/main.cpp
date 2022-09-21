@@ -108,13 +108,10 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 	auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
-		{
-			Eigen::VectorXd vertPhi(zvalsList[i].size());
-			for (int j = 0; j < zvalsList[i].size(); j++)
-				vertPhi[j] = std::arg(zvalsList[i][j]);
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], vertPhi, bary, upPhiListLinear[i], upLevel, 0);
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], vertPhi, bary, upPhiListCubic[i], upLevel, 1);
-			getSideVertexPhi(V, mesh, edgeOmegaList[i], vertPhi, bary, upPhiListWojtan[i], upLevel, 2);
+        {
+			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListLinear[i], upLevel, 0);
+			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i], upLevel, 1);
+			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListWojtan[i], upLevel, 2);
 		}
 	};
 
@@ -473,8 +470,15 @@ static void callback() {
 	if (ImGui::Button("output images", ImVec2(-1, 0)))
 	{
 		std::string curFolder = std::filesystem::current_path().string();
-		std::string name = curFolder + "/output.jpg";
-		polyscope::screenshot(name);
+
+
+        for(int i = 0; i < numFrames; i++)
+        {
+            std::string name = curFolder + "/output_" + std::to_string(i) + ".jpg";
+            updateView(i);
+            polyscope::screenshot(name);
+        }
+        updateView(curFrame);
 	}
 
 
