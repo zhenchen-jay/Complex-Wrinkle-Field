@@ -40,7 +40,7 @@
 
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
-#include "../../include/GetSideVertexPhi.h"
+#include "../../include/GetInterpVertexPhi.h"
 
 Eigen::MatrixXd triV, upsampledTriV, loopTriV;
 Eigen::MatrixXi triF, upsampledTriF, loopTriF;
@@ -95,9 +95,10 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 	MeshConnectivity mesh(F);
 	MeshConnectivity upMesh;
 
-	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiLinear, upLevel, 0);
-	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic, upLevel, 1);
-	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiWojtan, upLevel, 2);
+	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiLinear, 0);
+	//getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic, 1);
+	getClouhTocherPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic);
+	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiWojtan, 2);
 }
 
 static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
