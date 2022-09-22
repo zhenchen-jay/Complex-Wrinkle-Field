@@ -53,7 +53,7 @@ std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, upAmpLi
 std::vector<Eigen::MatrixXd> faceOmegaList;
 
 std::vector<Eigen::VectorXd> sideVertexLinearPhiList;
-std::vector<Eigen::VectorXd> sideVertexCubicPhiList;
+std::vector<Eigen::VectorXd> ClouhTorcherPhiList;
 std::vector<Eigen::VectorXd> sideVertexWojtanPhiList;
 std::vector<Eigen::VectorXd> knoppelPhiList;
 
@@ -89,7 +89,33 @@ static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& t
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 }
 
-static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, std::vector<Eigen::VectorXd>& upPhiListLinear, std::vector<Eigen::VectorXd>& upPhiListCubic, std::vector<Eigen::VectorXd>& upPhiListWojtan, int upLevel)
+static void  getClouhTorcherUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, std::vector<Eigen::VectorXd>& upPhiList, int upLevel)
+{
+	int nframes = edgeOmegaList.size();
+	Eigen::SparseMatrix<double> mat;
+	std::vector<int> facemap;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+
+
+	meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
+	upPhiList.resize(nframes);
+
+	MeshConnectivity mesh(F);
+	MeshConnectivity upMesh;
+
+	auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
+			getClouhTocherPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiList[i]);
+		}
+	};
+
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
+	tbb::parallel_for(rangex, frameUpsampling);
+}
+
+static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, std::vector<Eigen::VectorXd>& upPhiListLinear, std::vector<Eigen::VectorXd>& upPhiListWojtan, int upLevel)
 {
 	int nframes = edgeOmegaList.size();
 	Eigen::SparseMatrix<double> mat;
@@ -99,7 +125,6 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 
 	meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
 	upPhiListLinear.resize(nframes);
-	upPhiListCubic.resize(nframes);
 	upPhiListWojtan.resize(nframes);
 
 	MeshConnectivity mesh(F);
@@ -111,7 +136,6 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
         {
 			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListLinear[i], 0);
 			//getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i], 1);
-			getClouhTocherPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListCubic[i]);
 			getSideVertexPhi(V, mesh, edgeOmegaList[i], zvalsList[i], bary, upPhiListWojtan[i], 2);
 		}
 	};
@@ -201,7 +225,8 @@ static void upsamplingEveryThingForComparison()
 {
 	getOursUpsamplingRes(secMesh, omegaList, zList, upSecMesh, upOmegaList, upZList, upsamplingLevel);
 	getKnoppelUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, knoppelPhiList, upsamplingLevel);
-	getSideVertexUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, sideVertexLinearPhiList, sideVertexCubicPhiList, sideVertexWojtanPhiList, upsamplingLevel);
+	getSideVertexUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, sideVertexLinearPhiList, sideVertexWojtanPhiList, upsamplingLevel);
+	getClouhTorcherUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, ClouhTorcherPhiList, upsamplingLevel);
 
 	upPhiList.resize(upZList.size());
 	upAmpList.resize(upZList.size());
@@ -264,13 +289,16 @@ static void upsamplingEveryThingForComparison()
 	updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, wrinkleAmpScalingRatio, isUseV2);
 }
 
-
+bool isFirstVis = true;
 static void updateView(int frameId)
 {
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
 	int n = 0;
-
-    auto baseSurf = polyscope::registerSurfaceMesh("base mesh", triV, triF);
+	if (isFirstVis)
+	{
+		auto baseSurf = polyscope::registerSurfaceMesh("base mesh", triV, triF);
+	}
+   
     auto freqFields = polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
     auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", ampList[frameId]);
     initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
@@ -297,8 +325,12 @@ static void updateView(int frameId)
 
 	// ours phase pattern
 	mPaint.setNormalization(false);
-	polyscope::registerSurfaceMesh("upsampled phase mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
+	if (isFirstVis)
+	{
+		polyscope::registerSurfaceMesh("upsampled phase mesh", loopTriV, loopTriF);
+		polyscope::getSurfaceMesh("upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
+	}
+		
 	Eigen::MatrixXd phaseColor = mPaint.paintPhi(upPhiList[frameId]);
 	auto ourPhasePatterns = polyscope::getSurfaceMesh("upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	ourPhasePatterns->setEnabled(true);
@@ -314,33 +346,44 @@ static void updateView(int frameId)
 
 
 	// linear side vertex pahse pattern
-	auto linearSideSurf = polyscope::registerSurfaceMesh("Linear-side phase mesh", upsampledTriV, upsampledTriF);
-    linearSideSurf->setSmoothShade(true);
-	polyscope::getSurfaceMesh("Linear-side phase mesh")->translate({ n * shiftx, 0, 0 });
+	if (isFirstVis)
+	{
+		auto linearSideSurf = polyscope::registerSurfaceMesh("Linear-side phase mesh", upsampledTriV, upsampledTriF);
+		linearSideSurf->setSmoothShade(true);
+		polyscope::getSurfaceMesh("Linear-side phase mesh")->translate({ n * shiftx, 0, 0 });
+	}
 	phaseColor = mPaint.paintPhi(sideVertexLinearPhiList[frameId]);
 	auto linearPhasePatterns = polyscope::getSurfaceMesh("Linear-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	linearPhasePatterns->setEnabled(true);
 	n++;
 
 
-	// cubic side vertex pahse pattern
-	auto ClouhTocherSurf = polyscope::registerSurfaceMesh("Cubic-side phase mesh", upsampledTriV, upsampledTriF);
-    ClouhTocherSurf->setSmoothShade(true);
-	polyscope::getSurfaceMesh("Cubic-side phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(sideVertexCubicPhiList[frameId]);
-	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Cubic-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	// clouh torcher vertex pahse pattern
+	if (isFirstVis)
+	{
+		auto ClouhTocherSurf = polyscope::registerSurfaceMesh("Clouh-Torcher phase mesh", upsampledTriV, upsampledTriF);
+		ClouhTocherSurf->setSmoothShade(true);
+		polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->translate({ n * shiftx, 0, 0 });
+	}
+	phaseColor = mPaint.paintPhi(ClouhTorcherPhiList[frameId]);
+	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	cubicPhasePatterns->setEnabled(true);
 	n++;
 
 
 	// wojtan side vertex pahse pattern
-	auto WojtanSurf = polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
-    WojtanSurf->setSmoothShade(true);
-	polyscope::getSurfaceMesh("Wojtan-side phase mesh")->translate({ n * shiftx, 0, 0 });
+	if (isFirstVis)
+	{
+		auto WojtanSurf = polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
+		WojtanSurf->setSmoothShade(true);
+		polyscope::getSurfaceMesh("Wojtan-side phase mesh")->translate({ n * shiftx, 0, 0 });
+	}
 	phaseColor = mPaint.paintPhi(sideVertexWojtanPhiList[frameId]);
 	auto wojtanPhasePatterns = polyscope::getSurfaceMesh("Wojtan-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	wojtanPhasePatterns->setEnabled(true);
 	n++;
+
+	isFirstVis = false;
 }
 
 static bool loadProblem(std::string *inputpath = NULL)
@@ -422,6 +465,7 @@ static bool loadProblem(std::string *inputpath = NULL)
 
 
 	curFrame = 0;
+	isFirstVis = true;
 
 	return true;
 }
@@ -476,6 +520,7 @@ static void callback() {
 	if (ImGui::Button("recompute", ImVec2(-1, 0)))
 	{
 		upsamplingEveryThingForComparison();
+		isFirstVis = true; // reset the mesh
 		updateView(curFrame);
 	}
 
@@ -535,6 +580,7 @@ int main(int argc, char** argv)
 	curFrame = 0;
 
 	upsamplingEveryThingForComparison();
+	isFirstVis = true;
 	updateView(curFrame);
 	// Show the gui
 	polyscope::show();

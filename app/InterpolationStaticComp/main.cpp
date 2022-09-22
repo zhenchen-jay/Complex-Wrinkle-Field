@@ -52,7 +52,7 @@ std::vector<std::complex<double>> zvals, upZvals;
 Eigen::VectorXd phi, omega, amp, upOmega, upPhi, upAmp;
 Eigen::MatrixXd faceOmega;
 
-Eigen::VectorXd sideVertexLinearPhi, sideVertexCubicPhi, sideVertexWojtanPhi, knoppelPhi;
+Eigen::VectorXd sideVertexLinearPhi, ClouhTorcherPhi, sideVertexWojtanPhi, knoppelPhi;
 
 int upsamplingLevel = 2;
 float wrinkleAmpScalingRatio = 1;
@@ -84,7 +84,21 @@ static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& t
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 }
 
-static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upPhiCubic, Eigen::VectorXd& upPhiWojtan, int upLevel)
+static void getClouhTorcherUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
+{
+	Eigen::SparseMatrix<double> mat;
+	std::vector<int> facemap;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+
+
+	meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
+	MeshConnectivity mesh(F);
+	MeshConnectivity upMesh;
+
+	getClouhTocherPhi(V, mesh, edgeOmega, zvals, bary, upPhi);
+}
+
+static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upPhiWojtan, int upLevel)
 {
 	Eigen::SparseMatrix<double> mat;
 	std::vector<int> facemap;
@@ -96,8 +110,6 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 	MeshConnectivity upMesh;
 
 	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiLinear, 0);
-	//getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic, 1);
-	getClouhTocherPhi(V, mesh, edgeOmega, zvals, bary, upPhiCubic);
 	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiWojtan, 2);
 }
 
@@ -142,7 +154,8 @@ static void upsamplingEveryThingForComparison()
 {
 	getOursUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upZvals, upsamplingLevel);
 	getKnoppelUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, knoppelPhi, upsamplingLevel);
-	getSideVertexUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearPhi, sideVertexCubicPhi, sideVertexWojtanPhi, upsamplingLevel);
+	getSideVertexUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearPhi, sideVertexWojtanPhi, upsamplingLevel);
+	getClouhTorcherUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, ClouhTorcherPhi, upsamplingLevel);
 
 	parseSecMesh(upSecMesh, loopTriV, loopTriF);
 
@@ -229,10 +242,10 @@ static void updateView()
 
 
 	// cubic side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Cubic-side phase mesh", upsampledTriV, upsampledTriF);
-	polyscope::getSurfaceMesh("Cubic-side phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(sideVertexCubicPhi);
-	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Cubic-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	polyscope::registerSurfaceMesh("Clouh-Torcher phase mesh", upsampledTriV, upsampledTriF);
+	polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->translate({ n * shiftx, 0, 0 });
+	phaseColor = mPaint.paintPhi(ClouhTorcherPhi);
+	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	cubicPhasePatterns->setEnabled(true);
 	n++;
 

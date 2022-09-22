@@ -1,0 +1,10 @@
+{
+    "amplitude_extend_coeff": 1.0,
+    "laplacian_smooth": {
+        "smoothing_ratio": 0.95,
+        "smoothing_times": 0
+    },
+    "mesh_name": "mesh.obj",
+    "upsampled_times": 3,
+    "vector_heat_timeStep": 1.0
+}
