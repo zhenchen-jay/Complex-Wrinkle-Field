@@ -17,6 +17,7 @@ file(GLOB SRCFILES
     ../../include/IntrinsicFormula/*.h
     ../../include/ComplexLoop/*.h
     ../../include/InterpolationScheme/*.h
+    ../../include/OtherApproaches/*.h
     *.h
 
     ../../dep/SecStencils/*.cpp
@@ -26,6 +27,7 @@ file(GLOB SRCFILES
     ../../src/Optimization/*.cpp
     ../../src/IntrinsicFormula/*.cpp
     ../../src/ComplexLoop/*.cpp
+    ../../src/OtherApproaches/*.cpp
     *.cpp)
     
 add_executable(
