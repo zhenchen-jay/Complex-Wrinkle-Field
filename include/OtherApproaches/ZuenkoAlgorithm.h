@@ -8,8 +8,9 @@
 
 namespace ZuenkoAlg
 {
-	void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN);
+	void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN, bool isG1);
 	// The smoothing mentioed in the paper: The SPHERIGON: A Simple Polygon Patch for Smoothing Quickly your Polygonal Meshes.
+	// for more clear G1 formula, please refer page 31 in the paper: The Construction of Optimized High-Order Surface Meshes by Energy-Minimizatio 
 	
 	void getZuenkoSurfacePerframe(
 		const Eigen::MatrixXd& baseV, const MeshConnectivity& baseMesh,
@@ -27,7 +28,7 @@ namespace ZuenkoAlg
 		Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
 		std::vector<Eigen::MatrixXd>& wrinkledVList, std::vector<Eigen::MatrixXi>& wrinkledFList,
 		std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>& upsampledPhiList,
-		int numSubdivs = 0, double ampScaling = 1.0,
+		int numSubdivs = 0, bool isG1 = false, double ampScaling = 1.0,
 		int innerIter = 5, double blurCoeff = 0.1);
 	// get the "simulated" wrinkled mesh, according to the algorithm mentioned in Sec. 5.1 
 
