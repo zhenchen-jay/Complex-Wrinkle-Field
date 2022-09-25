@@ -44,8 +44,8 @@
 #include "../../include/OtherApproaches/TFWAlgorithm.h"
 #include "../../include/OtherApproaches/ZuenkoAlgorithm.h"
 
-Eigen::MatrixXd triV, upsampledKnoppelTriV, upsampledZuenkoTriV, loopTriV;
-Eigen::MatrixXi triF, upsampledKnoppelTriF, upsampledZuenkoTriF, loopTriF;
+Eigen::MatrixXd triV, upsampledKnoppelTriV, upsampledZuenkoTriV, loopTriV, zuenkoFinalV;
+Eigen::MatrixXi triF, upsampledKnoppelTriF, upsampledZuenkoTriF, loopTriF, zuenkoFinalF;
 MeshConnectivity triMesh;
 Mesh secMesh, upSecMesh;
 
@@ -54,6 +54,7 @@ std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList,
 std::vector<std::vector<std::complex<double>>> zList, upZList;
 std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiList, ZuenkoUpPhiList, KnoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
+Eigen::VectorXd zuenkoFinalAamp, zuenkoFinalPhi;
 
 
 int upsamplingLevel = 2;
@@ -192,6 +193,26 @@ static void upsamplingEveryThingForComparison()
 	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, false, wrinkleAmpScalingRatio);
 
 	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
+
+
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+	Eigen::MatrixXd baseN, upsampledN, upsampledV;
+	Eigen::MatrixXi upsampledF;
+
+	meshUpSampling(triV, triMesh.faces(), upsampledV, upsampledF, upsamplingLevel, NULL, NULL, &bary);
+
+	igl::per_vertex_normals(triV, triMesh.faces(), baseN);
+	ZuenkoAlg::spherigonSmoothing(triV, triMesh, baseN, bary, upsampledV, upsampledN, false);
+	igl::per_vertex_normals(upsampledV, upsampledF, upsampledN);
+
+	std::vector<std::complex<double>> curZvals = zList[numFrames - 1];
+	for (int i = 0; i < curZvals.size(); i++)
+	{
+		double phi = std::arg(curZvals[i]);
+		curZvals[i] = std::complex<double>(std::cos(phi), std::sin(phi));
+	}
+	
+	ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, ampList[numFrames - 1], omegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAamp, zuenkoFinalPhi, wrinkleAmpScalingRatio);
 }
 
 bool isFirstVis = true;
@@ -254,8 +275,18 @@ static void updateView(int frameId)
 
 
 	////////////////////////////////////// Zuenko's stuffs ///////////////////////////////////////////////
-	n = 1;
+	n = 0;
 	m++;
+	if (isFirstVis)
+	{
+		// wrinkle mesh
+		polyscope::registerSurfaceMesh("Zuenko final wrinkled mesh", zuenkoFinalV, zuenkoFinalF);
+		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+	}
+	else
+		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->updateVertexPositions(zuenkoFinalV);
+	n++;
 	// wrinkled mesh
 	if (isFirstVis)
 	{
@@ -320,12 +351,41 @@ static void updateView(int frameId)
 
 	// phase pattern
 	mPaint.setNormalization(false);
-	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWPhiVList[frameId], TFWPhiFList[frameId]);
-	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+	Eigen::MatrixXd TFWPhaseColor = mPaint.paintPhi(TFWUpPhiList[frameId]);
 
-	Eigen::MatrixXd TFWZuenkoColor = mPaint.paintPhi(TFWUpPhiList[frameId]);
-	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWZuenkoColor);
+	// we compose the problem mesh and phi mesh here. polyscope has some strange bug
+	Eigen::MatrixXd compositePhiV, compositePhiColor;
+	Eigen::MatrixXi compositePhiF;
+	std::cout << TFWPhiVList[frameId].rows() << " " << TFWProbVList[frameId].rows() << std::endl;
+	compositePhiV.resize(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
+	compositePhiV.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhiVList[frameId];
+	compositePhiV.block(TFWPhiVList[frameId].rows(), 0, TFWProbVList[frameId].rows(), 3) = TFWProbVList[frameId];
+
+	compositePhiF.resize(TFWPhiFList[frameId].rows() + TFWProbFList[frameId].rows(), 3);
+	compositePhiF.block(0, 0, TFWPhiFList[frameId].rows(), 3) = TFWPhiFList[frameId];
+
+	Eigen::MatrixXi onesMat = TFWProbFList[frameId];
+	onesMat.setOnes();
+	compositePhiF.block(TFWPhiFList[frameId].rows(), 0, TFWProbFList[frameId].rows(), 3) = TFWProbFList[frameId] + TFWPhiVList[frameId].rows() * onesMat;
+
+	compositePhiColor.setOnes(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
+	compositePhiColor.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhaseColor;
+
+	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", compositePhiV, compositePhiF);
+	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", compositePhiColor);
 	TFWPhasePatterns->setEnabled(true);
+
+
+	/*polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWPhiVList[frameId], TFWPhiFList[frameId]);
+	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+	polyscope::registerSurfaceMesh("TFW upsampled problem mesh", TFWProbVList[frameId], TFWProbFList[frameId]);
+	polyscope::getSurfaceMesh("TFW upsampled problem mesh")->translate({ n * shiftx, m * shifty, 0 });
+	polyscope::getSurfaceMesh("TFW upsampled problem mesh")->setSurfaceColor({ 1, 1, 1 });
+	
+	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhaseColor);
+	TFWPhasePatterns->setEnabled(true);*/
+	
 	n++;
 
 	////////////////////////////////////// Knoppel stuffs ///////////////////////////////////////////////
