@@ -7,7 +7,7 @@
 
 namespace ZuenkoAlg
 {
-	void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN)
+	void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN, bool isG1)
 	{
 		int nupverts = bary.size();
 		upN.resize(nupverts, 3);
@@ -18,20 +18,62 @@ namespace ZuenkoAlg
 			for (uint32_t i = range.begin(); i < range.end(); ++i)
 				//for(int i = 0; i < nupverts; i++)
 			{
+					//std::cout << i << std::endl;
 				int fid = bary[i].first;
 				Eigen::Vector3d N = Eigen::Vector3d::Zero();
 				Eigen::Vector3d P = N;
-				double sum = 0;
+				Eigen::Vector3d weights = Eigen::Vector3d::Zero();
 				for (int j = 0; j < 3; j++)
 				{
 					int oldvid = mesh.faceVertex(fid, j);
 					N += bary[i].second(j) * vertN.row(oldvid);
 					P += bary[i].second(j) * pos.row(oldvid);
-					sum += bary[i].second(j) * bary[i].second(j);
 				}
 				N = N / N.norm();
 				upN.row(i) = N;
 				Eigen::Vector3d Q = Eigen::Vector3d::Zero();
+				std::vector<Eigen::Vector3d> pitilde(3);
+
+				if (isG1)
+				{
+					for (int j = 0; j < 3; j++)
+					{
+						int oldvid = mesh.faceVertex(fid, j);
+						Eigen::Vector3d Pi = pos.row(oldvid);
+						pitilde[j] = Pi - (Pi - P).dot(N) * N;
+					}
+				}
+
+				// compute weight
+				for (int j = 0; j < 3; j++)
+				{
+					weights[j] = bary[i].second(j) * bary[i].second(j);
+
+					if (isG1)
+					{
+						if (bary[i].second(j) == 1)
+						{
+							weights[j] = 1;
+							continue;
+						}
+						if (bary[i].second(j) == 0)
+						{
+							weights[j] = 0;
+							continue;
+						}
+							
+						double tmp1 = bary[i].second((j + 2) % 3) * bary[i].second((j + 2) % 3) * (pitilde[(j + 2) % 3] - P).squaredNorm();
+						tmp1 /= ((pitilde[(j + 2) % 3] - P).squaredNorm() + (pitilde[j] - P).squaredNorm());
+
+						double tmp2 = bary[i].second((j + 1) % 3) * bary[i].second((j + 1) % 3) * (pitilde[(j + 1) % 3] - P).squaredNorm();
+						tmp2 /= ((pitilde[(j + 1) % 3] - P).squaredNorm() + (pitilde[j] - P).squaredNorm());
+
+						weights[j] *= (tmp1 + tmp2);
+					}
+				}
+
+				// normalize the weights
+				weights /= weights.sum();
 
 				for (int j = 0; j < 3; j++)
 				{
@@ -41,7 +83,7 @@ namespace ZuenkoAlg
 					Eigen::Vector3d Ni = vertN.row(oldvid);
 					Eigen::Vector3d Ki = P + (Pi - P).dot(N) * N;
 					Eigen::Vector3d Qi = Ki + (Pi - Ki).dot(Ni) / (2 + s * (N.dot(Ni) - 1)) * N;
-					Q += bary[i].second(j) * bary[i].second(j) / sum * Qi;
+					Q += weights[j] * Qi;
 				}
 				upPos.row(i) = Q;
 
@@ -105,7 +147,7 @@ namespace ZuenkoAlg
 		Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
 		std::vector<Eigen::MatrixXd>& wrinkledVList, std::vector<Eigen::MatrixXi>& wrinkledFList,
 		std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>& upsampledPhiList,
-		int numSubdivs, double ampScaling,
+		int numSubdivs, bool isG1, double ampScaling,
 		int innerIter, double blurCoeff)
 	{
 		int nframes = ampList.size();
@@ -119,7 +161,7 @@ namespace ZuenkoAlg
 
 		Eigen::MatrixXd baseN, upsampledN;
 		igl::per_vertex_normals(baseV, baseMesh.faces(), baseN);
-		spherigonSmoothing(baseV, baseMesh, baseN, bary, upsampledV, upsampledN);
+		spherigonSmoothing(baseV, baseMesh, baseN, bary, upsampledV, upsampledN, isG1);
 		igl::per_vertex_normals(upsampledV, upsampledF, upsampledN);
 
 		std::vector<std::complex<double>> curZvals = initZvals;
