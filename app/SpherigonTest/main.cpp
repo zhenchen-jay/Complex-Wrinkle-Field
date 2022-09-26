@@ -68,7 +68,7 @@ static void callback() {
 		igl::readOBJ(filePath, triV, triT, triN, triF, triF, triF);
 		if (triN.rows() == 0 || triN.rows() != triV.rows())
 		{
-			igl::per_vertex_normals(triV, triF, triN);
+			igl::per_vertex_normals(triV, triF,triN);
 		}
 		polyscope::registerSurfaceMesh("initial mesh", triV, triF);
 	}
@@ -91,15 +91,30 @@ static void callback() {
 		meshUpSampling(triV, triF, midPointV, midPointF, upsamplingLevel, NULL, NULL, &bary);
 		MeshConnectivity mesh(triF);
 		Eigen::MatrixXd upN;
+
 		ZuenkoAlg::spherigonSmoothing(triV, mesh, triN, bary, G0V, upN, false);
 		ZuenkoAlg::spherigonSmoothing(triV, mesh, triN, bary, G1V, upN, true);
-		G0F = midPointF;
-		G1F = midPointF;
+        G0F = midPointF;
+        G1F = midPointF;
+
+        MeshConnectivity G0Mesh, G1Mesh;
+
+        Eigen::MatrixXd G0VNew, G1VNew;
+
+        ZuenkoAlg::spherigonSmoothingSequentially(triV, mesh, triN, G0VNew, G0Mesh, upN, upsamplingLevel, false);
+        ZuenkoAlg::spherigonSmoothingSequentially(triV, mesh, triN, G1VNew, G1Mesh, upN, upsamplingLevel, true);
+
+
 		polyscope::registerSurfaceMesh("midpoint mesh", midPointV, midPointF);
 		polyscope::getSurfaceMesh("midpoint mesh")->setEnabled(false);
 		polyscope::registerSurfaceMesh("Spherigon-G0 mesh", G0V, midPointF);
 		polyscope::getSurfaceMesh("Spherigon-G0 mesh")->setEnabled(false);
 		polyscope::registerSurfaceMesh("Spherigon-G1 mesh", G1V, midPointF);
+
+        polyscope::registerSurfaceMesh("Spherigon-G0-seq mesh", G0VNew, midPointF);
+        polyscope::getSurfaceMesh("Spherigon-G0-seq mesh")->setEnabled(false);
+        polyscope::registerSurfaceMesh("Spherigon-G1-seq mesh", G1VNew, midPointF);
+        polyscope::getSurfaceMesh("Spherigon-G1-seq mesh")->setEnabled(false);
 	}
 
 

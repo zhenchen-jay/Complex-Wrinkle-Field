@@ -8,10 +8,13 @@
 
 namespace ZuenkoAlg
 {
-	void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN, bool isG1);
-	// The smoothing mentioed in the paper: The SPHERIGON: A Simple Polygon Patch for Smoothing Quickly your Polygonal Meshes.
-	// for more clear G1 formula, please refer page 31 in the paper: The Construction of Optimized High-Order Surface Meshes by Energy-Minimizatio 
-	
+    void spherigonSmoothing(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::MatrixXd& upPos, Eigen::MatrixXd& upN, bool isG1);
+    // The smoothing mentioed in the paper: The SPHERIGON: A Simple Polygon Patch for Smoothing Quickly your Polygonal Meshes.
+    // for more clear G1 formula, please refer page 31 in the paper: The Construction of Optimized High-Order Surface Meshes by Energy-Minimizatio
+
+    void spherigonSmoothingSequentially(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::MatrixXd& vertN, Eigen::MatrixXd& upPos, MeshConnectivity& upMesh, Eigen::MatrixXd& upN, int numSubdiv, bool isG1);
+    // This is the sequential version of the spherigon approach, where we upsample once, then update vertex normal. This will produce kinda better results. But it is NOT the one implemented in the original paper.
+
 	void getZuenkoSurfacePerframe(
 		const Eigen::MatrixXd& baseV, const MeshConnectivity& baseMesh,
 		const std::vector<std::complex<double>>& unitZvals, const Eigen::VectorXd& vertAmp, const Eigen::VectorXd& edgeOmega,
