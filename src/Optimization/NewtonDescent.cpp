@@ -35,41 +35,10 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 	}
 	int i = 0;
 
-	std::cout << "pre-check for convex problem" << std::endl;
-	double f = objFunc(x0, &grad, &hessian, false);
+	double f = objFunc(x0, NULL, NULL, false);
 	if (f == 0)
 	{
 		std::cout << "energy = 0, return" << std::endl;
-	}
-
-
-	Eigen::SparseMatrix<double> H = hessian;
-	Eigen::SparseMatrix<double> I(DIM, DIM);
-	I.setIdentity();
-	std::cout << "num of nonzeros: " << H.nonZeros() << ", rows: " << H.rows() << ", cols: " << H.cols() << std::endl;
-	Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
-
-	while (solver.info() != Eigen::Success)
-	{
-		if (disPlayInfo)
-		{
-			if (isProj)
-				std::cout << "some small perturb is needed to remove round-off error, current reg = " << reg << std::endl;
-			else
-				std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
-		}
-
-		H = hessian + reg * I;
-		solver.compute(H);
-		reg = std::max(10 * reg, 1e-16);
-
-		if (reg > 1e-4)						
-		{
-			std::cout << "reg is large, use SPD hessian instead." << std::endl;
-			reg = 1e-8;
-			isProj = true;
-			break;
-		}
 	}
 
 	for (; i < numIter; i++)

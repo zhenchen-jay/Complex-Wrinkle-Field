@@ -52,7 +52,7 @@ Mesh secMesh;
 Eigen::MatrixXd TFWWrinkledV, TFWPhiV, TFWProbV, TFWUpsamplingV;
 Eigen::MatrixXi TFWWrinkledF, TFWPhiF, TFWProbF, TFWUpsamplingF;
 std::vector<std::complex<double>> zvals;
-Eigen::VectorXd omega, amp, TFWUpPhi, TFWUpAmp;
+Eigen::VectorXd omega, amp, TFWUpPhiSoup, TFWUpAmp, TFWUpPhi;
 Eigen::MatrixXd faceOmega;
 
 
@@ -83,7 +83,7 @@ static void upsamplingEveryThingForComparison()
 		globalAmpMax = std::max(amp[j], globalAmpMax);
 	}
 
-	TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWWrinkledF, TFWUpsamplingV, TFWUpsamplingF, TFWPhiV, TFWPhiF, TFWProbV, TFWProbF, TFWUpAmp, TFWUpPhi, upsamplingLevel, wrinkleAmpScalingRatio);
+	TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWWrinkledF, TFWUpsamplingV, TFWUpsamplingF, TFWPhiV, TFWPhiF, TFWProbV, TFWProbF, TFWUpAmp, TFWUpPhiSoup, TFWUpPhi, upsamplingLevel, wrinkleAmpScalingRatio);
 }
 
 static void updateView()
@@ -117,11 +117,11 @@ static void updateView()
 
 	// phase pattern
 	mPaint.setNormalization(false);
-	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWPhiV, TFWPhiF);
+	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWUpsamplingV, TFWUpsamplingF);
 	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
 
-	Eigen::MatrixXd TFWZuenkoColor = mPaint.paintPhi(TFWUpPhi);
-	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWZuenkoColor);
+	Eigen::MatrixXd TFWPhiColor = mPaint.paintPhi(TFWUpPhi);
+	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhiColor);
 	TFWPhasePatterns->setEnabled(true);
 	n++;
 }
