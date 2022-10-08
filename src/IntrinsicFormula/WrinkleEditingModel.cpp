@@ -350,6 +350,7 @@ void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Ei
 			Eigen::Vector3d e0 = initFaceVec.row(i);
 			Eigen::Vector3d e1 = tarFaceVec.row(i);
 			double cos = e0.dot(e1) / (e0.norm() * e1.norm());
+			cos = std::clamp(cos, -1., 1.);
 
 			if (std::abs(cos - 1) < 1e-10)	 // almost parallel
 			{
@@ -460,8 +461,8 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	}
 
 	ampFieldLERP(initAmp, tarAmp, _combinedRefAmpList, numFrames);
-	vecFieldLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames);          // you can also do lerp for omega
-//    vecFieldSLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames); // you can also do slerp for omega
+	// vecFieldLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames);          // you can also do lerp for omega
+   	vecFieldSLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames); // you can also do slerp for omega
 
     _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
 
@@ -474,7 +475,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
         adjustOmegaForConsistency(tarZvals, _combinedRefAmpList[numFrames + 1], deltaOmega1);
         deltaOmega1 = deltaOmega1 - _combinedRefOmegaList[numFrames + 1];
 
-        vecFieldLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
+        vecFieldSLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
     }
 
 
@@ -538,7 +539,6 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	refAmpList[0] = initAmp;
 
 	Eigen::VectorXd initOmegaAdj = initOmega;
-	//adjustOmegaForConsistency(initZvals, initAmp, initOmegaAdj);
 
 	refOmegaList[0] = initOmegaAdj;
 
@@ -667,15 +667,6 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	}
 	else if(initType == SeperateLinear)
 	{
-//		ZuenkoAlgorithm(initZvals, _combinedRefOmegaList, _zvalsList, zuenkoTau, zuenkoInner);
-//
-//		for (int i = 0; i <= numFrames + 1; i++)
-//		{
-//			for (int j = 0; j < _zvalsList[i].size(); j++)
-//			{
-//				_zvalsList[i][j] *= _combinedRefAmpList[i][j];
-//			}
-//		}
         std::cout << "new initialization" << std::endl;
 
         for (int i = 1; i <= numFrames; i++)
@@ -697,7 +688,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
         adjustOmegaForConsistency(tarZvals, _combinedRefAmpList[numFrames + 1], deltaOmega1);
         deltaOmega1 = deltaOmega1 - _combinedRefOmegaList[numFrames + 1];
 
-        vecFieldLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
+        vecFieldSLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
 
         _edgeOmegaList = _combinedRefOmegaList;
 

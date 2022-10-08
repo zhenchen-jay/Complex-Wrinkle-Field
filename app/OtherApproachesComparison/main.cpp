@@ -52,7 +52,7 @@ Mesh secMesh, upSecMesh;
 std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWPhiVList, TFWProbVList, TFWUpsamplingVList;
 std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList, TFWProbFList, TFWUpsamplingFList;
 std::vector<std::vector<std::complex<double>>> zList, upZList;
-std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiList, ZuenkoUpPhiList, KnoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList;
+std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, KnoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
@@ -192,7 +192,7 @@ static void upsamplingEveryThingForComparison()
 
 	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
 
-	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
+	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
 
 
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -353,28 +353,33 @@ static void updateView(int frameId)
 	mPaint.setNormalization(false);
 	Eigen::MatrixXd TFWPhaseColor = mPaint.paintPhi(TFWUpPhiList[frameId]);
 
+    polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWUpsamplingVList[frameId], TFWUpsamplingFList[frameId]);
+    polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhaseColor);
+    TFWPhasePatterns->setEnabled(true);
+
 	// we compose the problem mesh and phi mesh here. polyscope has some strange bug
-	Eigen::MatrixXd compositePhiV, compositePhiColor;
-	Eigen::MatrixXi compositePhiF;
-	std::cout << TFWPhiVList[frameId].rows() << " " << TFWProbVList[frameId].rows() << std::endl;
-	compositePhiV.resize(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
-	compositePhiV.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhiVList[frameId];
-	compositePhiV.block(TFWPhiVList[frameId].rows(), 0, TFWProbVList[frameId].rows(), 3) = TFWProbVList[frameId];
-
-	compositePhiF.resize(TFWPhiFList[frameId].rows() + TFWProbFList[frameId].rows(), 3);
-	compositePhiF.block(0, 0, TFWPhiFList[frameId].rows(), 3) = TFWPhiFList[frameId];
-
-	Eigen::MatrixXi onesMat = TFWProbFList[frameId];
-	onesMat.setOnes();
-	compositePhiF.block(TFWPhiFList[frameId].rows(), 0, TFWProbFList[frameId].rows(), 3) = TFWProbFList[frameId] + TFWPhiVList[frameId].rows() * onesMat;
-
-	compositePhiColor.setOnes(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
-	compositePhiColor.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhaseColor;
-
-	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", compositePhiV, compositePhiF);
-	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", compositePhiColor);
-	TFWPhasePatterns->setEnabled(true);
+//	Eigen::MatrixXd compositePhiV, compositePhiColor;
+//	Eigen::MatrixXi compositePhiF;
+//	std::cout << TFWPhiVList[frameId].rows() << " " << TFWProbVList[frameId].rows() << std::endl;
+//	compositePhiV.resize(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
+//	compositePhiV.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhiVList[frameId];
+//	compositePhiV.block(TFWPhiVList[frameId].rows(), 0, TFWProbVList[frameId].rows(), 3) = TFWProbVList[frameId];
+//
+//	compositePhiF.resize(TFWPhiFList[frameId].rows() + TFWProbFList[frameId].rows(), 3);
+//	compositePhiF.block(0, 0, TFWPhiFList[frameId].rows(), 3) = TFWPhiFList[frameId];
+//
+//	Eigen::MatrixXi onesMat = TFWProbFList[frameId];
+//	onesMat.setOnes();
+//	compositePhiF.block(TFWPhiFList[frameId].rows(), 0, TFWProbFList[frameId].rows(), 3) = TFWProbFList[frameId] + TFWPhiVList[frameId].rows() * onesMat;
+//
+//	compositePhiColor.setOnes(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
+//	compositePhiColor.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhaseColor;
+//
+//	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", compositePhiV, compositePhiF);
+//	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+//	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", compositePhiColor);
+//	TFWPhasePatterns->setEnabled(true);
 
 
 	/*polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWPhiVList[frameId], TFWPhiFList[frameId]);
@@ -507,7 +512,7 @@ static bool saveProblem()
                 for (uint32_t i = range.begin(); i < range.end(); ++i)
                 {
                     savePhi4Render(ZuenkoUpPhiList[i], zuenkoFolder + "zuenkoUpPhi_" + std::to_string(i) + ".cvs");
-                    saveAmp4Render(ZuenkoUpAmpList[i], zuenkoFolder + "zuenkoUpAmp_" + std::to_string(i) + ".cvs");
+                    saveAmp4Render(ZuenkoUpAmpList[i], zuenkoFolder + "zuenkoUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
                     igl::writeOBJ(zuenkoFolder + "zuenkoWrinkleMesh_" + std::to_string(i) + ".obj", ZuenkoWrinkledVList[i], ZuenkoWrinkledFList[i]);
                 }
             }
@@ -521,7 +526,7 @@ static bool saveProblem()
 //    }
     // save the final thing, for comparison
     savePhi4Render(zuenkoFinalPhi, zuenkoFolder + "zuenkoUpPhi_target.cvs");
-    saveAmp4Render(zuenkoFinalAmp, zuenkoFolder + "zuenkoUpAmp_target.cvs");
+    saveAmp4Render(zuenkoFinalAmp, zuenkoFolder + "zuenkoUpAmp_target.cvs", globalAmpMin, globalAmpMax);
     igl::writeOBJ(zuenkoFolder + "zuenkoWrinkleMesh_target.obj", zuenkoFinalV, zuenkoFinalF);
 
 
@@ -536,10 +541,11 @@ static bool saveProblem()
                 for (uint32_t i = range.begin(); i < range.end(); ++i)
                 {
                     savePhi4Render(TFWUpPhiList[i], TFWFolder + "TFWUpPhi_" + std::to_string(i) + ".cvs");
+                    savePhi4Render(TFWUpPhiSoupList[i], TFWFolder + "TFWUpPhiSoup_" + std::to_string(i) + ".cvs");
                     igl::writeOBJ(TFWFolder + "TFWPhiMesh_" + std::to_string(i) + ".obj", TFWPhiVList[i], TFWPhiFList[i]);
                     igl::writeOBJ(TFWFolder + "TFWProbMesh_" + std::to_string(i) + ".obj", TFWProbVList[i], TFWProbFList[i]);
 
-                    savePhi4Render(TFWUpAmpList[i], TFWFolder + "TFWUpAmp_" + std::to_string(i) + ".cvs");
+                    saveAmp4Render(TFWUpAmpList[i], TFWFolder + "TFWUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
                     igl::writeOBJ(TFWFolder + "TFWUpMesh_" + std::to_string(i) + ".obj", TFWUpsamplingVList[i], TFWUpsamplingFList[i]);
 
                     igl::writeOBJ(TFWFolder + "TFWWrinkledMesh_" + std::to_string(i) + ".obj", TFWWrinkledVList[i], TFWWrinkledFList[i]);
@@ -557,6 +563,23 @@ static bool saveProblem()
 //
 //        igl::writeOBJ(TFWFolder + "TFWWrinkledMesh_" + std::to_string(i) + ".obj", TFWWrinkledVList[i], TFWWrinkledFList[i]);
 //    }
+
+    // save CWF results
+    std::string CWFFolder = workingFolder + "/CWFRes/";
+    mkdir(CWFFolder);
+    igl::writeOBJ(CWFFolder + "CWFUpMesh.obj", loopTriV, loopTriF);
+    tbb::parallel_for(
+            tbb::blocked_range<int>(0u, (uint32_t)numFrames),
+            [&](const tbb::blocked_range<int> &range)
+            {
+                for (uint32_t i = range.begin(); i < range.end(); ++i)
+                {
+                    savePhi4Render(upPhiList[i], CWFFolder + "CWFUpPhi_" + std::to_string(i) + ".cvs");
+                    saveAmp4Render(upAmpList[i], CWFFolder + "CWFUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+                    igl::writeOBJ(CWFFolder + "CWFWrinkleMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], loopTriF);
+                }
+            }
+    );
 
     // save Knoppel results
     std::string knoppelFolder = workingFolder + "/KnoppelRes/";

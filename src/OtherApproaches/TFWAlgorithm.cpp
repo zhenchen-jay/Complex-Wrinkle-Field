@@ -2233,7 +2233,7 @@ namespace TFWAlg
 									 Eigen::MatrixXd *upsampledTFTV, Eigen::MatrixXi *upsampledTFTF,
 									 Eigen::MatrixXd *soupPhiV, Eigen::MatrixXi *soupPhiF,
 									 Eigen::MatrixXd *soupProblemV, Eigen::MatrixXi *soupProblemF,
-									 Eigen::VectorXd *upsampledAmp, Eigen::VectorXd *soupPhi,
+									 Eigen::VectorXd *upsampledAmp, Eigen::VectorXd *soupPhi, Eigen::VectorXd *upsampledPhi,
 									 int numSubdivs,
 									 double ampScaling,
 									 bool isUseV2Term)
@@ -2424,6 +2424,7 @@ namespace TFWAlg
 		Eigen::VectorXd finalSin2Phi(uncutverts);
 		Eigen::VectorXd finalSinPhi(uncutverts);
 		Eigen::VectorXd finalAmp(uncutverts);
+        Eigen::VectorXd finalPhi(uncutverts);
 		Eigen::MatrixXd finalDphi(uncutverts, 3);
 		Eigen::MatrixXd finalDphiperp(uncutverts, 3);
 
@@ -2482,6 +2483,7 @@ namespace TFWAlg
 			finalSin2Phi[i] = meansin2phi;
 			finalSinPhi[i] = meansinphi;
 			finalAmp[i] = meanamp;
+            finalPhi[i] = std::arg(std::complex<double>(meancosphi, meansinphi));
 			finalDphi.row(i) = meandphi.transpose();
 			finalDphiperp.row(i) = meandphiperp.transpose();
 		}
@@ -2568,6 +2570,8 @@ namespace TFWAlg
 			*wrinkledF = NF;
 		if (upsampledAmp)
 			*upsampledAmp = finalAmp;
+        if (upsampledPhi)
+            *upsampledPhi = finalPhi;
 	}
 
 	void getTFWSurfacePerframe(const Eigen::MatrixXd& baseV, const Eigen::MatrixXi& baseF,
@@ -2576,7 +2580,7 @@ namespace TFWAlg
 							   Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
 							   Eigen::MatrixXd& soupPhiV, Eigen::MatrixXi& soupPhiF,
 							   Eigen::MatrixXd& soupProblemV, Eigen::MatrixXi& soupProblemF,
-							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& soupPhi,
+							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& soupPhi, Eigen::VectorXd& upsampledPhi,
 							   int numSubdivs, double ampScaling, bool isUseV2Term, bool isFixedBnd
 	)
 	{
@@ -2595,7 +2599,7 @@ namespace TFWAlg
 			for(int i = 0; i < bnd.size(); i++)
 				clampledVerts.insert(bnd[i]);
 		}
-		wrinkledMeshUpsamplingUncut(baseV, baseF, baseV, baseF, seamedV, seamedF, seamedAmp, seamedPhi, problem_faces, clampledVerts, &wrinkledV, &wrinkledF, &upsampledV, &upsampledF, &soupPhiV, &soupPhiF, &soupProblemV, &soupProblemF, &upsampledAmp, &soupPhi, numSubdivs, ampScaling, isUseV2Term);
+		wrinkledMeshUpsamplingUncut(baseV, baseF, baseV, baseF, seamedV, seamedF, seamedAmp, seamedPhi, problem_faces, clampledVerts, &wrinkledV, &wrinkledF, &upsampledV, &upsampledF, &soupPhiV, &soupPhiF, &soupProblemV, &soupProblemF, &upsampledAmp, &soupPhi, &upsampledPhi, numSubdivs, ampScaling, isUseV2Term);
 	}
 
 	void getTFWSurfaceSequence(
@@ -2605,7 +2609,7 @@ namespace TFWAlg
 						std::vector<Eigen::MatrixXd>& upsampledVList, std::vector<Eigen::MatrixXi>& upsampledFList,
 						std::vector<Eigen::MatrixXd>& soupPhiVList, std::vector<Eigen::MatrixXi>& soupPhiFList,
 						std::vector<Eigen::MatrixXd>& soupProblemVList, std::vector<Eigen::MatrixXi>& soupProblemFList,
-						std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>& soupPhiList,
+						std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>& soupPhiList, std::vector<Eigen::VectorXd>& upsampledPhiList,
 						int numSubdivs, double ampScaling, bool isUseV2Term, bool isFixedBnd
 	)
 	{
@@ -2622,6 +2626,7 @@ namespace TFWAlg
 		upsampledVList.resize(nframes);
 		upsampledFList.resize(nframes);
 		upsampledAmpList.resize(nframes);
+        upsampledPhiList.resize(nframes);
 		soupPhiList.resize(nframes);
 
 		/*for (uint32_t i = 0; i < nframes; ++i)
@@ -2640,7 +2645,7 @@ namespace TFWAlg
 				getTFWSurfacePerframe(baseV, baseF, ampList[i], omegaList[i],
 				wrinkledVList[i], wrinkledFList[i], upsampledVList[i], upsampledFList[i],
 				soupPhiVList[i], soupPhiFList[i], soupProblemVList[i], soupProblemFList[i],
-				upsampledAmpList[i], soupPhiList[i], numSubdivs, ampScaling, isUseV2Term, isFixedBnd
+				upsampledAmpList[i], soupPhiList[i], upsampledPhiList[i], numSubdivs, ampScaling, isUseV2Term, isFixedBnd
 				);
 			}
 		};
