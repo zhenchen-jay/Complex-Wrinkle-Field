@@ -3,7 +3,7 @@
 ################################################################################
 
 cmake_minimum_required(VERSION 3.1)
-project(staticWrinkleEditor)
+project(WrinkleInterpolationCli)
 
 # Add your project files
 # Create an executable
@@ -46,4 +46,5 @@ target_link_libraries( ${PROJECT_NAME}_bin
         igl::core 
         igl_restricted::triangle 
         igl_copyleft::comiso 
-        ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})
+        ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY}
+        CLI11::CLI11)

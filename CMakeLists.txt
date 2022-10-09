@@ -114,5 +114,8 @@ include(geometry-central)
 find_package(SuiteSparse REQUIRED)
 include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 
+#CLI11
+include(CLI11)
+
 # Binary executables
 add_subdirectory(app)

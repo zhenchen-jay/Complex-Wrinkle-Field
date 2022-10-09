@@ -3,7 +3,7 @@
 ################################################################################
 
 cmake_minimum_required(VERSION 3.1)
-project(CWFProcessCli)
+project(StaticWrinkleEditor)
 
 # Add your project files
 # Create an executable
