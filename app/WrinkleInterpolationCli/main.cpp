@@ -527,6 +527,11 @@ bool loadProblem()
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
+    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+    {
+        if(args.ampScale == 1)
+            args.ampScale = jval["wrinkle_amp_scale"];
+    }
 
 	isSelectAll = jval["region_global_details"]["select_all"];
 	isCoupled = jval["region_global_details"]["amp_omega_coupling"];
@@ -742,6 +747,7 @@ bool saveProblem()
 	{
 			{"mesh_name",         "mesh.obj"},
 			{"num_frame",         zList.size()},
+            {"wrinkle_amp_ratio", args.ampScale},
 			{"quad_order",        quadOrder},
 			{"spatial_ratio",     {
 										   {"amp_ratio", spatialAmpRatio},
