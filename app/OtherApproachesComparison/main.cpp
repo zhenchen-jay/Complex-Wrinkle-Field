@@ -44,15 +44,22 @@
 #include "../../include/OtherApproaches/TFWAlgorithm.h"
 #include "../../include/OtherApproaches/ZuenkoAlgorithm.h"
 
+#include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
+#include "../../include/MeshLib/RegionEdition.h"
+
+
+std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
+
 Eigen::MatrixXd triV, upsampledKnoppelTriV, upsampledZuenkoTriV, loopTriV, zuenkoFinalV;
 Eigen::MatrixXi triF, upsampledKnoppelTriF, upsampledZuenkoTriF, loopTriF, zuenkoFinalF;
 MeshConnectivity triMesh;
 Mesh secMesh, upSecMesh;
 
-std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWPhiVList, TFWProbVList, TFWUpsamplingVList;
-std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList, TFWProbFList, TFWUpsamplingFList;
+std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWPhiVList, TFWProbVList, TFWUpsamplingVList, knoppelWrinkledVList;
+std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList, TFWProbFList, TFWUpsamplingFList, knoppelWrinkledFList;
 std::vector<std::vector<std::complex<double>>> zList, upZList;
-std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, KnoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList;
+std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
@@ -69,6 +76,167 @@ float vecratio = 0.01;
 bool isUseV2 = false;
 
 PaintGeometry mPaint;
+
+// region edition
+RegionEdition regEdt;
+
+struct PickedFace
+{
+    int fid = -1;
+    double ampChangeRatio = 1.;
+    int effectiveRadius = 5;
+    int interfaceDilation = 5;
+    VecMotionType freqVecMotion = Enlarge;
+    double freqVecChangeValue = 1.;
+    bool isFreqAmpCoupled = false;
+
+    std::vector<int> effectiveFaces = {};
+    std::vector<int> interFaces = {};
+    std::vector<int> effectiveVerts = {};
+    std::vector<int> interVerts = {};
+
+    void buildEffectiveFaces(int nfaces)
+    {
+        effectiveFaces.clear();
+        effectiveVerts.clear();
+        interFaces.clear();
+        interVerts.clear();
+
+        if (fid == -1 || fid >= nfaces)
+            return;
+        else
+        {
+            Eigen::VectorXi curFaceFlags = Eigen::VectorXi::Zero(triF.rows());
+            curFaceFlags(fid) = 1;
+            Eigen::VectorXi curFaceFlagsNew = curFaceFlags;
+            regEdt.faceDilation(curFaceFlagsNew, curFaceFlags, effectiveRadius);
+            regEdt.faceDilation(curFaceFlags, curFaceFlagsNew, interfaceDilation);
+
+            Eigen::VectorXi vertFlags, vertFlagsNew;
+
+            faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlags, vertFlags);
+            faceFlags2VertFlags(triMesh, triV.rows(), curFaceFlagsNew, vertFlagsNew);
+
+            for (int i = 0; i < curFaceFlags.rows(); i++)
+            {
+                if (curFaceFlags(i))
+                    effectiveFaces.push_back(i);
+                else if (curFaceFlagsNew(i))
+                    interFaces.push_back(i);
+            }
+
+
+            for (int i = 0; i < vertFlags.rows(); i++)
+            {
+                if (vertFlags(i))
+                    effectiveVerts.push_back(i);
+                else if (vertFlagsNew(i))
+                    interVerts.push_back(i);
+            }
+        }
+    }
+};
+
+std::vector<PickedFace> pickFaces;
+std::vector<VertexOpInfo> vertOpts;
+
+bool isFixedBnd = false;
+int effectivedistFactor = 4;
+
+bool isSelectAll = false;
+VecMotionType selectedMotion = Enlarge;
+
+double selectedMotionValue = 2;
+double selectedMagValue = 1;
+bool isCoupled = false;
+
+Eigen::VectorXi selectedFids;
+Eigen::VectorXi interfaceFids;
+Eigen::VectorXi faceFlags;	// -1 for interfaces, 0 otherwise
+Eigen::VectorXi selectedVertices;
+
+int quadOrder = 4;
+
+double spatialAmpRatio = 1000;
+double spatialEdgeRatio = 1000;
+double spatialKnoppelRatio = 1000;
+
+InitializationType initType = SeperateLinear;
+double zuenkoTau = 0.1;
+int zuenkoIter = 5;
+
+static void buildEditModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
+{
+    editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+}
+
+void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
+{
+    int nverts = triV.rows();
+    vertOpInfo.clear();
+    vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
+
+    if (isSelectAll)
+    {
+        for (int i = 0; i < nverts; i++)
+        {
+            vertOpts[i] = { selectedMotion, isCoupled, selectedMotionValue, selectedMagValue };
+        }
+    }
+    else
+    {
+        Eigen::VectorXi tmpFlags;
+        tmpFlags.setZero(nverts);
+        int nselectedV = 0;
+
+        // make sure there is no overlap
+        for (auto& pf : faceList)
+        {
+            for (auto& v : pf.effectiveVerts)
+            {
+                if (tmpFlags(v))
+                {
+                    std::cerr << "overlap happens on the effective vertices. " << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                tmpFlags(v) = 1;
+                nselectedV++;
+            }
+        }
+
+        std::cout << "num of selected vertices: " << nselectedV << std::endl;
+
+        vertOpInfo.clear();
+        vertOpInfo.resize(nverts, { None, isCoupled, 0, 1 });
+
+        for (auto& pf : faceList)
+        {
+            for (auto& v : pf.effectiveVerts)
+            {
+                vertOpInfo[v] = { pf.freqVecMotion, pf.isFreqAmpCoupled, pf.freqVecChangeValue, pf.ampChangeRatio };
+            }
+        }
+    }
+
+}
+
+bool addSelectedFaces(const PickedFace face, Eigen::VectorXi& curFaceFlags, Eigen::VectorXi& curVertFlags)
+{
+    for (auto& f : face.effectiveFaces)
+        if (curFaceFlags(f))
+            return false;
+
+    for (auto& v : face.effectiveVerts)
+        if (curVertFlags(v))
+            return false;
+
+    for (auto& f : face.effectiveFaces)
+        curFaceFlags(f) = 1;
+    for (auto& v : face.effectiveVerts)
+        curVertFlags(v) = 1;
+
+    return true;
+}
 
 static void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
 {
@@ -188,7 +356,9 @@ static void upsamplingEveryThingForComparison()
 	}
 	updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, wrinkleAmpScalingRatio, isUseV2);
 
-	KnoppelAlg::getKnoppelPhaseSequence(triV, triMesh, omegaList, upsampledKnoppelTriV, upsampledKnoppelTriF, KnoppelUpPhiList, upsamplingLevel);
+//	KnoppelAlg::getKnoppelPhaseSequence(triV, triMesh, omegaList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpPhiList, upsamplingLevel);
+    KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, omegaList, ampList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, wrinkleAmpScalingRatio, upsamplingLevel);
+    
 
 	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
 
@@ -357,45 +527,35 @@ static void updateView(int frameId)
     polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
     auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhaseColor);
     TFWPhasePatterns->setEnabled(true);
-
-	// we compose the problem mesh and phi mesh here. polyscope has some strange bug
-//	Eigen::MatrixXd compositePhiV, compositePhiColor;
-//	Eigen::MatrixXi compositePhiF;
-//	std::cout << TFWPhiVList[frameId].rows() << " " << TFWProbVList[frameId].rows() << std::endl;
-//	compositePhiV.resize(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
-//	compositePhiV.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhiVList[frameId];
-//	compositePhiV.block(TFWPhiVList[frameId].rows(), 0, TFWProbVList[frameId].rows(), 3) = TFWProbVList[frameId];
-//
-//	compositePhiF.resize(TFWPhiFList[frameId].rows() + TFWProbFList[frameId].rows(), 3);
-//	compositePhiF.block(0, 0, TFWPhiFList[frameId].rows(), 3) = TFWPhiFList[frameId];
-//
-//	Eigen::MatrixXi onesMat = TFWProbFList[frameId];
-//	onesMat.setOnes();
-//	compositePhiF.block(TFWPhiFList[frameId].rows(), 0, TFWProbFList[frameId].rows(), 3) = TFWProbFList[frameId] + TFWPhiVList[frameId].rows() * onesMat;
-//
-//	compositePhiColor.setOnes(TFWPhiVList[frameId].rows() + TFWProbVList[frameId].rows(), 3);
-//	compositePhiColor.block(0, 0, TFWPhiVList[frameId].rows(), 3) = TFWPhaseColor;
-//
-//	polyscope::registerSurfaceMesh("TFW upsampled phase mesh", compositePhiV, compositePhiF);
-//	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-//	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", compositePhiColor);
-//	TFWPhasePatterns->setEnabled(true);
-
-
-	/*polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWPhiVList[frameId], TFWPhiFList[frameId]);
-	polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-	polyscope::registerSurfaceMesh("TFW upsampled problem mesh", TFWProbVList[frameId], TFWProbFList[frameId]);
-	polyscope::getSurfaceMesh("TFW upsampled problem mesh")->translate({ n * shiftx, m * shifty, 0 });
-	polyscope::getSurfaceMesh("TFW upsampled problem mesh")->setSurfaceColor({ 1, 1, 1 });
-	
-	auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhaseColor);
-	TFWPhasePatterns->setEnabled(true);*/
-	
 	n++;
 
 	////////////////////////////////////// Knoppel stuffs ///////////////////////////////////////////////
-	n -= 1;
-	m++;
+    n = 1;
+    m++;
+    // wrinkled mesh
+    if (isFirstVis)
+    {
+        // wrinkle mesh
+        polyscope::registerSurfaceMesh("knoppel wrinkled mesh", knoppelWrinkledVList[frameId], knoppelWrinkledFList[frameId]);
+        polyscope::getSurfaceMesh("knoppel wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+        polyscope::getSurfaceMesh("knoppel wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    }
+    else
+        polyscope::getSurfaceMesh("knoppel wrinkled mesh")->updateVertexPositions(TFWWrinkledVList[frameId]);
+    n++;
+
+    // amp pattern
+    if(isFirstVis)
+    {
+        polyscope::registerSurfaceMesh("knoppel upsampled ampliude mesh", upsampledKnoppelTriV, upsampledKnoppelTriF);
+        polyscope::getSurfaceMesh("knoppel upsampled ampliude mesh")->translate({ n * shiftx, m * shifty, 0 });
+    }
+
+    auto ampKnoppelPatterns = polyscope::getSurfaceMesh("knoppel upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", TFWUpAmpList[frameId]);
+    ampKnoppelPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+    ampKnoppelPatterns->setEnabled(true);
+    n++;
+
 	// phase pattern
 	mPaint.setNormalization(false);
 	if (isFirstVis)
@@ -405,12 +565,57 @@ static void updateView(int frameId)
 	}
 	
 
-	Eigen::MatrixXd phaseKnoppelColor = mPaint.paintPhi(KnoppelUpPhiList[frameId]);
+	Eigen::MatrixXd phaseKnoppelColor = mPaint.paintPhi(knoppelUpPhiList[frameId]);
 	auto KnoppelPhasePatterns = polyscope::getSurfaceMesh("Knoppel upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseKnoppelColor);
 	KnoppelPhasePatterns->setEnabled(true);
 	n++;
 
 	isFirstVis = false;
+}
+
+void updateInterfaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& interFaceFlags)
+{
+    int nfaces = triMesh.nFaces();
+    interFaceFlags.setZero(nfaces);
+
+    for (auto& f : faces)
+    {
+        for (auto& interf : f.interFaces)
+            interFaceFlags(interf) = 1;
+    }
+}
+
+void updateEditionDomain()
+{
+    int nselected = 0;
+    for (int i = 0; i < selectedFids.rows(); i++)
+    {
+        if (selectedFids(i) == 1)
+        {
+            nselected++;
+        }
+    }
+
+    Eigen::VectorXi interfaces;
+    updateInterfaces(pickFaces, interfaces);
+
+    faceFlags = selectedFids;
+    int ninterfaces = 0;
+    for (int i = 0; i < selectedFids.rows(); i++)
+    {
+        if (selectedFids(i) == 0 && interfaces(i) == 1)
+        {
+            ninterfaces++;
+            faceFlags(i) = -1;
+        }
+
+    }
+
+    std::cout << "selected effective faces: " << nselected << ", num of interfaces: " << ninterfaces << std::endl;
+
+    std::cout << "build wrinkle motions. " << std::endl;
+    buildWrinkleMotions(pickFaces, vertOpts);
+
 }
 
 static bool loadProblem(std::string *inputpath = NULL)
@@ -442,6 +647,10 @@ static bool loadProblem(std::string *inputpath = NULL)
 	upsamplingLevel = jval["upsampled_times"];
 	if (upsamplingLevel > 2)
 		upsamplingLevel = 2;
+    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+    {
+        wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
+    }
 
 
 	meshFile = workingFolder + meshFile;
@@ -450,48 +659,121 @@ static bool loadProblem(std::string *inputpath = NULL)
 	initialization(triV, triF, upsampledKnoppelTriV, upsampledKnoppelTriF);
 
 	numFrames = jval["num_frame"];
+    numFrames = jval["num_frame"];
+    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+    {
+        wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
+    }
+
+    isSelectAll = jval["region_global_details"]["select_all"];
+    isCoupled = jval["region_global_details"]["amp_omega_coupling"];
+    selectedMagValue = jval["region_global_details"]["amp_operation_value"];
+    selectedMotionValue = jval["region_global_details"]["omega_operation_value"];
+    std::string optype = jval["region_global_details"]["omega_operation_motion"];
+
+    if (optype == "None")
+        selectedMotion = None;
+    else if (optype == "Enlarge")
+        selectedMotion = Enlarge;
+    else if (optype == "Rotate")
+        selectedMotion = Rotate;
+    else
+        selectedMotion = None;
+
+    pickFaces.clear();
+
+    if (jval.contains(std::string_view{ "region_local_details" }))
+    {
+        int npicked = jval["region_local_details"].size();
+        for (int i = 0; i < npicked; i++)
+        {
+            PickedFace pf;
+            pf.fid = jval["region_local_details"][i]["face_id"];
+            pf.effectiveRadius = jval["region_local_details"][i]["effective_radius"];
+            pf.interfaceDilation = jval["region_local_details"][i]["interface_dilation"];
+
+            optype = jval["region_local_details"][i]["omega_operation_motion"];
+            if (optype == "None")
+                pf.freqVecMotion = None;
+            else if (optype == "Enlarge")
+                pf.freqVecMotion = Enlarge;
+            else if (optype == "Rotate")
+                pf.freqVecMotion = Rotate;
+            else
+                pf.freqVecMotion = None;
+
+            pf.isFreqAmpCoupled = jval["region_local_details"][i]["amp_omega_coupling"];
+            pf.freqVecChangeValue = jval["region_local_details"][i]["omega_opereation_value"];
+            pf.ampChangeRatio = jval["region_local_details"][i]["amp_operation_value"];
+
+
+            pf.buildEffectiveFaces(triF.rows());
+            if (!addSelectedFaces(pf, selectedFids, selectedVertices))
+            {
+                std::cerr << "something wrong happened in the store setup file!" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            pickFaces.push_back(pf);
+        }
+    }
+    std::cout << "num of picked faces: " << pickFaces.size() << std::endl;
+
+    updateEditionDomain();
 
 	int nedges = triMesh.nEdges();
 	int nverts = triV.rows();
 
-	zList.clear();
-	omegaList.clear();
-	std::string optZvals = jval["solution"]["opt_zvals"];
-	std::string optOmega = jval["solution"]["opt_omega"];
+	zList.resize(numFrames);
+	omegaList.resize(numFrames);
+    ampList.resize(numFrames);
 
-	bool isLoadOpt = true;
-	for (int i = 0; i < numFrames; i++)
-	{
-		std::string zvalFile = workingFolder + optZvals + "/zvals_" + std::to_string(i) + ".txt";
-		std::string edgeOmegaFile = workingFolder + optOmega + "/omega_" + std::to_string(i) + ".txt";
-		std::vector<std::complex<double>> zvals;
-		if (!loadVertexZvals(zvalFile, nverts, zvals))
-		{
-			isLoadOpt = false;
-			break;
-		}
-		Eigen::VectorXd edgeOmega;
-		if (!loadEdgeOmega(edgeOmegaFile, nedges, edgeOmega)) {
-			isLoadOpt = false;
-			break;
-		}
+    // load initial and target zvals and omega
+    std::string initAmpPath = jval["init_amp"];
+    std::string initOmegaPath = jval["init_omega"];
+    std::string initZValsPath = "zvals.txt";
+    if (jval.contains(std::string_view{ "init_zvals" }))
+    {
+        initZValsPath = jval["init_zvals"];
+    }
 
-		zList.push_back(zvals);
-		omegaList.push_back(edgeOmega);
-	}
-	if (!isLoadOpt)
-	{
-		std::cout << "missing required zvals and omega files" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+    if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, omegaList[0])) {
+        std::cout << "missing init edge omega file." << std::endl;
+        return false;
+    }
 
-	if (isLoadOpt)
-	{
-		std::cout << "load zvals and omegas from file!" << std::endl;
-	}
+    if (!loadVertexZvals(workingFolder + initZValsPath, triV.rows(), zList[0]))
+    {
+        std::cout << "missing init zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + initAmpPath, triV.rows(), ampList[0]))
+        {
+            std::cout << "missing init amp file: " << std::endl;
+            return false;
+        }
 
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, omegaList[0], ampList[0], edgeArea, vertArea, triV.rows(), zList[0]);
+        }
+    }
+    else
+    {
+        ampList[0].setZero(triV.rows());
+        for (int i = 0; i < ampList[0].size(); i++)
+            ampList[0](i) = std::abs(zList[0][i]);
+    }
 
-	curFrame = 0;
+    // linear interpolation to get the list
+    buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+
+    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+    ampList = editModel->getRefAmpList();
+    omegaList = editModel->getRefWList();
+    zList = editModel->getVertValsList();
+
+    curFrame = 0;
 	isFirstVis = true;
 
 	return true;
@@ -499,6 +781,25 @@ static bool loadProblem(std::string *inputpath = NULL)
 
 static bool saveProblem()
 {
+    // save linear results
+    std::string linearFolder = workingFolder + "/linearRes/";
+    mkdir(linearFolder);
+
+    igl::writeOBJ(linearFolder + "linearUpMesh.obj", loopTriV, loopTriF);
+    // save upsampling things
+    tbb::parallel_for(
+            tbb::blocked_range<int>(0u, (uint32_t)numFrames),
+            [&](const tbb::blocked_range<int> &range)
+            {
+                for (uint32_t i = range.begin(); i < range.end(); ++i)
+                {
+                    savePhi4Render(upPhiList[i], linearFolder + "linearUpPhi_" + std::to_string(i) + ".cvs");
+                    saveAmp4Render(upAmpList[i], linearFolder + "linearUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+                    igl::writeOBJ(linearFolder + "linearWrinkleMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], loopTriF);
+                }
+            }
+    );
+
     // save zuenko results
     std::string zuenkoFolder = workingFolder + "/zuenkoRes/";
     mkdir(zuenkoFolder);
@@ -591,7 +892,7 @@ static bool saveProblem()
             {
                 for (uint32_t i = range.begin(); i < range.end(); ++i)
                 {
-                    savePhi4Render(KnoppelUpPhiList[i], knoppelFolder + "KnoppelUpPhi_" + std::to_string(i) + ".cvs");
+                    savePhi4Render(knoppelUpPhiList[i], knoppelFolder + "KnoppelUpPhi_" + std::to_string(i) + ".cvs");
                 }
             }
     );
