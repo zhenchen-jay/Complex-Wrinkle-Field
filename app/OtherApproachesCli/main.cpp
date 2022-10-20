@@ -13,14 +13,11 @@
 #include <igl/file_dialog_open.h>
 #include <igl/file_dialog_save.h>
 #include <igl/cotmatrix_entries.h>
-#include "polyscope/messages.h"
-#include "polyscope/point_cloud.h"
-#include "polyscope/surface_mesh.h"
-#include "polyscope/view.h"
 
 #include <iostream>
 #include <filesystem>
 #include <utility>
+#include <CLI/CLI.hpp>
 
 #include "../../include/CommonTools.h"
 #include "../../include/MeshLib/MeshUpsampling.h"
@@ -65,10 +62,8 @@ Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
 
 int upsamplingLevel = 2;
-float wrinkleAmpScalingRatio = 1;
 std::string workingFolder = "";
 int numFrames = 20;
-int curFrame = 0;
 
 double globalAmpMin = 0;
 double globalAmpMax = 1;
@@ -79,6 +74,12 @@ PaintGeometry mPaint;
 
 // region edition
 RegionEdition regEdt;
+
+// Default arguments
+struct {
+    std::string input;
+    double ampScale = 1;
+} args;
 
 struct PickedFace
 {
@@ -358,15 +359,15 @@ static void upsamplingEveryThingForComparison()
 			globalAmpMax = std::max(ampList[i][j], globalAmpMax);
 		}
 	}
-	updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, wrinkleAmpScalingRatio, isUseV2);
+	updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, args.ampScale, isUseV2);
 
 //	KnoppelAlg::getKnoppelPhaseSequence(triV, triMesh, omegaList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpPhiList, upsamplingLevel);
-    KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, omegaList, ampList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, wrinkleAmpScalingRatio, upsamplingLevel);
+    KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, omegaList, ampList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, args.ampScale, upsamplingLevel);
     
 
-	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
+	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, args.ampScale);
 
-	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
+	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, args.ampScale, isUseV2, true);
 
 
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -386,195 +387,7 @@ static void upsamplingEveryThingForComparison()
 		curZvals[i] = std::complex<double>(std::cos(phi), std::sin(phi));
 	}
 	
-	ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, ampList[numFrames - 1], omegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, wrinkleAmpScalingRatio);
-}
-
-bool isFirstVis = true;
-static void updateView(int frameId)
-{
-	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
-	int n = 0;
-
-	double shifty = 1.5 * (triV.col(1).maxCoeff() - triV.col(1).minCoeff());
-	int m = 0;
-
-	if (isFirstVis)
-	{
-		auto baseSurf = polyscope::registerSurfaceMesh("base mesh", triV, triF);
-	}
-   
-    auto freqFields = polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-    auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", ampList[frameId]);
-    initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-    n++;
-
-
-	////////////////////////////////////// our stuffs ///////////////////////////////////////////////
-	// wrinkled mesh
-	if (isFirstVis)
-	{
-		// wrinkle mesh
-		polyscope::registerSurfaceMesh("our wrinkled mesh", wrinkledVList[frameId], loopTriF);
-		polyscope::getSurfaceMesh("our wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("our wrinkled mesh")->translate({ n * shiftx, 0, 0 });
-	}
-	else
-		polyscope::getSurfaceMesh("our wrinkled mesh")->updateVertexPositions(wrinkledVList[frameId]);
-	n++;
-
-	// amp pattern
-	if (isFirstVis)
-	{
-		polyscope::registerSurfaceMesh("our upsampled ampliude mesh", loopTriV, loopTriF);
-		polyscope::getSurfaceMesh("our upsampled ampliude mesh")->translate({ n * shiftx, 0, 0 });
-	}
-	auto ampPatterns = polyscope::getSurfaceMesh("our upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmpList[frameId]);
-	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	ampPatterns->setEnabled(true);
-	n++;
-	
-
-	// phase pattern
-	mPaint.setNormalization(false);
-	if (isFirstVis)
-	{
-		polyscope::registerSurfaceMesh("our upsampled phase mesh", loopTriV, loopTriF);
-		polyscope::getSurfaceMesh("our upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
-	}
-		
-	Eigen::MatrixXd phaseColor = mPaint.paintPhi(upPhiList[frameId]);
-	auto ourPhasePatterns = polyscope::getSurfaceMesh("our upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	ourPhasePatterns->setEnabled(true);
-	n++;
-
-
-	////////////////////////////////////// Zuenko's stuffs ///////////////////////////////////////////////
-	n = 0;
-	m++;
-	if (isFirstVis)
-	{
-		// wrinkle mesh
-		polyscope::registerSurfaceMesh("Zuenko final wrinkled mesh", zuenkoFinalV, zuenkoFinalF);
-		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-	else
-		polyscope::getSurfaceMesh("Zuenko final wrinkled mesh")->updateVertexPositions(zuenkoFinalV);
-	n++;
-	// wrinkled mesh
-	if (isFirstVis)
-	{
-		// wrinkle mesh
-		polyscope::registerSurfaceMesh("Zuenko wrinkled mesh", ZuenkoWrinkledVList[frameId], ZuenkoWrinkledFList[frameId]);
-		polyscope::getSurfaceMesh("Zuenko wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("Zuenko wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-	else
-		polyscope::getSurfaceMesh("Zuenko wrinkled mesh")->updateVertexPositions(ZuenkoWrinkledVList[frameId]);
-	n++;
-
-	// amp pattern
-	if (isFirstVis)
-	{
-		polyscope::registerSurfaceMesh("Zuenko upsampled ampliude mesh", upsampledZuenkoTriV, upsampledZuenkoTriF);
-		polyscope::getSurfaceMesh("Zuenko upsampled ampliude mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-	auto ampZuenkoPatterns = polyscope::getSurfaceMesh("Zuenko upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", ZuenkoUpAmpList[frameId]);
-	ampZuenkoPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	ampZuenkoPatterns->setEnabled(true);
-	n++;
-
-
-	// phase pattern
-	mPaint.setNormalization(false);
-	if (isFirstVis)
-	{
-		polyscope::registerSurfaceMesh("Zuenko upsampled phase mesh", upsampledZuenkoTriV, upsampledZuenkoTriF);
-		polyscope::getSurfaceMesh("Zuenko upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-
-	Eigen::MatrixXd phaseZuenkoColor = mPaint.paintPhi(ZuenkoUpPhiList[frameId]);
-	auto ZuenkoPhasePatterns = polyscope::getSurfaceMesh("Zuenko upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseZuenkoColor);
-	ZuenkoPhasePatterns->setEnabled(true);
-	n++;
-
-
-	////////////////////////////////////// TFW stuffs ///////////////////////////////////////////////
-	n = 1;
-	m++;
-	// wrinkled mesh
-	if (isFirstVis)
-	{
-		// wrinkle mesh
-		polyscope::registerSurfaceMesh("TFW wrinkled mesh", TFWWrinkledVList[frameId], TFWWrinkledFList[frameId]);
-		polyscope::getSurfaceMesh("TFW wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("TFW wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-	else
-		polyscope::getSurfaceMesh("TFW wrinkled mesh")->updateVertexPositions(TFWWrinkledVList[frameId]);
-	n++;
-
-	// amp pattern
-	polyscope::registerSurfaceMesh("TFW upsampled ampliude mesh", TFWUpsamplingVList[frameId], TFWUpsamplingFList[frameId]);
-	polyscope::getSurfaceMesh("TFW upsampled ampliude mesh")->translate({ n * shiftx, m * shifty, 0 });
-	auto ampTFWPatterns = polyscope::getSurfaceMesh("TFW upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", TFWUpAmpList[frameId]);
-	ampTFWPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	ampTFWPatterns->setEnabled(true);
-	n++;
-
-
-	// phase pattern
-	mPaint.setNormalization(false);
-	Eigen::MatrixXd TFWPhaseColor = mPaint.paintPhi(TFWUpPhiList[frameId]);
-
-    polyscope::registerSurfaceMesh("TFW upsampled phase mesh", TFWUpsamplingVList[frameId], TFWUpsamplingFList[frameId]);
-    polyscope::getSurfaceMesh("TFW upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-    auto TFWPhasePatterns = polyscope::getSurfaceMesh("TFW upsampled phase mesh")->addVertexColorQuantity("vertex phi", TFWPhaseColor);
-    TFWPhasePatterns->setEnabled(true);
-	n++;
-
-	////////////////////////////////////// Knoppel stuffs ///////////////////////////////////////////////
-    n = 1;
-    m++;
-    // wrinkled mesh
-    if (isFirstVis)
-    {
-        // wrinkle mesh
-        polyscope::registerSurfaceMesh("Knoppel wrinkled mesh", knoppelWrinkledVList[frameId], knoppelWrinkledFList[frameId]);
-        polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-        polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
-    }
-    else
-        polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->updateVertexPositions(TFWWrinkledVList[frameId]);
-    n++;
-
-    // amp pattern
-    if(isFirstVis)
-    {
-        polyscope::registerSurfaceMesh("Knoppel upsampled ampliude mesh", upsampledKnoppelTriV, upsampledKnoppelTriF);
-        polyscope::getSurfaceMesh("Knoppel upsampled ampliude mesh")->translate({ n * shiftx, m * shifty, 0 });
-    }
-
-    auto ampKnoppelPatterns = polyscope::getSurfaceMesh("Knoppel upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", knoppelUpAmpList[frameId]);
-    ampKnoppelPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-    ampKnoppelPatterns->setEnabled(true);
-    n++;
-
-	// phase pattern
-	mPaint.setNormalization(false);
-	if (isFirstVis)
-	{
-		polyscope::registerSurfaceMesh("Knoppel upsampled phase mesh", upsampledKnoppelTriV, upsampledKnoppelTriF);
-		polyscope::getSurfaceMesh("Knoppel upsampled phase mesh")->translate({ n * shiftx, m * shifty, 0 });
-	}
-	
-
-	Eigen::MatrixXd phaseKnoppelColor = mPaint.paintPhi(knoppelUpPhiList[frameId]);
-	auto KnoppelPhasePatterns = polyscope::getSurfaceMesh("Knoppel upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseKnoppelColor);
-	KnoppelPhasePatterns->setEnabled(true);
-	n++;
-
-	isFirstVis = false;
+	ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, ampList[numFrames - 1], omegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, args.ampScale);
 }
 
 void updateInterfaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& interFaceFlags)
@@ -622,13 +435,9 @@ void updateEditionDomain()
 
 }
 
-static bool loadProblem(std::string *inputpath = NULL)
+static bool loadProblem(const std::string inputpath)
 {
-	std::string loadFileName;
-	if (!inputpath)
-		loadFileName = igl::file_dialog_open();
-	else
-		loadFileName = *inputpath;
+	std::string loadFileName = inputpath;
 
 	std::cout << "load file in: " << loadFileName << std::endl;
 	using json = nlohmann::json;
@@ -649,12 +458,6 @@ static bool loadProblem(std::string *inputpath = NULL)
 
 	std::string meshFile = jval["mesh_name"];
 	upsamplingLevel = jval["upsampled_times"];
-	if (upsamplingLevel > 2)
-		upsamplingLevel = 2;
-    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
-    {
-        wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
-    }
 
 
 	meshFile = workingFolder + meshFile;
@@ -662,11 +465,12 @@ static bool loadProblem(std::string *inputpath = NULL)
 	triMesh = MeshConnectivity(triF);
 	initialization(triV, triF, upsampledKnoppelTriV, upsampledKnoppelTriF);
 
+    quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
-    numFrames = jval["num_frame"];
     if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
     {
-        wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
+        if (args.ampScale == 1)
+            args.ampScale = jval["wrinkle_amp_scale"];
     }
 
     isSelectAll = jval["region_global_details"]["select_all"];
@@ -777,9 +581,6 @@ static bool loadProblem(std::string *inputpath = NULL)
     omegaList = editModel->getRefWList();
     zList = editModel->getVertValsList();
 
-    curFrame = 0;
-	isFirstVis = true;
-
 	return true;
 }
 
@@ -874,16 +675,16 @@ static bool saveProblem()
     mkdir(knoppelFolder);
     igl::writeOBJ(knoppelFolder + "KnoppelUpMesh.obj", upsampledKnoppelTriV, upsampledKnoppelTriF);
     tbb::parallel_for(
-            tbb::blocked_range<int>(0u, (uint32_t)numFrames),
-            [&](const tbb::blocked_range<int> &range)
+        tbb::blocked_range<int>(0u, (uint32_t)numFrames),
+        [&](const tbb::blocked_range<int>& range)
+        {
+            for (uint32_t i = range.begin(); i < range.end(); ++i)
             {
-                for (uint32_t i = range.begin(); i < range.end(); ++i)
-                {
-                    savePhi4Render(knoppelUpPhiList[i], knoppelFolder + "KnoppelUpPhi_" + std::to_string(i) + ".cvs");
-                    saveAmp4Render(knoppelUpAmpList[i], knoppelFolder + "KnoppelAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
-                    igl::writeOBJ(knoppelFolder + "KnoppelWrinkleMesh_" + std::to_string(i) + ".obj", knoppelWrinkledVList[i], knoppelWrinkledFList[i]);
-                }
+                savePhi4Render(knoppelUpPhiList[i], knoppelFolder + "KnoppelUpPhi_" + std::to_string(i) + ".cvs");
+                saveAmp4Render(knoppelUpAmpList[i], knoppelFolder + "KnoppelAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+                igl::writeOBJ(knoppelFolder + "KnoppelWrinkleMesh_" + std::to_string(i) + ".obj", knoppelWrinkledVList[i], knoppelWrinkledFList[i]);
             }
+        }
     );
 //    for(int i = 0; i < numFrames; i++)
 //    {
@@ -894,127 +695,30 @@ static bool saveProblem()
     return true;
 }
 
-static void callback() {
-	ImGui::PushItemWidth(100);
-	float w = ImGui::GetContentRegionAvailWidth();
-	float p = ImGui::GetStyle().FramePadding.x;
-
-	if (ImGui::Button("load", ImVec2(-1, 0)))
-	{
-		if (!loadProblem())
-		{
-			std::cout << "failed to load file." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		upsamplingEveryThingForComparison();
-		updateView(curFrame);
-	}
-    if (ImGui::Button("save", ImVec2(-1, 0)))
-    {
-        if (!saveProblem())
-        {
-            std::cout << "failed to load file." << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
-
-	if (ImGui::InputInt("underline upsampling level", &upsamplingLevel))
-	{
-		if (upsamplingLevel < 0)
-			upsamplingLevel = 2;
-	}
-
-	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 100))
-		{
-			if (wrinkleAmpScalingRatio >= 0)
-				updateView(curFrame);
-		}
-
-        if (ImGui::DragFloat("freq scaling ratio", &vecratio, 0.0005, 0, 1))
-        {
-            if (vecratio >= 0)
-            {
-                polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[curFrame], polyscope::VectorType::AMBIENT);
-            }
-        }
-
-	}
-	if (ImGui::SliderInt("current frame slider bar", &curFrame, 0, numFrames - 1))
-	{
-		curFrame = curFrame % numFrames;
-		updateView(curFrame);
-	}
-	
-	if (ImGui::Button("recompute", ImVec2(-1, 0)))
-	{
-		upsamplingEveryThingForComparison();
-		isFirstVis = true; // reset the mesh
-		updateView(curFrame);
-	}
-
-	if (ImGui::Button("output images", ImVec2(-1, 0)))
-	{
-		std::string curFolder = std::filesystem::current_path().string();
-
-
-        for(int i = 0; i < numFrames; i++)
-        {
-            std::string name = curFolder + "/output_" + std::to_string(i) + ".jpg";
-            updateView(i);
-            polyscope::screenshot(name);
-        }
-        updateView(curFrame);
-	}
-
-
-	ImGui::PopItemWidth();
-}
-
 
 int main(int argc, char** argv)
 {
-	if(argc < 2)
-	{
-		if (!loadProblem())
-		{
-			std::cout << "failed to load file." << std::endl;
-			return 1;
-		}
-	}
-	else
-	{
-		std::string inputPath = argv[2];
-		if (!loadProblem(&inputPath))
-		{
-			std::cout << "failed to load file." << std::endl;
-			return 1;
-		}
-	}
-	
-	
-	// Options
-	polyscope::options::autocenterStructures = true;
-	polyscope::view::windowWidth = 1024;
-	polyscope::view::windowHeight = 1024;
+    CLI::App app("Wrinkle Interpolation");
+    app.add_option("input,-i,--input", args.input, "Input model")->required()->check(CLI::ExistingFile);
+    app.add_option("-a,--ampScaling", args.ampScale, "The amplitude scaling for wrinkled surface upsampling.");
 
-	// Initialize polyscope
-	polyscope::init();
-	polyscope::view::upDir = polyscope::view::UpDir::ZUp;
+    try {
+        app.parse(argc, argv);
+    }
+    catch (const CLI::ParseError& e) {
+        return app.exit(e);
+    }
 
-	// Add the callback
-	polyscope::state::userCallback = callback;
+    if (!loadProblem(args.input))
+    {
+        std::cout << "failed to load file." << std::endl;
+        return 1;
+    }
 
-	polyscope::options::groundPlaneHeightFactor = 0.25; // adjust the plane height
-	curFrame = 0;
-
-	upsamplingEveryThingForComparison();
-	isFirstVis = true;
-	updateView(curFrame);
-	// Show the gui
-	polyscope::show();
-
+    updateEditionDomain();
+    // solve for the path from source to target
+    upsamplingEveryThingForComparison();
+    saveProblem();
 
 	return 0;
 }
