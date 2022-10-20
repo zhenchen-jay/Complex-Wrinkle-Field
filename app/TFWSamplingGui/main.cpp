@@ -83,7 +83,7 @@ static void upsamplingEveryThingForComparison()
 		globalAmpMax = std::max(amp[j], globalAmpMax);
 	}
 
-	TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWWrinkledF, TFWUpsamplingV, TFWUpsamplingF, TFWPhiV, TFWPhiF, TFWProbV, TFWProbF, TFWUpAmp, TFWUpPhiSoup, TFWUpPhi, upsamplingLevel, wrinkleAmpScalingRatio);
+	TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWWrinkledF, TFWUpsamplingV, TFWUpsamplingF, &TFWPhiV, &TFWPhiF, &TFWProbV, &TFWProbF, TFWUpAmp, &TFWUpPhiSoup, TFWUpPhi, upsamplingLevel, wrinkleAmpScalingRatio);
 }
 
 static void updateView()

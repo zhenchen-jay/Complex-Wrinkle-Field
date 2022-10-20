@@ -366,7 +366,7 @@ static void upsamplingEveryThingForComparison()
 
 	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
 
-	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
+	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, &TFWPhiVList, &TFWPhiFList, &TFWProbVList, &TFWProbFList, TFWUpAmpList, &TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
 
 
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
