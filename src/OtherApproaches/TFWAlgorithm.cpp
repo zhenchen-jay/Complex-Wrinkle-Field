@@ -2634,14 +2634,15 @@ namespace TFWAlg
 		if(soupPhiFList)
 			soupPhiList->resize(nframes);
 
-		/*for (uint32_t i = 0; i < nframes; ++i)
-		{
-			getTFWSurfacePerframe(baseV, baseF, ampList[i], omegaList[i],
-				wrinkledVList[i], wrinkledFList[i], upsampledVList[i], upsampledFList[i],
-				soupPhiVList[i], soupPhiFList[i], soupProblemVList[i], soupProblemFList[i],
-				upsampledAmpList[i], soupPhiList[i], numSubdivs, ampScaling, isUseV2Term, isFixedBnd
-			);
-		}*/
+		// for (uint32_t i = 0; i < nframes; ++i)
+		// {
+		// 	std::cout << "frame " << i << std::endl;
+		// 	getTFWSurfacePerframe(baseV, baseF, ampList[i], omegaList[i],
+		// 		wrinkledVList[i], wrinkledFList[i], upsampledVList[i], upsampledFList[i],
+		// 		soupPhiVList[i], soupPhiFList[i], soupProblemVList[i], soupProblemFList[i],
+		// 		upsampledAmpList[i], soupPhiList[i], upsampledPhiList[i], numSubdivs, ampScaling, isUseV2Term, isFixedBnd
+		// 	);
+		// }
 
 		auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
 		{
