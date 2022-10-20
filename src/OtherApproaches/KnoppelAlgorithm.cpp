@@ -77,6 +77,7 @@ namespace KnoppelAlg
         IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(baseMesh, omega, zvals, bary, upsampledPhi);
 
         int nupverts = bary.size();
+        upsampledAmp.resize(nupverts);
         for(int i = 0; i < nupverts; i++)
         {
             int fid = bary[i].first;
@@ -130,6 +131,17 @@ namespace KnoppelAlg
         upsampledAmpList.resize(nframes);
         wrinkledFList.resize(nframes);
         wrinkledVList.resize(nframes);
+
+       /* for (uint32_t i = 0; i < nframes; ++i)
+        {
+            getKnoppelWrinkledMeshPerframe(baseV, baseMesh, omegaList[i], edgeWeight, ampList[i], vertArea, bary, upsampledAmpList[i], upsampledPhiList[i]);
+            wrinkledVList[i] = upsampledV;
+            wrinkledFList[i] = upsampledF;
+            for (int j = 0; j < upsampledV.rows(); j++)
+            {
+                wrinkledVList[i].row(j) += wrinkleAmpRatio * upsampledAmpList[i][j] * std::cos(upsampledPhiList[i][j]) * upsampledN.row(j);
+            }
+        }*/
 
         auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
         {
