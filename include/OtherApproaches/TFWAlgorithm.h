@@ -63,9 +63,9 @@ namespace TFWAlg
 							   const Eigen::VectorXd& amp, const Eigen::VectorXd& omega,
 							   Eigen::MatrixXd& wrinkledV, Eigen::MatrixXi& wrinkledF,
 							   Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
-							   Eigen::MatrixXd& soupPhiV, Eigen::MatrixXi& soupPhiF,
-							   Eigen::MatrixXd& soupProblemV, Eigen::MatrixXi& soupProblemF,
-							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd& soupPhi, Eigen::VectorXd& upsampledPhi,
+							   Eigen::MatrixXd* soupPhiV, Eigen::MatrixXi* soupPhiF,
+							   Eigen::MatrixXd* soupProblemV, Eigen::MatrixXi* soupProblemF,
+							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd* soupPhi, Eigen::VectorXd& upsampledPhi,
 							   int numSubdivs = 0, double ampScaling = 1.0, bool isUseV2Term = true, bool isFixedBnd = false
 							   );
 
@@ -73,9 +73,9 @@ namespace TFWAlg
 						const std::vector<Eigen::VectorXd>& ampList, const std::vector<Eigen::VectorXd>& omegaList,
 						std::vector<Eigen::MatrixXd>& wrinkledVList, std::vector<Eigen::MatrixXi>& wrinkledFList,
 						std::vector<Eigen::MatrixXd>& upsampledVList, std::vector<Eigen::MatrixXi>& upsampledFList,
-						std::vector<Eigen::MatrixXd>& soupPhiVList, std::vector<Eigen::MatrixXi>& soupPhiFList,
-						std::vector<Eigen::MatrixXd>& soupProblemVList, std::vector<Eigen::MatrixXi>& soupProblemFList,
-						std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>& soupPhiList, std::vector<Eigen::VectorXd>& upsampledPhiList,
+						std::vector<Eigen::MatrixXd>* soupPhiVList, std::vector<Eigen::MatrixXi>* soupPhiFList,
+						std::vector<Eigen::MatrixXd>* soupProblemVList, std::vector<Eigen::MatrixXi>* soupProblemFList,
+						std::vector<Eigen::VectorXd>& upsampledAmpList, std::vector<Eigen::VectorXd>* soupPhiList, std::vector<Eigen::VectorXd>& upsampledPhiList,
 						int numSubdivs = 0, double ampScaling = 1.0, bool isUseV2Term = true, bool isFixedBnd = false
 						);
 }

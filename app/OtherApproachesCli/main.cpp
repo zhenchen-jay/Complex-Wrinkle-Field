@@ -53,10 +53,10 @@ Eigen::MatrixXi triF, upsampledKnoppelTriF, upsampledZuenkoTriF, loopTriF, zuenk
 MeshConnectivity triMesh;
 Mesh secMesh, upSecMesh;
 
-std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWPhiVList, TFWProbVList, TFWUpsamplingVList, knoppelWrinkledVList;
-std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList, TFWProbFList, TFWUpsamplingFList, knoppelWrinkledFList;
+std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWUpsamplingVList, knoppelWrinkledVList;
+std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWUpsamplingFList, knoppelWrinkledFList;
 std::vector<std::vector<std::complex<double>>> zList, upZList;
-std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
+std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
@@ -397,7 +397,7 @@ static void upsamplingEveryThingForComparison()
 
 	else if (args.method == "TFW" || args.method == "all")
 	{
-		TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, TFWPhiVList, TFWPhiFList, TFWProbVList, TFWProbFList, TFWUpAmpList, TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, args.ampScale, isUseV2, true);
+		TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, NULL, NULL, NULL, NULL, TFWUpAmpList, NULL, TFWUpPhiList, upsamplingLevel, args.ampScale, isUseV2, true);
 	}
 
 	else
@@ -683,9 +683,9 @@ static bool saveProblem()
 				for (uint32_t i = range.begin(); i < range.end(); ++i)
 				{
 					savePhi4Render(TFWUpPhiList[i], TFWFolder + "TFWUpPhi_" + std::to_string(i) + ".cvs");
-					savePhi4Render(TFWUpPhiSoupList[i], TFWFolder + "TFWUpPhiSoup_" + std::to_string(i) + ".cvs");
+					/*savePhi4Render(TFWUpPhiSoupList[i], TFWFolder + "TFWUpPhiSoup_" + std::to_string(i) + ".cvs");
 					igl::writeOBJ(TFWFolder + "TFWPhiMesh_" + std::to_string(i) + ".obj", TFWPhiVList[i], TFWPhiFList[i]);
-					igl::writeOBJ(TFWFolder + "TFWProbMesh_" + std::to_string(i) + ".obj", TFWProbVList[i], TFWProbFList[i]);
+					igl::writeOBJ(TFWFolder + "TFWProbMesh_" + std::to_string(i) + ".obj", TFWProbVList[i], TFWProbFList[i]);*/
 
 					saveAmp4Render(TFWUpAmpList[i], TFWFolder + "TFWUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
 					igl::writeOBJ(TFWFolder + "TFWUpMesh_" + std::to_string(i) + ".obj", TFWUpsamplingVList[i], TFWUpsamplingFList[i]);
