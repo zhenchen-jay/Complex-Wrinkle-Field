@@ -3,6 +3,7 @@
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include <tbb/tbb.h>
 #include <igl/per_vertex_normals.h>
+#include <igl/cotmatrix_entries.h>
 
 namespace KnoppelAlg
 {
@@ -29,19 +30,21 @@ namespace KnoppelAlg
 		Eigen::VectorXd faceArea = getFaceArea(baseV, baseMesh);
 
 
-		Eigen::VectorXd edgeWeight(baseMesh.nEdges());
-		for (int i = 0; i < baseMesh.nEdges(); i++)
-		{
-			edgeWeight[i] = 0;
-			for (int j = 0; j < 2; j++)
-			{
-				int fid = baseMesh.edgeFace(i, j);
-				if (fid != -1)
-				{
-					edgeWeight[i] += faceArea[fid] / 3.0;
-				}
-			}
-		}
+        Eigen::VectorXd edgeWeight(baseMesh.nEdges());
+        Eigen::MatrixXd cotMatrixEntries;
+
+        igl::cotmatrix_entries(baseV, baseMesh.faces(), cotMatrixEntries);
+        edgeWeight.setZero();
+
+        for (int i = 0; i < baseMesh.nFaces(); i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                int eid = baseMesh.faceEdge(i, j);
+                int vid = baseMesh.faceVertex(i, j);
+                edgeWeight(eid) += cotMatrixEntries(i, j);
+            }
+        }
 		
 		std::vector<std::pair<int, Eigen::Vector3d>> bary;
 		meshUpSampling(baseV, baseMesh.faces(), upsampledV, upsampledF, numSubdivs, NULL, NULL, &bary);
@@ -73,7 +76,7 @@ namespace KnoppelAlg
             Eigen::VectorXd& upsampledPhi)
     {
         std::vector<std::complex<double>> zvals;
-        IntrinsicFormula::roundZvalsFromEdgeOmega(baseMesh, omega, edgeWeight, vertArea, baseV.rows(), zvals);
+        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(baseMesh, omega, amp, edgeWeight, vertArea, baseV.rows(), zvals);
         IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(baseMesh, omega, zvals, bary, upsampledPhi);
 
         int nupverts = bary.size();
@@ -107,19 +110,20 @@ namespace KnoppelAlg
 
 
         Eigen::VectorXd edgeWeight(baseMesh.nEdges());
-        for (int i = 0; i < baseMesh.nEdges(); i++)
+        Eigen::MatrixXd cotMatrixEntries;
+
+        igl::cotmatrix_entries(baseV, baseMesh.faces(), cotMatrixEntries);
+        edgeWeight.setZero();
+
+        for (int i = 0; i < baseMesh.nFaces(); i++)
         {
-            edgeWeight[i] = 0;
-            for (int j = 0; j < 2; j++)
+            for (int j = 0; j < 3; j++)
             {
-                int fid = baseMesh.edgeFace(i, j);
-                if (fid != -1)
-                {
-                    edgeWeight[i] += faceArea[fid] / 3.0;
-                }
+                int eid = baseMesh.faceEdge(i, j);
+                int vid = baseMesh.faceVertex(i, j);
+                edgeWeight(eid) += cotMatrixEntries(i, j);
             }
         }
-
         std::vector<std::pair<int, Eigen::Vector3d>> bary;
         meshUpSampling(baseV, baseMesh.faces(), upsampledV, upsampledF, numSubdivs, NULL, NULL, &bary);
         Eigen::MatrixXd upsampledN;

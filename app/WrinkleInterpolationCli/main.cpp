@@ -53,6 +53,11 @@ Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
 std::vector<std::complex<double>> initZvals;
 
+// target information
+Eigen::VectorXd tarAmp;
+Eigen::VectorXd tarOmega;
+std::vector<std::complex<double>> tarZvals;
+
 // base mesh information list
 std::vector<Eigen::VectorXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
@@ -481,7 +486,10 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	editModel->setSaveFolder(workingFolder);
 
 	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-	editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+    if(tarZvals.empty())
+	    editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+    else
+        editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 	editModel->convertList2Variable(x);
 
 	editModel->solveIntermeditateFrames(x, args.numIter, args.gradTol, args.xTol, args.fTol, true, workingFolder);
@@ -654,8 +662,56 @@ bool loadProblem()
 			initAmp(i) = std::abs(initZvals[i]);
 	}
 
+    std::string tarAmpPath = "amp_tar.txt";
+    if (jval.contains(std::string_view{ "tar_amp" }))
+    {
+        tarAmpPath = jval["tar_amp"];
+    }
+    std::string tarOmegaPath = "omega_tar.txt";
+    if (jval.contains(std::string_view{ "tar_omega" }))
+    {
+        tarOmegaPath = jval["tar_omega"];
+    }
+    std::string tarZValsPath = "zvals_tar.txt";
+    if (jval.contains(std::string_view{ "tar_zvals" }))
+    {
+        tarZValsPath = jval["tar_zvals"];
+    }
+    bool loadTar = true;
+    tarOmega.resize(0);
+    tarZvals = {};
 
-	std::string refAmp = jval["reference"]["ref_amp"];
+    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega)) {
+        std::cout << "missing tar edge omega file." << std::endl;
+        loadTar = false;
+    }
+
+    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
+    {
+        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
+        {
+            std::cout << "missing tar amp file: " << std::endl;
+            loadTar = false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, triV.rows(), tarZvals);
+        }
+    }
+    else
+    {
+        tarAmp.setZero(triV.rows());
+        for (int i = 0; i < tarZvals.size(); i++)
+            tarAmp(i) = std::abs(tarZvals[i]);
+    }
+
+
+    std::string refAmp = jval["reference"]["ref_amp"];
 	std::string refOmega = jval["reference"]["ref_omega"];
 
 	std::string optZvals = jval["solution"]["opt_zvals"];
@@ -716,7 +772,15 @@ bool loadProblem()
 	{
 		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-		editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
+        if(!loadTar)
+        {
+            editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
+        }
+        else
+        {
+            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+        }
+
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -725,7 +789,7 @@ bool loadProblem()
 			zList = editModel->getVertValsList();
 			omegaList = editModel->getWList();
 		}
-		
+
 	}
 	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 	editModel->initialization(zList, omegaList, refAmpList, refOmegaList);

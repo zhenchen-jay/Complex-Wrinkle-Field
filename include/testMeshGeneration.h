@@ -10,3 +10,5 @@ void generateCylinderWaves(double radius, double height, double triarea, double 
 
 void generateWhirlPool(const Eigen::MatrixXd& triV, double centerx, double centery, Eigen::MatrixXd& w, std::vector<std::complex<double>>& z, int pow = 1, std::vector<Eigen::Vector2cd> *gradZ = NULL);
 void generatePlaneWave(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, const Eigen::Vector2d& w, Eigen::VectorXd& edgeOmega, std::vector<std::complex<double>>& vertZvals, std::vector<Eigen::Vector2cd>* gradVertZvals = NULL);
+
+void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::VectorXd& edgeOmega, Eigen::VectorXd& vertAmp);
