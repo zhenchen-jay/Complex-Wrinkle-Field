@@ -56,7 +56,7 @@ Mesh secMesh, upSecMesh;
 std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWUpsamplingVList, knoppelWrinkledVList;
 std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWUpsamplingFList, knoppelWrinkledFList;
 std::vector<std::vector<std::complex<double>>> zList, upZList;
-std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
+std::vector<Eigen::VectorXd> omegaList, ampList, refOmegaList, refAmpList, upOmegaList, upPhiList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
@@ -316,16 +316,22 @@ static void updateWrinkles(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, c
 
 static void upsamplingEveryThingForComparison()
 {
-	globalAmpMin = ampList[0].minCoeff();
-	globalAmpMax = ampList[0].maxCoeff();
+	globalAmpMin = std::min(0.0, refAmpList[0].minCoeff());
+	globalAmpMax = refAmpList[0].maxCoeff();
 
-	for (uint32_t i = 1; i < upZList.size(); ++i)
+	for (uint32_t i = 1; i < refAmpList.size(); ++i)
 	{
-		for (int j = 0; j < zList[i].size(); j++)
+		for (int j = 0; j < refAmpList[i].size(); j++)
 		{
-			globalAmpMin = std::min(ampList[i][j], globalAmpMin);
-			globalAmpMax = std::max(ampList[i][j], globalAmpMax);
+			globalAmpMin = std::min(refAmpList[i][j], globalAmpMin);
+			globalAmpMax = std::max(refAmpList[i][j], globalAmpMax);
 		}
+	}
+
+	if(args.method != "TFW" && args.method != "linear" && args.method != "knoppel" && args.method != "zuenko" && args.method != "all")
+	{
+		std::cout << "unknown method: TFW, linear, knoppel, zuenko, or all" << std::endl;
+		exit(EXIT_FAILURE);
 	}
 
 	if (args.method == "linear" || args.method == "all")
@@ -365,15 +371,15 @@ static void upsamplingEveryThingForComparison()
 		updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, args.ampScale, isUseV2);
 	}
 
-	else if (args.method == "knoppel" || args.method == "all")
+	if (args.method == "knoppel" || args.method == "all")
 	{
 		//	KnoppelAlg::getKnoppelPhaseSequence(triV, triMesh, omegaList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpPhiList, upsamplingLevel);
-		KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, omegaList, ampList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, args.ampScale, upsamplingLevel);
+		KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, refOmegaList, refAmpList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, args.ampScale, upsamplingLevel);
 	}
 
-	else if (args.method == "zuenko" || args.method == "all")
+	if (args.method == "zuenko" || args.method == "all")
 	{
-		ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, args.ampScale);
+		ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], refAmpList, refOmegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, args.ampScale);
 
 		std::vector<std::pair<int, Eigen::Vector3d>> bary;
 		Eigen::MatrixXd baseN, upsampledN, upsampledV;
@@ -392,19 +398,15 @@ static void upsamplingEveryThingForComparison()
 			curZvals[i] = std::complex<double>(std::cos(phi), std::sin(phi));
 		}
 
-		ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, ampList[numFrames - 1], omegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, args.ampScale);
+		ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, refAmpList[numFrames - 1], refOmegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, args.ampScale);
 	}
 
-	else if (args.method == "TFW" || args.method == "all")
+	if (args.method == "TFW" || args.method == "all")
 	{
-		TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, NULL, NULL, NULL, NULL, TFWUpAmpList, NULL, TFWUpPhiList, upsamplingLevel, args.ampScale, isUseV2, true);
+		TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), refAmpList, refOmegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, NULL, NULL, NULL, NULL, TFWUpAmpList, NULL, TFWUpPhiList, upsamplingLevel, args.ampScale, isUseV2, true);
 	}
 
-	else
-	{
-		std::cout << "unknown method: TFW, linear, knopple, zuenko, or all" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+
 }
 
 void updateInterfaces(const std::vector<PickedFace>& faces, Eigen::VectorXi& interFaceFlags)
@@ -488,6 +490,7 @@ static bool loadProblem(const std::string inputpath)
 	{
 		if (args.ampScale == 1)
 			args.ampScale = jval["wrinkle_amp_scale"];
+		std::cout << "amp scale: " << args.ampScale << std::endl;
 	}
 
 	isSelectAll = jval["region_global_details"]["select_all"];
@@ -590,19 +593,77 @@ static bool loadProblem(const std::string inputpath)
 			ampList[0](i) = std::abs(zList[0][i]);
 	}
 
+    std::string tarAmpPath = "amp_tar.txt";
+    if (jval.contains(std::string_view{ "tar_amp" }))
+    {
+        tarAmpPath = jval["tar_amp"];
+    }
+    std::string tarOmegaPath = "omega_tar.txt";
+    if (jval.contains(std::string_view{ "tar_omega" }))
+    {
+        tarOmegaPath = jval["tar_omega"];
+    }
+    std::string tarZValsPath = "zvals_tar.txt";
+    if (jval.contains(std::string_view{ "tar_zvals" }))
+    {
+        tarZValsPath = jval["tar_zvals"];
+    }
+
+    bool loadTar = true;
+    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, omegaList[numFrames - 1])) {
+        std::cout << "missing tar edge omega file." << std::endl;
+        loadTar = false;
+    }
+
+    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), zList[numFrames - 1]))
+    {
+        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), ampList[numFrames - 1]))
+        {
+            std::cout << "missing tar amp file: " << std::endl;
+            loadTar = false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, omegaList[numFrames - 1], ampList[numFrames - 1], edgeArea, vertArea, triV.rows(), zList[numFrames - 1]);
+        }
+    }
+    else
+    {
+        ampList[numFrames - 1].setZero(triV.rows());
+        for (int i = 0; i < ampList[numFrames - 1].size(); i++)
+            ampList[numFrames - 1](i) = std::abs(zList[numFrames - 1][i]);
+    }
+
 	// linear interpolation to get the list
 	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-	editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+    if(!loadTar)
+	    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+    else
+        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, true);
 	ampList = editModel->getRefAmpList();
 	omegaList = editModel->getRefWList();
 	zList = editModel->getVertValsList();
+
+	refAmpList = editModel->getRefAmpList();
+	refOmegaList = editModel->getRefWList();
 
 	return true;
 }
 
 static bool saveProblem()
 {
+	if(args.method != "TFW" && args.method != "linear" && args.method != "knoppel" && args.method != "zuenko" && args.method != "all")
+	{
+		std::cout << "unknown method: TFW, linear, knoppel, zuenko, or all" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
 	if (args.method == "linear" || args.method == "all")
 	{
 		// save linear results
@@ -624,7 +685,7 @@ static bool saveProblem()
 			}
 		);
 	}
-	else if (args.method == "knoppel" || args.method == "all")
+	if (args.method == "knoppel" || args.method == "all")
 	{
 		// save Knoppel results
 		std::string knoppelFolder = workingFolder + "/KnoppelRes/";
@@ -637,13 +698,13 @@ static bool saveProblem()
 				for (uint32_t i = range.begin(); i < range.end(); ++i)
 				{
 					savePhi4Render(knoppelUpPhiList[i], knoppelFolder + "KnoppelUpPhi_" + std::to_string(i) + ".cvs");
-					saveAmp4Render(knoppelUpAmpList[i], knoppelFolder + "KnoppelAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+					saveAmp4Render(knoppelUpAmpList[i], knoppelFolder + "KnoppelUpAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
 					igl::writeOBJ(knoppelFolder + "KnoppelWrinkleMesh_" + std::to_string(i) + ".obj", knoppelWrinkledVList[i], knoppelWrinkledFList[i]);
 				}
 			}
 		);
 	}
-	else if (args.method == "zuenko" || args.method == "all")
+	if (args.method == "zuenko" || args.method == "all")
 	{
 		// save zuenko results
 		std::string zuenkoFolder = workingFolder + "/zuenkoRes/";
@@ -670,7 +731,7 @@ static bool saveProblem()
 		igl::writeOBJ(zuenkoFolder + "zuenkoWrinkleMesh_target.obj", zuenkoFinalV, zuenkoFinalF);
 	}
    
-	else if (args.method == "TFW" || args.method == "all")
+	if (args.method == "TFW" || args.method == "all")
 	{
 		// save TFW results
 		std::string TFWFolder = workingFolder + "/TFWRes/";
@@ -695,13 +756,6 @@ static bool saveProblem()
 			}
 		);
 	}
-	else
-	{
-		std::cout << "unknown method: TFW, linear, knopple, zuenko, or all" << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	
-
 	return true;
 }
 

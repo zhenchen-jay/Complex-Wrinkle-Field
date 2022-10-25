@@ -545,7 +545,7 @@ static void updateView(int frameId)
         polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
     }
     else
-        polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->updateVertexPositions(TFWWrinkledVList[frameId]);
+        polyscope::getSurfaceMesh("Knoppel wrinkled mesh")->updateVertexPositions(knoppelWrinkledVList[frameId]);
     n++;
 
     // amp pattern
@@ -769,8 +769,59 @@ static bool loadProblem(std::string *inputpath = NULL)
             ampList[0](i) = std::abs(zList[0][i]);
     }
 
+    std::string tarAmpPath = "amp_tar.txt";
+    if (jval.contains(std::string_view{ "tar_amp" }))
+    {
+        tarAmpPath = jval["tar_amp"];
+    }
+    std::string tarOmegaPath = "omega_tar.txt";
+    if (jval.contains(std::string_view{ "tar_omega" }))
+    {
+        tarOmegaPath = jval["tar_omega"];
+    }
+    std::string tarZValsPath = "zvals_tar.txt";
+    if (jval.contains(std::string_view{ "tar_zvals" }))
+    {
+        tarZValsPath = jval["tar_zvals"];
+    }
+
+    bool loadTar = true;
+    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, omegaList[numFrames - 1])) {
+        std::cout << "missing tar edge omega file." << std::endl;
+        loadTar = false;
+    }
+
+    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), zList[numFrames - 1]))
+    {
+        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), ampList[numFrames - 1]))
+        {
+            std::cout << "missing tar amp file: " << std::endl;
+            loadTar = false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, omegaList[numFrames - 1], ampList[numFrames - 1], edgeArea, vertArea, triV.rows(), zList[numFrames - 1]);
+        }
+    }
+    else
+    {
+        ampList[numFrames - 1].setZero(triV.rows());
+        for (int i = 0; i < ampList[numFrames - 1].size(); i++)
+            ampList[numFrames - 1](i) = std::abs(zList[numFrames - 1][i]);
+    }
+
     // linear interpolation to get the list
     buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+
+    if(!loadTar)
+        editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+    else
+        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, true);
 
     editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
     ampList = editModel->getRefAmpList();

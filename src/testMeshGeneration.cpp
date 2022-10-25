@@ -4,6 +4,7 @@
 #include <igl/readOBJ.h>
 #include <igl/writeOBJ.h>
 #include <igl/triangle/triangulate.h>
+#include "../include/LoadSaveIO.h"
 
 bool mapPlane2Cylinder(Eigen::MatrixXd planeV, Eigen::MatrixXi planeF, Eigen::MatrixXd& cylinderV, Eigen::MatrixXi& cylinderF, Eigen::VectorXi* rest2cylinder)
 {
@@ -641,4 +642,69 @@ void generatePlaneWave(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF,
             (*gradVertZvals)[i] << I * tmpZ * w(0), I * tmpZ * w(1);
         }
     }
+}
+
+
+void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::VectorXd& edgeOmega, Eigen::VectorXd& vertAmp)
+{
+    std::vector<Eigen::RowVector3d> vList;
+    std::vector<Eigen::RowVector3d> vertOmegaList;
+    std::vector<Eigen::RowVector3i> fList;
+
+    double deltam = 2 * M_PI / m;
+    double deltan = 2 * M_PI / n;
+
+    for(int i = 0; i < m; i++)
+    {
+        double u = deltam * i;
+        for(int j = 0; j < n; j++)
+        {
+            double v = deltan * j;
+            Eigen::RowVector3d pos, dpos;
+            pos << (R + r * std::cos(u)) * std::cos(v), (R + r * std::cos(u)) * std::sin(v), r * std::sin(u);
+//            dpos << -r * std::sin(u) * std::cos(v), -r * std::sin(u) * std::sin(v), r * std::cos(u);
+//            dpos << -(R + r * std::cos(u)) * std::sin(v), (R + r * std::cos(u)) * std::cos(v), 0;
+            dpos << r * std::sin(v), -r * std::cos(v), 0;
+            vertOmegaList.emplace_back(2 * freq * M_PI * dpos);
+            vList.push_back(pos);
+        }
+    }
+
+    auto getId = [&](int i, int j)
+    {
+        return (j % n) * n + i % m;
+    };
+
+    for(int i = 0; i < m; i++)
+        for(int j = 0; j < n; j++)
+        {
+            int id0 = getId(i, j);
+            int id1 = getId(i + 1, j);
+            int id2 = getId(i, j + 1);
+            int id3 = getId(i + 1, j + 1);
+
+            Eigen::RowVector3i f0, f1;
+            f0 << id3, id2, id0;
+            f1 << id0, id1, id3;
+            fList.push_back(f0);
+            fList.push_back(f1);
+        }
+
+    V.resize(vList.size(), 3);
+    F.resize(fList.size(), 3);
+
+    for(int i = 0; i < vList.size(); i++)
+        V.row(i) = vList[i];
+    for(int j = 0; j < fList.size(); j++)
+        F.row(j) = fList[j];
+
+    Eigen::MatrixXd vertOmega(vertOmegaList.size(), 3);
+    for(int i = 0; i < vertOmegaList.size(); i++)
+        vertOmega.row(i) = vertOmegaList[i];
+
+    MeshConnectivity mesh(F);
+    edgeOmega = vertexVec2IntrinsicVec(vertOmega, V, mesh);
+    vertAmp.setOnes(V.rows());
+
+
 }

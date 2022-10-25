@@ -21,6 +21,8 @@
 #include <filesystem>
 #include <utility>
 
+#include "../../include/testMeshGeneration.h"
+
 #include "../../include/CommonTools.h"
 #include "../../include/MeshLib/MeshUpsampling.h"
 #include "../../include/Visualization/PaintGeometry.h"
@@ -135,6 +137,11 @@ Mesh secMesh, subSecMesh;
 Eigen::VectorXd initAmp;
 Eigen::VectorXd initOmega;
 std::vector<std::complex<double>> initZvals;
+
+// target information
+Eigen::VectorXd tarAmp;
+Eigen::VectorXd tarOmega;
+std::vector<std::complex<double>> tarZvals;
 
 // base mesh information list
 std::vector<Eigen::VectorXd> omegaList;
@@ -802,7 +809,10 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, c
     std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-	editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+	if(tarZvals.empty())
+        editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+    else
+        editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
@@ -836,7 +846,10 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	if (isForceReinitilaize)
 	{
 		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-		editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+        if(tarZvals.empty())
+            editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
+        else
+            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 	}
@@ -1126,6 +1139,54 @@ bool loadProblem()
 			initAmp(i) = std::abs(initZvals[i]);
 	}
 
+    std::string tarAmpPath = "amp_tar.txt";
+    if (jval.contains(std::string_view{ "tar_amp" }))
+    {
+        tarAmpPath = jval["tar_amp"];
+    }
+    std::string tarOmegaPath = "omega_tar.txt";
+    if (jval.contains(std::string_view{ "tar_omega" }))
+    {
+        tarOmegaPath = jval["tar_omega"];
+    }
+    std::string tarZValsPath = "zvals_tar.txt";
+    if (jval.contains(std::string_view{ "tar_zvals" }))
+    {
+        tarZValsPath = jval["tar_zvals"];
+    }
+    bool loadTar = true;
+    tarOmega.resize(0);
+    tarZvals = {};
+
+    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega)) {
+        std::cout << "missing tar edge omega file." << std::endl;
+        loadTar = false;
+    }
+
+    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
+    {
+        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
+        {
+            std::cout << "missing tar amp file: " << std::endl;
+            loadTar = false;
+        }
+
+        else
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triV, triMesh);
+            vertArea = getVertArea(triV, triMesh);
+            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, triV.rows(), tarZvals);
+        }
+    }
+    else
+    {
+        tarAmp.setZero(triV.rows());
+        for (int i = 0; i < tarZvals.size(); i++)
+            tarAmp(i) = std::abs(tarZvals[i]);
+    }
+
 
 	std::string refAmp = jval["reference"]["ref_amp"];
 	std::string refOmega = jval["reference"]["ref_omega"];
@@ -1186,9 +1247,16 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
-		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+        buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+        if(!loadTar)
+        {
+            editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
+        }
+        else
+        {
+            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+        }
 
-		editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
 
@@ -1199,8 +1267,8 @@ bool loadProblem()
 		}
 		
 	}
-	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-	editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+    buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+    editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
 
 	updatePaintingItems();
 
@@ -1735,22 +1803,39 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-	/*igl::readOBJ("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/mesh.obj", testV, testF);
-	MeshConnectivity testMesh(testF);
-	Eigen::VectorXd edgeW;
-	std::vector<std::complex<double>> testz;
-	loadEdgeOmega("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/omega.txt", testMesh.nEdges(), edgeW);
-	loadVertexZvals("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/zvals.txt", testV.rows(), testz);*/
-	/*for (int i = 0; i < testz.size(); i++)
-	{
-		testz[i] *= 0.25;
-	}
-	for (int i = 0; i < edgeW.rows(); i++)
-	{
-		edgeW(i) *= 4.0;
-	}
-	saveEdgeOmega("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/omega_new.txt", edgeW);
-	saveVertexZvals("G:/WrinkleEdition_dataset/edgemodel/50frames_new/didactic/Naive/cylinder_local/zvals_new.txt", testz);*/
+    Eigen::MatrixXd tmpV;
+    Eigen::MatrixXi tmpF;
+    Eigen::VectorXd tmpOmega, tmpAmp;
+    generateTorusWaves(1.0, 0.5, 20, 20, 5, tmpV, tmpF, tmpOmega, tmpAmp);
+    igl::writeOBJ("torus.obj", tmpV, tmpF);
+    saveEdgeOmega("omega_tar.txt", tmpOmega);
+    tmpAmp *= 0.1;
+    saveVertexAmp("amp_tar.txt", tmpAmp);
+
+    Eigen::VectorXd tmpWeights, tmpArea;
+    std::vector<std::complex<double>> tmpZvals;
+    MeshConnectivity tmpMesh(tmpF);
+
+    Eigen::MatrixXd cotMatrixEntries;
+
+    igl::cotmatrix_entries(tmpV, tmpMesh.faces(), cotMatrixEntries);
+    tmpWeights.setZero(tmpMesh.nEdges());
+
+    for (int i = 0; i < tmpMesh.nFaces(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            int eid = tmpMesh.faceEdge(i, j);
+            int vid = tmpMesh.faceVertex(i, j);
+            tmpWeights(eid) += cotMatrixEntries(i, j);
+        }
+    }
+
+//    tmpWeights = getEdgeArea(tmpV, tmpMesh);
+    tmpArea = getVertArea(tmpV, tmpMesh);
+
+    IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
+    saveVertexZvals("zvals_tar.txt", tmpZvals);
 
 	if (!loadProblem())
 	{
