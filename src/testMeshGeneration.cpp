@@ -645,7 +645,7 @@ void generatePlaneWave(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF,
 }
 
 
-void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::VectorXd& edgeOmega, Eigen::VectorXd& vertAmp)
+void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::VectorXd& edgeOmega, Eigen::VectorXd& vertAmp, bool axis)
 {
     std::vector<Eigen::RowVector3d> vList;
     std::vector<Eigen::RowVector3d> vertOmegaList;
@@ -662,10 +662,12 @@ void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::Matri
             double v = deltan * j;
             Eigen::RowVector3d pos, dpos;
             pos << (R + r * std::cos(u)) * std::cos(v), (R + r * std::cos(u)) * std::sin(v), r * std::sin(u);
-//            dpos << -r * std::sin(u) * std::cos(v), -r * std::sin(u) * std::sin(v), r * std::cos(u);
+            if(axis)
+                dpos << -r * std::sin(u) * std::cos(v), -r * std::sin(u) * std::sin(v), r * std::cos(u);
+            else
 //            dpos << -(R + r * std::cos(u)) * std::sin(v), (R + r * std::cos(u)) * std::cos(v), 0;
-            dpos << r * std::sin(v), -r * std::cos(v), 0;
-            vertOmegaList.emplace_back(2 * freq * M_PI * dpos);
+               dpos << r * std::sin(v), -r * std::cos(v), 0;
+            vertOmegaList.emplace_back(freq * dpos);
             vList.push_back(pos);
         }
     }

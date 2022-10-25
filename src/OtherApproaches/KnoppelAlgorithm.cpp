@@ -76,7 +76,7 @@ namespace KnoppelAlg
             Eigen::VectorXd& upsampledPhi)
     {
         std::vector<std::complex<double>> zvals;
-        IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(baseMesh, omega, amp, edgeWeight, vertArea, baseV.rows(), zvals);
+        IntrinsicFormula::roundZvalsFromEdgeOmega(baseMesh, omega, edgeWeight, vertArea, baseV.rows(), zvals);
         IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(baseMesh, omega, zvals, bary, upsampledPhi);
 
         int nupverts = bary.size();
@@ -107,6 +107,7 @@ namespace KnoppelAlg
     {
         Eigen::VectorXd vertArea = getVertArea(baseV, baseMesh);
         Eigen::VectorXd faceArea = getFaceArea(baseV, baseMesh);
+        vertArea.setConstant(1.0);
 
 
         Eigen::VectorXd edgeWeight(baseMesh.nEdges());

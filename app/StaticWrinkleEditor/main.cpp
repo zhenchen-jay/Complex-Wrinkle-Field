@@ -1803,39 +1803,49 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-    Eigen::MatrixXd tmpV;
-    Eigen::MatrixXi tmpF;
-    Eigen::VectorXd tmpOmega, tmpAmp;
-    generateTorusWaves(1.0, 0.5, 20, 20, 5, tmpV, tmpF, tmpOmega, tmpAmp);
-    igl::writeOBJ("torus.obj", tmpV, tmpF);
-    saveEdgeOmega("omega_tar.txt", tmpOmega);
-    tmpAmp *= 0.1;
-    saveVertexAmp("amp_tar.txt", tmpAmp);
-
-    Eigen::VectorXd tmpWeights, tmpArea;
-    std::vector<std::complex<double>> tmpZvals;
-    MeshConnectivity tmpMesh(tmpF);
-
-    Eigen::MatrixXd cotMatrixEntries;
-
-    igl::cotmatrix_entries(tmpV, tmpMesh.faces(), cotMatrixEntries);
-    tmpWeights.setZero(tmpMesh.nEdges());
-
-    for (int i = 0; i < tmpMesh.nFaces(); i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            int eid = tmpMesh.faceEdge(i, j);
-            int vid = tmpMesh.faceVertex(i, j);
-            tmpWeights(eid) += cotMatrixEntries(i, j);
-        }
-    }
-
-//    tmpWeights = getEdgeArea(tmpV, tmpMesh);
-    tmpArea = getVertArea(tmpV, tmpMesh);
-
-    IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
-    saveVertexZvals("zvals_tar.txt", tmpZvals);
+//    Eigen::MatrixXd tmpV;
+//    Eigen::MatrixXi tmpF;
+//    Eigen::VectorXd tmpOmega, tmpAmp;
+//	igl::writeOBJ("torus.obj", tmpV, tmpF);
+//    generateTorusWaves(1.0, 0.5, 20, 20, 40, tmpV, tmpF, tmpOmega, tmpAmp, true);
+//    saveEdgeOmega("omega.txt", tmpOmega);
+//    tmpAmp *= 0.1;
+//    saveVertexAmp("amp.txt", tmpAmp);
+//
+//    Eigen::VectorXd tmpWeights, tmpArea;
+//    std::vector<std::complex<double>> tmpZvals;
+//    MeshConnectivity tmpMesh(tmpF);
+//
+//    Eigen::MatrixXd cotMatrixEntries;
+//
+//    igl::cotmatrix_entries(tmpV, tmpMesh.faces(), cotMatrixEntries);
+//    tmpWeights.setZero(tmpMesh.nEdges());
+//
+//    for (int i = 0; i < tmpMesh.nFaces(); i++)
+//    {
+//        for (int j = 0; j < 3; j++)
+//        {
+//            int eid = tmpMesh.faceEdge(i, j);
+//            int vid = tmpMesh.faceVertex(i, j);
+//            tmpWeights(eid) += cotMatrixEntries(i, j);
+//        }
+//    }
+//
+////    tmpWeights = getEdgeArea(tmpV, tmpMesh);
+//    tmpArea = getVertArea(tmpV, tmpMesh);
+//	tmpArea.setConstant(1.0);
+//	//tmpWeights.setConstant(1.0);
+//
+//    IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
+//    saveVertexZvals("zvals.txt", tmpZvals);
+//
+//	generateTorusWaves(1.0, 0.5, 20, 20, 40, tmpV, tmpF, tmpOmega, tmpAmp, false);
+//	saveEdgeOmega("omega_tar.txt", tmpOmega);
+//	tmpAmp *= 0.1;
+//	saveVertexAmp("amp_tar.txt", tmpAmp);
+//
+//	IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
+//	saveVertexZvals("zvals_tar.txt", tmpZvals);
 
 	if (!loadProblem())
 	{
