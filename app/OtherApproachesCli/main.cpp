@@ -643,15 +643,16 @@ static bool loadProblem(const std::string inputpath)
 	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
     if(!loadTar)
-	    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+	    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1, 5, false);
     else
-        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, true);
-	ampList = editModel->getRefAmpList();
-	omegaList = editModel->getRefWList();
-	zList = editModel->getVertValsList();
+        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, false);
 
-	refAmpList = editModel->getRefAmpList();
-	refOmegaList = editModel->getRefWList();
+	zList = editModel->getVertValsList();
+	omegaList = editModel->getRefWList();
+	ampList = editModel->getRefAmpList();
+
+	refAmpList = ampList;
+	refOmegaList = omegaList;
 
 	return true;
 }
