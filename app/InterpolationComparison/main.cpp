@@ -56,6 +56,7 @@ std::vector<Eigen::VectorXd> sideVertexLinearPhiList;
 std::vector<Eigen::VectorXd> ClouhTorcherPhiList;
 std::vector<Eigen::VectorXd> sideVertexWojtanPhiList;
 std::vector<Eigen::VectorXd> knoppelPhiList;
+std::vector<Eigen::VectorXd> ZuenkoPhiList;
 
 int upsamplingLevel = 2;
 float wrinkleAmpScalingRatio = 1;
@@ -169,6 +170,53 @@ static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Matri
 	tbb::parallel_for(rangex, frameUpsampling);
 }
 
+static void getZuenkoUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, std::vector<Eigen::VectorXd>& upPhiList, int upLevel)
+{
+	int nframes = edgeOmegaList.size();
+	Eigen::SparseMatrix<double> mat;
+	std::vector<int> facemap;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+
+
+	meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
+	upPhiList.resize(nframes);
+
+	MeshConnectivity mesh(F);
+
+	auto frameUpsampling = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t n = range.begin(); n < range.end(); ++n)
+		{
+			int nupverts = upV.rows();
+			upPhiList[n].resize(nupverts);
+
+			for (uint32_t i = 0; i < nupverts; ++i)
+			{
+				int fid = bary[i].first;
+				std::vector<std::complex<double>> vertzvals(3);
+				Eigen::Vector3d edgews;
+				for (int j = 0; j < 3; j++)
+				{
+					int vid = mesh.faceVertex(fid, j);
+					int eid = mesh.faceEdge(fid, j);
+
+					vertzvals[j] = zvalsList[n][vid];
+					edgews(j) = edgeOmegaList[n](eid); // defined as mesh.edgeVertex(eid, 1) - mesh.edgeVertex(eid, 0)
+
+					if (mesh.edgeVertex(eid, 1) == mesh.faceVertex(fid, (j + 1) % 3))
+						edgews(j) *= -1;
+				}
+
+				std::complex<double> zval = IntrinsicFormula::getZvalsFromEdgeOmega(bary[i].second, vertzvals, edgews);
+				upPhiList[n][i] = std::arg(zval);
+			}
+		}
+	};
+
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
+	tbb::parallel_for(rangex, frameUpsampling);
+}
+
 static void getOursUpsamplingRes(const Mesh& secMesh, const std::vector<Eigen::VectorXd>& edgeOmegaList, const std::vector<std::vector<std::complex<double>>>& zvalsList, Mesh& upMesh, std::vector<Eigen::VectorXd>& upEdgeOmegaList, std::vector<std::vector<std::complex<double>>>& upZvalsList, int upLevel)
 {
 	int nframes = edgeOmegaList.size();
@@ -227,6 +275,7 @@ static void upsamplingEveryThingForComparison()
 	getKnoppelUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, knoppelPhiList, upsamplingLevel);
 	getSideVertexUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, sideVertexLinearPhiList, sideVertexWojtanPhiList, upsamplingLevel);
 	getClouhTorcherUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, ClouhTorcherPhiList, upsamplingLevel);
+	getZuenkoUpsamplingPhi(triV, triF, omegaList, zList, upsampledTriV, upsampledTriF, ZuenkoPhiList, upsamplingLevel);
 
 	upPhiList.resize(upZList.size());
 	upAmpList.resize(upZList.size());
@@ -337,12 +386,12 @@ static void updateView(int frameId)
 	n++;
 
 	// knoppel pahse pattern
-	/*polyscope::registerSurfaceMesh("knoppel phase mesh", upsampledTriV, upsampledTriF);
+	polyscope::registerSurfaceMesh("knoppel phase mesh", upsampledTriV, upsampledTriF);
 	polyscope::getSurfaceMesh("knoppel phase mesh")->translate({ n * shiftx, 0, 0 });
 	phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
 	auto knoppelPhasePatterns = polyscope::getSurfaceMesh("knoppel phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	knoppelPhasePatterns->setEnabled(true);
-	n++;*/
+	n++;
 
 
 	// linear side vertex pahse pattern
@@ -381,6 +430,18 @@ static void updateView(int frameId)
 	phaseColor = mPaint.paintPhi(sideVertexWojtanPhiList[frameId]);
 	auto wojtanPhasePatterns = polyscope::getSurfaceMesh("Wojtan-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	wojtanPhasePatterns->setEnabled(true);
+	n++;
+
+	// zuenko
+	if (isFirstVis)
+	{
+		auto zuenkoSurf = polyscope::registerSurfaceMesh("zuenko phase mesh", upsampledTriV, upsampledTriF);
+		zuenkoSurf->setSmoothShade(true);
+		polyscope::getSurfaceMesh("zuenko phase mesh")->translate({ n * shiftx, 0, 0 });
+	}
+	phaseColor = mPaint.paintPhi(ZuenkoPhiList[frameId]);
+	auto zuenkoPhasePatterns = polyscope::getSurfaceMesh("zuenko phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	zuenkoPhasePatterns->setEnabled(true);
 	n++;
 
 	isFirstVis = false;
