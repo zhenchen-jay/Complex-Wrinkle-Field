@@ -59,7 +59,7 @@ Mesh secMesh, upSecMesh;
 std::vector<Eigen::MatrixXd> wrinkledVList, TFWWrinkledVList, ZuenkoWrinkledVList, TFWPhiVList, TFWProbVList, TFWUpsamplingVList, knoppelWrinkledVList;
 std::vector<Eigen::MatrixXi> TFWWrinkledFList, ZuenkoWrinkledFList, TFWPhiFList, TFWProbFList, TFWUpsamplingFList, knoppelWrinkledFList;
 std::vector<std::vector<std::complex<double>>> zList, upZList;
-std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
+std::vector<Eigen::VectorXd> refOmegaList, refAmpList, omegaList, ampList, upOmegaList, upPhiList, TFWUpPhiSoupList, TFWUpPhiList, ZuenkoUpPhiList, knoppelUpPhiList, upAmpList, TFWUpAmpList, ZuenkoUpAmpList, knoppelUpAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 Eigen::VectorXd zuenkoFinalAmp, zuenkoFinalPhi;
 
@@ -74,6 +74,10 @@ double globalAmpMin = 0;
 double globalAmpMax = 1;
 float vecratio = 0.01;
 bool isUseV2 = false;
+bool isShowLinear = true;
+bool isShowKnoppel = true;
+bool isShowZuenko = true;
+bool isShowTFW = true;
 
 PaintGeometry mPaint;
 
@@ -361,12 +365,12 @@ static void upsamplingEveryThingForComparison()
 	updateWrinkles(loopTriV, loopTriF, upZList, wrinkledVList, wrinkleAmpScalingRatio, isUseV2);
 
 //	KnoppelAlg::getKnoppelPhaseSequence(triV, triMesh, omegaList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpPhiList, upsamplingLevel);
-    KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, omegaList, ampList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, wrinkleAmpScalingRatio, upsamplingLevel);
+    KnoppelAlg::getKnoppelWrinkledMeshSequence(triV, triMesh, refOmegaList, refAmpList, upsampledKnoppelTriV, upsampledKnoppelTriF, knoppelUpAmpList, knoppelUpPhiList, knoppelWrinkledVList, knoppelWrinkledFList, wrinkleAmpScalingRatio, upsamplingLevel);
     
 
-	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], ampList, omegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
+	ZuenkoAlg::getZuenkoSurfaceSequence(triV, triMesh, zList[0], refAmpList, refOmegaList, upsampledZuenkoTriV, upsampledZuenkoTriF, ZuenkoWrinkledVList, ZuenkoWrinkledFList, ZuenkoUpAmpList, ZuenkoUpPhiList, upsamplingLevel, true, wrinkleAmpScalingRatio);
 
-	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), ampList, omegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, &TFWPhiVList, &TFWPhiFList, &TFWProbVList, &TFWProbFList, TFWUpAmpList, &TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
+	TFWAlg::getTFWSurfaceSequence(triV, triMesh.faces(), refAmpList, refOmegaList, TFWWrinkledVList, TFWWrinkledFList, TFWUpsamplingVList, TFWUpsamplingFList, &TFWPhiVList, &TFWPhiFList, &TFWProbVList, &TFWProbFList, TFWUpAmpList, &TFWUpPhiSoupList, TFWUpPhiList, upsamplingLevel, wrinkleAmpScalingRatio, isUseV2, true);
 
 
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
@@ -386,7 +390,7 @@ static void upsamplingEveryThingForComparison()
 		curZvals[i] = std::complex<double>(std::cos(phi), std::sin(phi));
 	}
 	
-	ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, ampList[numFrames - 1], omegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, wrinkleAmpScalingRatio);
+	ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, refAmpList[numFrames - 1], refOmegaList[numFrames - 1], upsampledV, upsampledF, upsampledN, bary, zuenkoFinalV, zuenkoFinalF, zuenkoFinalAmp, zuenkoFinalPhi, wrinkleAmpScalingRatio);
 }
 
 bool isFirstVis = true;
@@ -409,26 +413,26 @@ static void updateView(int frameId)
     n++;
 
 
-	////////////////////////////////////// our stuffs ///////////////////////////////////////////////
+	////////////////////////////////////// linear stuffs ///////////////////////////////////////////////
 	// wrinkled mesh
 	if (isFirstVis)
 	{
 		// wrinkle mesh
-		polyscope::registerSurfaceMesh("our wrinkled mesh", wrinkledVList[frameId], loopTriF);
-		polyscope::getSurfaceMesh("our wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("our wrinkled mesh")->translate({ n * shiftx, 0, 0 });
+		polyscope::registerSurfaceMesh("linear wrinkled mesh", wrinkledVList[frameId], loopTriF);
+		polyscope::getSurfaceMesh("linear wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
+		polyscope::getSurfaceMesh("linear wrinkled mesh")->translate({ n * shiftx, 0, 0 });
 	}
 	else
-		polyscope::getSurfaceMesh("our wrinkled mesh")->updateVertexPositions(wrinkledVList[frameId]);
+		polyscope::getSurfaceMesh("linear wrinkled mesh")->updateVertexPositions(wrinkledVList[frameId]);
 	n++;
 
 	// amp pattern
 	if (isFirstVis)
 	{
-		polyscope::registerSurfaceMesh("our upsampled ampliude mesh", loopTriV, loopTriF);
-		polyscope::getSurfaceMesh("our upsampled ampliude mesh")->translate({ n * shiftx, 0, 0 });
+		polyscope::registerSurfaceMesh("linear upsampled ampliude mesh", loopTriV, loopTriF);
+		polyscope::getSurfaceMesh("linear upsampled ampliude mesh")->translate({ n * shiftx, 0, 0 });
 	}
-	auto ampPatterns = polyscope::getSurfaceMesh("our upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmpList[frameId]);
+	auto ampPatterns = polyscope::getSurfaceMesh("linear upsampled ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmpList[frameId]);
 	ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	ampPatterns->setEnabled(true);
 	n++;
@@ -438,12 +442,12 @@ static void updateView(int frameId)
 	mPaint.setNormalization(false);
 	if (isFirstVis)
 	{
-		polyscope::registerSurfaceMesh("our upsampled phase mesh", loopTriV, loopTriF);
-		polyscope::getSurfaceMesh("our upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
+		polyscope::registerSurfaceMesh("linear upsampled phase mesh", loopTriV, loopTriF);
+		polyscope::getSurfaceMesh("linear upsampled phase mesh")->translate({ n * shiftx, 0, 0 });
 	}
 		
 	Eigen::MatrixXd phaseColor = mPaint.paintPhi(upPhiList[frameId]);
-	auto ourPhasePatterns = polyscope::getSurfaceMesh("our upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	auto ourPhasePatterns = polyscope::getSurfaceMesh("linear upsampled phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	ourPhasePatterns->setEnabled(true);
 	n++;
 
@@ -818,15 +822,17 @@ static bool loadProblem(std::string *inputpath = NULL)
     // linear interpolation to get the list
     buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-    if(!loadTar)
-        editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
+    if (!loadTar)
+        editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1, 5, false);
     else
-        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, true);
+        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, false);
 
-    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1);
-    ampList = editModel->getRefAmpList();
-    omegaList = editModel->getRefWList();
     zList = editModel->getVertValsList();
+    omegaList = editModel->getRefWList();
+    ampList = editModel->getRefAmpList();
+
+    refAmpList = ampList;
+    refOmegaList = omegaList;
 
     curFrame = 0;
 	isFirstVis = true;

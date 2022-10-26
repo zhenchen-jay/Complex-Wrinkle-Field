@@ -1267,8 +1267,12 @@ bool loadProblem()
 		}
 		
 	}
-    buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-    editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+	else
+	{
+		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+	}
+   
 
 	updatePaintingItems();
 

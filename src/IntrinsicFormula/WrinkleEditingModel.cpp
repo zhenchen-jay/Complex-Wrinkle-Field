@@ -461,7 +461,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	}
 
 	ampFieldLERP(initAmp, tarAmp, _combinedRefAmpList, numFrames);
-	// vecFieldLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames);          // you can also do lerp for omega
+	//vecFieldLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames);          // you can also do lerp for omega
    	vecFieldSLERP(initOmega, tarOmega, _combinedRefOmegaList, numFrames); // you can also do slerp for omega
 
     _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
@@ -477,7 +477,6 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
         vecFieldSLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
     }
-
 
     _zvalsList.resize(numFrames + 2);
 
@@ -523,7 +522,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 }
 
-void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau, int zuenkoInner)
+void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, double numFrames, InitializationType initType, double zuenkoTau, int zuenkoInner, bool applyAdj)
 {
 	Eigen::VectorXd initAmp;
 	initAmp.setZero(_pos.rows());
@@ -681,21 +680,31 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
             }
         }
 
-        Eigen::VectorXd deltaOmega0 = initOmega, deltaOmega1 = _combinedRefOmegaList[numFrames + 1];
-        adjustOmegaForConsistency(initZvals, initAmp, deltaOmega0);
-        deltaOmega0 = deltaOmega0 - initOmega;
+		_edgeOmegaList = _combinedRefOmegaList;
+		if (applyAdj)
+		{
+			Eigen::VectorXd deltaOmega0 = initOmega, deltaOmega1 = _combinedRefOmegaList[numFrames + 1];
+			adjustOmegaForConsistency(initZvals, initAmp, deltaOmega0);
+			deltaOmega0 = deltaOmega0 - initOmega;
 
-        adjustOmegaForConsistency(tarZvals, _combinedRefAmpList[numFrames + 1], deltaOmega1);
-        deltaOmega1 = deltaOmega1 - _combinedRefOmegaList[numFrames + 1];
+			adjustOmegaForConsistency(tarZvals, _combinedRefAmpList[numFrames + 1], deltaOmega1);
+			deltaOmega1 = deltaOmega1 - _combinedRefOmegaList[numFrames + 1];
 
-        vecFieldSLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
+			vecFieldSLERP(deltaOmega0, deltaOmega1, _deltaOmegaList, numFrames);
 
-        _edgeOmegaList = _combinedRefOmegaList;
-
-        for(int i = 0; i < _edgeOmegaList.size(); i++)
-        {
-            _edgeOmegaList[i] += _deltaOmegaList[i];
-        }
+			for (int i = 0; i < _edgeOmegaList.size(); i++)
+			{
+				_edgeOmegaList[i] += _deltaOmegaList[i];
+			}
+		}
+		else
+		{
+			_deltaOmegaList = _combinedRefOmegaList;
+			for (int i = 0; i < _edgeOmegaList.size(); i++)
+			{
+				_deltaOmegaList[i].setZero();
+			}
+		}
 
 	}
     else
@@ -745,7 +754,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 	}
 }
 
-void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType)
+void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType, bool applyAdj)
 {
     int numFrames = refAmpList.size() - 2;
     _zvalsList.resize(numFrames + 2);
@@ -800,7 +809,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 }
 
-void WrinkleEditingModel::initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList)
+void WrinkleEditingModel::initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, bool applyAdj)
 {
 	_zvalsList = zList;
 	_edgeOmegaList = omegaList;
