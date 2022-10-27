@@ -125,13 +125,15 @@ Eigen::VectorXi selectedVertices;
 
 int optTimes = 5;
 
-bool isLoadOpt;
+bool isLoadOpt = false;
+bool isLoadTar = false;
 
 int clickedFid = -1;
 int dilationTimes = 10;
 
 bool isUseV2 = false;
 int upsampleTimes = 3;
+
 
 // Default arguments
 struct {
@@ -142,6 +144,7 @@ struct {
 	double fTol = 0;
 	int numIter = 1000;
 	double ampScale = 1;
+	bool reOptimize = false;
 } args;
 
 
@@ -677,13 +680,15 @@ bool loadProblem()
     {
         tarZValsPath = jval["tar_zvals"];
     }
-    bool loadTar = true;
+    
     tarOmega.resize(0);
     tarZvals = {};
 
+	isLoadTar = true;
+
     if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega)) {
         std::cout << "missing tar edge omega file." << std::endl;
-        loadTar = false;
+        isLoadTar = false;
     }
 
     if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
@@ -692,7 +697,7 @@ bool loadProblem()
         if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
         {
             std::cout << "missing tar amp file: " << std::endl;
-            loadTar = false;
+			isLoadTar = false;
         }
 
         else
@@ -772,7 +777,7 @@ bool loadProblem()
 	{
 		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
-        if(!loadTar)
+        if(!isLoadTar)
         {
             editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
         }
@@ -791,8 +796,12 @@ bool loadProblem()
 		}
 
 	}
-	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-	editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+	else
+	{
+		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+	}
+	
 
 	return true;
 }
@@ -823,7 +832,10 @@ bool saveProblem()
 			{"upsampled_times",  upsampleTimes},
 			{"init_omega",        "omega.txt"},
 			{"init_amp",          "amp.txt"},
-			{"init_zvls",         "zvals.txt"},
+			{"init_zvals",        "zvals.txt"},
+			{"tar_omega",         "omega_tar.txt"},
+			{"tar_amp",           "amp_tar.txt"},
+			{"tar_zvals",         "zvals_tar.txt"},
 			{"region_global_details",	  {
 										{"select_all", isSelectAll},
 										{"omega_operation_motion", curOpt},
@@ -872,6 +884,14 @@ bool saveProblem()
 	saveEdgeOmega(workingFolder + "omega.txt", initOmega);
 	saveVertexAmp(workingFolder + "amp.txt", initAmp);
 	saveVertexZvals(workingFolder + "zvals.txt", initZvals);
+
+	if (isLoadTar)
+	{
+		std::cout << "save target" << std::endl;
+		saveEdgeOmega(workingFolder + "omega_tar.txt", tarOmega);
+		saveVertexAmp(workingFolder + "amp_tar.txt", tarAmp);
+		saveVertexZvals(workingFolder + "zvals_tar.txt", tarZvals);
+	}
 
 	igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
 
@@ -992,6 +1012,7 @@ int main(int argc, char** argv)
 	app.add_option("-f,--fTol", args.fTol, "The functio value update tolerance for optimization.");
 	app.add_option("-n,--numIter", args.numIter, "The number of iteration for optimization.");
 	app.add_option("-a,--ampScaling", args.ampScale, "The amplitude scaling for wrinkled surface upsampling.");
+	app.add_option("-r,--reoptimizae", args.reOptimize, "The amplitude scaling for wrinkled surface upsampling.");
 
 	try {
 		app.parse(argc, argv);
@@ -1007,9 +1028,13 @@ int main(int argc, char** argv)
 	}
 
 	updateEditionDomain();
-	// solve for the path from source to target
-	solveKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList);
+	if (args.reOptimize)
+	{
+		// solve for the path from source to target
+		solveKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList);
+	}
 	updateEverythingForSaving();
+	
 	saveProblem();
 	saveForRender();
 
