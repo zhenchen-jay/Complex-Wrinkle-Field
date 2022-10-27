@@ -531,6 +531,79 @@ void callback() {
 		updateFieldsInView();
 	}
 
+    if (ImGui::Button("Loop continuous check", ImVec2(-1, 0)))
+    {
+        std::shared_ptr<ComplexLoop> opt1, opt2;
+        opt1 = std::make_shared<ComplexLoopZuenko>();
+        opt2 = std::make_shared<ComplexLoopZuenko>();
+
+        opt1->SetMesh(secMesh);
+        opt1->setBndFixFlag(isFixBnd);
+
+        int nverts = secMesh.GetVertCount();
+        int nedges = secMesh.GetEdgeCount();
+
+        std::vector<std::complex<double>> updatedZvals(nverts);
+
+        double updatedZnorm = 0;
+        for(int i = 0; i < nverts; i++)
+        {
+            Eigen::Vector2d rv = Eigen::Vector2d::Random();
+            updatedZvals[i] = std::complex<double>(rv[0], rv[1]);
+            updatedZnorm += rv.norm();
+        }
+
+        Eigen::VectorXd updatedOmega(nedges), upOmega;
+        updatedOmega.setRandom();
+
+        double updateOmegaNorm = updatedOmega.norm();
+        std::vector<std::complex<double>> upZvals;
+
+        Eigen::VectorXd edgeVec = swapEdgeVec(triF, initOmega, 0);
+        opt1->Subdivide(edgeVec, initZvals, upOmega, upZvals, 1);
+
+//        std::cout << "upzvals: " << std::endl;
+//        for(int i = 0; i < upZvals.size(); i++)
+//        {
+//            std::cout << "z_" << i << ": " << upZvals[i] << std::endl;
+//        }
+
+        for(int i = 3; i < 10; i++)
+        {
+            opt2->SetMesh(secMesh);
+            opt2->setBndFixFlag(isFixBnd);
+            
+            std::vector<std::complex<double>> upZvals1;
+            Eigen::VectorXd upOmega1;
+            double eps = std::pow(0.1, i);
+            Eigen::VectorXd newOmega = initOmega + eps * updatedOmega;
+            std::vector<std::complex<double>> newZvals(nverts);
+
+            double diffZNorm = 0;
+            for(int j = 0; j < nverts; j++)
+            {
+                newZvals[j] = initZvals[j] + eps * updatedZvals[j];
+            }
+            Eigen::VectorXd edgeVec1 = swapEdgeVec(triF, newOmega, 0);
+            opt2->Subdivide(edgeVec1, newZvals, upOmega1, upZvals1, 1);
+
+            for(int j = 0; j < upZvals.size(); j++)
+            {
+                diffZNorm += std::abs(upZvals1[j] - upZvals[j]);
+            }
+
+//            std::cout << "updated z: " << std::endl;
+//            for(int j = 0; j < upZvals.size(); j++)
+//            {
+//                std::cout << "z_" << j << ": " << upZvals1[j] << std::endl;
+//            }
+
+            std::cout << "eps: " << eps << ", coarse omega update: " << eps * updateOmegaNorm << ", coarse z update: " << eps * updatedZnorm << std::endl;
+            std::cout << "updated loop omega norm: " << (upOmega1 - upOmega).norm() << ", updated loop zval norm: " << diffZNorm << std::endl;
+        }
+
+    }
+
     if (ImGui::Button("test loop", ImVec2(-1, 0)))
     {
         std::shared_ptr<ComplexLoop> opt1, opt2;

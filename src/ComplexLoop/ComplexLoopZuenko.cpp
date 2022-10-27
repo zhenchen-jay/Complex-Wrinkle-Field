@@ -87,6 +87,42 @@ std::complex<double> ComplexLoopZuenko::computeZandGradZ(const Eigen::VectorXd& 
 	return z;
 }
 
+Eigen::Vector3d ComplexLoopZuenko::computeGradThetaFromOmegaPerface(const Eigen::VectorXd& omega, int fid, int vInF)
+{
+    int vid = _mesh.GetFaceVerts(fid)[vInF];
+    int eid0 = _mesh.GetFaceEdges(fid)[vInF];
+    int eid1 = _mesh.GetFaceEdges(fid)[(vInF + 2) % 3];
+    Eigen::Vector3d r0 = _mesh.GetVertPos(_mesh.GetEdgeVerts(eid0)[1]) - _mesh.GetVertPos(_mesh.GetEdgeVerts(eid0)[0]);
+    Eigen::Vector3d r1 = _mesh.GetVertPos(_mesh.GetEdgeVerts(eid1)[1]) - _mesh.GetVertPos(_mesh.GetEdgeVerts(eid1)[0]);
+
+    Eigen::Matrix2d Iinv, I;
+    I << r0.dot(r0), r0.dot(r1), r1.dot(r0), r1.dot(r1);
+    Iinv = I.inverse();
+
+    Eigen::Vector2d rhs;
+    double w1 = omega(eid0);
+    double w2 = omega(eid1);
+
+    if (vid == _mesh.GetEdgeVerts(eid0)[1])
+        w1 *= -1;
+    if (vid == _mesh.GetEdgeVerts(eid1)[1])
+        w2 *= -1;
+    rhs << w1, w2;
+
+    Eigen::Vector2d u = Iinv * rhs;
+    return u[0] * r0 + u[1] * r1;
+}
+
+Eigen::Vector3d ComplexLoopZuenko::computeBaryGradThetaFromOmegaPerface(const Eigen::VectorXd& omega, int fid, const Eigen::Vector3d& bary)
+{
+    Eigen::Vector3d gradTheta = Eigen::Vector3d::Zero();
+    for(int i = 0; i < 3; i++)
+    {
+        gradTheta += bary[i] * computeGradThetaFromOmegaPerface(omega, fid, i);
+    }
+    return gradTheta;
+}
+
 void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const std::vector<std::complex<double>>& zvals, std::vector<std::complex<double>>& upZvals)
 {
 	int V = _mesh.GetVertCount();
@@ -114,7 +150,6 @@ void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const st
 				for (int j = 0; j < boundary.size(); ++j)
 				{
 					int edge = boundary[j];
-					assert(_mesh.IsEdgeBoundary(edge));
 					int face = _mesh.GetEdgeFaces(edge)[0];
 					int viInface = _mesh.GetVertIndexInFace(face, vi);
 
@@ -127,14 +162,23 @@ void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const st
 					bary(viInface) = 3. / 4;
 					bary(vjInface) = 1. / 4;
 
-					Eigen::Vector3cd gradZ;
-					zp[j] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
+                    pList[j] = 3. / 4 * _mesh.GetVertPos(vi) + 1. / 4 * _mesh.GetVertPos(vj);
+                    // grad from vi
+                    gradthetap[j] = computeBaryGradThetaFromOmegaPerface(omega, face, bary);
+                    zp[j] = computeZandGradZ(omega, zvals, face, bary, NULL);
 
-					pList[j] = 3. / 4 * _mesh.GetVertPos(vi) + 1. / 4 * _mesh.GetVertPos(vj);
-					gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+                    std::cout << gradthetap[j] << std::endl;
 
-					if (std::abs(zp[j]))
-						gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+
+                    // this is really unstable
+//					Eigen::Vector3cd gradZ;
+//					zp[j] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
+//
+//
+//					gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+//
+//					if (std::abs(zp[j]))
+//						gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
 
 				}
 				upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
@@ -173,13 +217,18 @@ void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const st
 				{
 					pList[k] += bary(i) * _mesh.GetVertPos(_mesh.GetFaceVerts(face)[i]);
 				}
-				Eigen::Vector3cd gradZ;
-				zp[k] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
 
-				gradthetap[k] = (std::conj(zp[k]) * gradZ).imag();
+                zp[k] = computeZandGradZ(omega, zvals, face, bary, NULL);
+                gradthetap[k] = computeBaryGradThetaFromOmegaPerface(omega, face, bary);
+                std::cout << gradthetap[k] << std::endl;
 
-				if(std::abs(zp[k]))
-					gradthetap[k] = gradthetap[k] / (std::abs(zp[k]) * std::abs(zp[k]));
+//				Eigen::Vector3cd gradZ;
+//				zp[k] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
+//
+//				gradthetap[k] = (std::conj(zp[k]) * gradZ).imag();
+//
+//				if(std::abs(zp[k]))
+//					gradthetap[k] = gradthetap[k] / (std::abs(zp[k]) * std::abs(zp[k]));
 			}
 			upZvals[vi] = interpZ(zp, gradthetap, coords, pList);
 		}
@@ -196,8 +245,7 @@ void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const st
 			Eigen::Vector3d bary;
 			bary.setConstant(0.5);
 			bary((eindexFace + 2) % 3) = 0;
-
-			Eigen::Vector3cd gradZ;
+            
 			upZvals[row] = computeZandGradZ(omega, zvals, face, bary, NULL);
 		}
 		else
@@ -222,13 +270,19 @@ void ComplexLoopZuenko::updateLoopedZvals(const Eigen::VectorXd& omega, const st
 				{
 					pList[j] += bary(i) * _mesh.GetVertPos(_mesh.GetFaceVerts(face)[i]);
 				}
-				Eigen::Vector3cd gradZ;
-				zp[j] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
 
-				gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+                zp[j] = computeZandGradZ(omega, zvals, face, bary, NULL);
+                gradthetap[j] = computeBaryGradThetaFromOmegaPerface(omega, face, bary);
+                std::cout << gradthetap[j] << std::endl;
 
-				if(std::abs(zp[j]))
-					gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+//				Eigen::Vector3cd gradZ;
+//				zp[j] = computeZandGradZ(omega, zvals, face, bary, &(gradZ));
+//
+//				gradthetap[j] = (std::conj(zp[j]) * gradZ).imag();
+//
+//				if(std::abs(zp[j]))
+//					gradthetap[j] = gradthetap[j] / (std::abs(zp[j]) * std::abs(zp[j]));
+
 			}
 
 			upZvals[row] = interpZ(zp, gradthetap, coords, pList);

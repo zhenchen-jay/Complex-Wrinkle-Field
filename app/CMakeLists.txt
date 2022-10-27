@@ -1,6 +1,7 @@
 add_subdirectory(StaticWrinkleEditor)
 add_subdirectory(UserDesignerApp)
 add_subdirectory(LoopSubdivide)
+add_subdirectory(LoopSubdivideTest)
 add_subdirectory(WrinkleVisualization)
 add_subdirectory(SmoothestVecGen)
 add_subdirectory(DidacticExample)
