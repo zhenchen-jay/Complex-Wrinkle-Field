@@ -15,6 +15,7 @@ imgui.ini
 *.swp
 tags
 *.blend1
+*.polyscope.ini
 
 # Prerequisites
 *.d
