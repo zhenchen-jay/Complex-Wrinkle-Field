@@ -1126,6 +1126,7 @@ bool loadProblem()
 
 		else
 		{
+            initAmp *= 0.1;
 			Eigen::VectorXd edgeArea, vertArea;
 			edgeArea = getEdgeArea(triV, triMesh);
 			vertArea = getVertArea(triV, triMesh);
@@ -1136,7 +1137,11 @@ bool loadProblem()
 	{
 		initAmp.setZero(triV.rows());
 		for (int i = 0; i < initZvals.size(); i++)
-			initAmp(i) = std::abs(initZvals[i]);
+        {
+            initZvals[i] *= 0.1;
+            initAmp(i) = std::abs(initZvals[i]);
+        }
+
 	}
 
     std::string tarAmpPath = "amp_tar.txt";
