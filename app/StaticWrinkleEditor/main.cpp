@@ -207,7 +207,11 @@ std::string workingFolder;
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
 
 // smoothing
+<<<<<<< HEAD
 int smoothingTimes = 0;
+=======
+int smoothingTimes = 3;
+>>>>>>> 09b266fe3cfd03501711780b260b87a4e4c83971
 double smoothingRatio = 0.95;
 
 bool isFixedBnd = false;
@@ -1126,6 +1130,10 @@ bool loadProblem()
 
 		else
 		{
+<<<<<<< HEAD
+=======
+            initAmp *= 0.1;
+>>>>>>> 09b266fe3cfd03501711780b260b87a4e4c83971
 			Eigen::VectorXd edgeArea, vertArea;
 			edgeArea = getEdgeArea(triV, triMesh);
 			vertArea = getVertArea(triV, triMesh);
@@ -1137,6 +1145,10 @@ bool loadProblem()
 		initAmp.setZero(triV.rows());
 		for (int i = 0; i < initZvals.size(); i++)
         {
+<<<<<<< HEAD
+=======
+            initZvals[i] *= 0.1;
+>>>>>>> 09b266fe3cfd03501711780b260b87a4e4c83971
             initAmp(i) = std::abs(initZvals[i]);
         }
 
