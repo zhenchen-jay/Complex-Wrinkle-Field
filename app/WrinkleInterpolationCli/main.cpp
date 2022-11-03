@@ -1002,7 +1002,6 @@ bool saveForRender()
 	return true;
 }
 
-
 int main(int argc, char** argv)
 {
 	CLI::App app("Wrinkle Interpolation");

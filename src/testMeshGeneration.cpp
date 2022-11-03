@@ -663,10 +663,13 @@ void generateTorusWaves(double R, double r, int m, int n, int freq, Eigen::Matri
             Eigen::RowVector3d pos, dpos;
             pos << (R + r * std::cos(u)) * std::cos(v), (R + r * std::cos(u)) * std::sin(v), r * std::sin(u);
             if(axis)
-                dpos << -r * std::sin(u) * std::cos(v), -r * std::sin(u) * std::sin(v), r * std::cos(u);
+                dpos << -1 / r * std::sin(u) * std::cos(v), -1 / r * std::sin(u) * std::sin(v), 1 / r * std::cos(u);
             else
-//            dpos << -(R + r * std::cos(u)) * std::sin(v), (R + r * std::cos(u)) * std::cos(v), 0;
-               dpos << r * std::sin(v), -r * std::cos(v), 0;
+            {
+                dpos << 1 / (R + r * std::cos(u)) * std::sin(v), -1 / (R + r * std::cos(u)) * std::cos(v), 0;
+            }
+
+//                dpos << r * std::sin(v), -r * std::cos(v), 0;
             vertOmegaList.emplace_back(freq * dpos);
             vList.push_back(pos);
         }
