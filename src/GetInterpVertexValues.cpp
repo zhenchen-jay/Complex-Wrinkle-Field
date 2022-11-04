@@ -1,4 +1,4 @@
-#include "../include/GetInterpVertexPhi.h"
+#include "../include/GetInterpVertexValues.h"
 #include "../include/MeshLib/MeshUpsampling.h"
 #include "../include/InterpolationScheme/SideVertexSchemes.h"
 #include "../include/InterpolationScheme/IntrinsicSideVertexSchemes.h"
@@ -218,4 +218,69 @@ void getClouhTocherPhi(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, c
 	meshUpSampling(V, mesh.faces(), upV, upF, upLevel, &mat, &facemap, &bary);
 
 	getClouhTocherPhi(V, mesh, edgeOmega, vertZvals, bary, upPhi);
+}
+
+
+void getSideVertexAmp(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const std::vector<std::complex<double>>& vertZvals, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::VectorXd& upAmp, int interpType)
+{
+	int nUpVerts = bary.size();
+	upAmp.resize(nUpVerts);
+
+	for (int i = 0; i < nUpVerts; i++)
+	{
+		int fid = bary[i].first;
+		Eigen::Vector3d bcoord = bary[i].second;
+		std::vector<Eigen::Vector3d> tri;
+		tri.push_back(V.row(mesh.faceVertex(fid, 0)));
+		tri.push_back(V.row(mesh.faceVertex(fid, 1)));
+		tri.push_back(V.row(mesh.faceVertex(fid, 2)));
+
+		std::vector<double> triEdge1Form(3) = {0, 0, 0};
+		std::vector<double> vertVals(3);
+		for (int j = 0; j < 3; j++)
+		{
+			int eid = mesh.faceEdge(fid, j);
+			vertVals[j] = std::abs(vertZvals[mesh.faceVertex(fid, j)]);
+		}
+
+
+		if (interpType == 0)
+		{
+			upAmp[i] = intrinsicLinearSideVertexInterpolation<double>(vertVals, bcoord);
+		}
+		else if (interpType == 1)
+		{
+			upAmp[i] = intrinsicCubicSideVertexInterpolation<double>(vertVals, triEdge1Form, tri, bcoord);
+		}
+		else
+		{
+			upAmp[i] = intrinsicWojtanSideVertexInterpolation<double>(vertVals, triEdge1Form, tri, bcoord);
+		}
+	}
+}
+
+void getClouhTocherAmp(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const std::vector<std::complex<double>>& vertZvals, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::VectorXd& upAmp)
+{
+	int nUpVerts = bary.size();
+	upPhi.resize(nUpVerts);
+
+	for (int i = 0; i < nUpVerts; i++)
+	{
+		int fid = bary[i].first;
+		Eigen::Vector3d bcoord = bary[i].second;
+		std::vector<Eigen::Vector3d> tri;
+		tri.push_back(V.row(mesh.faceVertex(fid, 0)));
+		tri.push_back(V.row(mesh.faceVertex(fid, 1)));
+		tri.push_back(V.row(mesh.faceVertex(fid, 2)));
+
+		std::vector<double> triEdge1Form = {0, 0, 0};
+		std::vector<double> vertVals(3);
+		for (int j = 0; j < 3; j++)
+		{
+			vertVals[j] = std::abs(vertZvals[mesh.faceVertex(fid, j)]);
+		}
+
+
+		upAmp[i] = intrinsicClouthTocherInterpolation<double>(vertVals, triEdge1Form, tri, bcoord);
+	}
 }
