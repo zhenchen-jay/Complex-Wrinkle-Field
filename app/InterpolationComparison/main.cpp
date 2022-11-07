@@ -40,7 +40,7 @@
 
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
-#include "../../include/GetInterpVertexPhi.h"
+#include "../../include/GetInterpVertexValues.h"
 
 Eigen::MatrixXd triV, upsampledTriV, loopTriV;
 Eigen::MatrixXi triF, upsampledTriF, loopTriF;
@@ -52,11 +52,11 @@ std::vector<std::vector<std::complex<double>>> zList, upZList;
 std::vector<Eigen::VectorXd> omegaList, ampList, upOmegaList, upPhiList, upAmpList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 
-std::vector<Eigen::VectorXd> sideVertexLinearPhiList;
-std::vector<Eigen::VectorXd> ClouhTorcherPhiList;
-std::vector<Eigen::VectorXd> sideVertexWojtanPhiList;
+std::vector<Eigen::VectorXd> sideVertexLinearPhiList, sideVertexLinearAmoList;
+std::vector<Eigen::VectorXd> ClouhTorcherPhiList, ClouhTorcherAmpList;
+std::vector<Eigen::VectorXd> sideVertexWojtanPhiList, sideVertexWojtanAmpList;
 std::vector<Eigen::VectorXd> knoppelPhiList;
-std::vector<Eigen::VectorXd> ZuenkoPhiList;
+std::vector<Eigen::VectorXd> ZuenkoPhiList, ZuenkoAmpList;
 
 int upsamplingLevel = 2;
 float wrinkleAmpScalingRatio = 1;

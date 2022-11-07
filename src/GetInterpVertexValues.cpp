@@ -235,7 +235,7 @@ void getSideVertexAmp(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, co
 		tri.push_back(V.row(mesh.faceVertex(fid, 1)));
 		tri.push_back(V.row(mesh.faceVertex(fid, 2)));
 
-		std::vector<double> triEdge1Form(3) = {0, 0, 0};
+		std::vector<double> triEdge1Form = {0, 0, 0};
 		std::vector<double> vertVals(3);
 		for (int j = 0; j < 3; j++)
 		{
@@ -262,7 +262,7 @@ void getSideVertexAmp(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, co
 void getClouhTocherAmp(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, const std::vector<std::complex<double>>& vertZvals, const std::vector<std::pair<int, Eigen::Vector3d>>& bary, Eigen::VectorXd& upAmp)
 {
 	int nUpVerts = bary.size();
-	upPhi.resize(nUpVerts);
+	upAmp.resize(nUpVerts);
 
 	for (int i = 0; i < nUpVerts; i++)
 	{

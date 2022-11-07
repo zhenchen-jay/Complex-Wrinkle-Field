@@ -33,7 +33,8 @@ Eigen::MatrixXd PaintGeometry::paintPhi(const Eigen::VectorXd& phi, Eigen::Vecto
         for (int i = 0; i < nverts; i++)
         {
             double r, g, b;
-            double h = 360.0 * phi[i] / 2.0 / M_PI + 120;
+//            double h = 360.0 * phi[i] / 2.0 / M_PI + 120;
+            double h = 360.0 * phi[i] / 2.0 / M_PI;
             h = 360 + ((int)h % 360); // fix for libigl bug
             double s = 1.0;
             double v = 0.5;

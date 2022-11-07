@@ -40,19 +40,23 @@
 
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
-#include "../../include/GetInterpVertexPhi.h"
+#include "../../include/GetInterpVertexValues.h"
 
-Eigen::MatrixXd triV, upsampledTriV, loopTriV;
-Eigen::MatrixXi triF, upsampledTriF, loopTriF;
+#include "../../include/OtherApproaches/TFWAlgorithm.h"
+#include "../../include/OtherApproaches/ZuenkoAlgorithm.h"
+
+Eigen::MatrixXd triV, upsampledTriV, loopTriV, zuenkoUpV, TFWUpV;
+Eigen::MatrixXi triF, upsampledTriF, loopTriF, zuenkoUpF, TFWUpF;
 MeshConnectivity triMesh;
 Mesh secMesh, upSecMesh;
 
-Eigen::MatrixXd wrinkledV;
+Eigen::MatrixXd wrinkledV, loopWrinkledV, loopReImWrinkledV, zuenkoWrinkledV, TFWWrinkledV;
 std::vector<std::complex<double>> zvals, upZvals, upLoopAmpPhi_Zvals, upLoopReIm_Zvals;
-Eigen::VectorXd phi, omega, amp, upOmega, upPhi, upAmp, upLoopAmpPhi_Phi, upLoopAmpPhi_Amp, upLoopReIm_Phi, upLoopReIm_Amp;
+Eigen::VectorXd phi, omega, amp, upOmega, upPhi, upAmp, upLoopAmpPhi_Phi, upLoopAmpPhi_Amp, upLoopReIm_Phi, upLoopReIm_Amp, zuenkoPhi, zuenkoAmp, TFWPhi, TFWAmp;
 Eigen::MatrixXd faceOmega;
 
-Eigen::VectorXd sideVertexLinearPhi, ClouhTorcherPhi, sideVertexWojtanPhi, knoppelPhi;
+Eigen::VectorXd sideVertexLinearPhi, ClouhTorcherPhi, sideVertexWojtanPhi, knoppelPhi, sideVertexLinearAmp, ClouhTorcherAmp, sideVertexWojtanAmp;
+Eigen::MatrixXd sideVertexLinearWrinkledV, sideVertexWojtanWrinkledV, ClouhTorcherWrinkledV;
 
 int upsamplingLevel = 2;
 float wrinkleAmpScalingRatio = 1;
@@ -84,7 +88,7 @@ static void initialization(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& t
 	getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 }
 
-static void getClouhTorcherUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
+static void getClouhTorcherUpsamplingAmpPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upAmp, Eigen::VectorXd& upPhi, int upLevel)
 {
 	Eigen::SparseMatrix<double> mat;
 	std::vector<int> facemap;
@@ -96,9 +100,10 @@ static void getClouhTorcherUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::
 	MeshConnectivity upMesh;
 
 	getClouhTocherPhi(V, mesh, edgeOmega, zvals, bary, upPhi);
+    getClouhTocherAmp(V, mesh, zvals, bary, upAmp);
 }
 
-static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upPhiWojtan, int upLevel)
+static void getSideVertexUpsamplingAmpPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upAmpLinear, Eigen::VectorXd& upPhiLinear, Eigen::VectorXd& upAmpWojtan, Eigen::VectorXd& upPhiWojtan, int upLevel)
 {
 	Eigen::SparseMatrix<double> mat;
 	std::vector<int> facemap;
@@ -111,6 +116,10 @@ static void getSideVertexUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::Ma
 
 	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiLinear, 0);
 	getSideVertexPhi(V, mesh, edgeOmega, zvals, bary, upPhiWojtan, 2);
+
+
+    getSideVertexAmp(V, mesh, zvals, bary, upAmpLinear, 0);
+    getSideVertexAmp(V, mesh, zvals, bary, upAmpWojtan, 2);
 }
 
 static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
@@ -178,8 +187,8 @@ static void upsamplingEveryThingForComparison()
     getLoopAmpPhaseUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upLoopAmpPhi_Zvals, upsamplingLevel);
     getLoopReImUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upLoopReIm_Zvals, upsamplingLevel);
 	getKnoppelUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, knoppelPhi, upsamplingLevel);
-	getSideVertexUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearPhi, sideVertexWojtanPhi, upsamplingLevel);
-	getClouhTorcherUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, ClouhTorcherPhi, upsamplingLevel);
+	getSideVertexUpsamplingAmpPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearAmp, sideVertexLinearPhi, sideVertexWojtanAmp, sideVertexWojtanPhi, upsamplingLevel);
+	getClouhTorcherUpsamplingAmpPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, ClouhTorcherAmp, ClouhTorcherPhi, upsamplingLevel);
 
 	parseSecMesh(upSecMesh, loopTriV, loopTriF);
 
@@ -216,98 +225,245 @@ static void upsamplingEveryThingForComparison()
 	amp.resize(zvals.size());
 
 	for (int j = 0; j < zvals.size(); j++)
-	{
+    {
 		amp[j] = std::abs(zvals[j]);
-		globalAmpMin = std::min(amp[j], globalAmpMin);
-		globalAmpMax = std::max(amp[j], globalAmpMax);
 	}
+    globalAmpMin = std::min(0.0, amp.minCoeff());
+    globalAmpMax = amp.maxCoeff();
 
 	std::cout << "compute wrinkle meshes: " << std::endl;
 	updateWrinkles(loopTriV, loopTriF, upZvals, wrinkledV, wrinkleAmpScalingRatio, isUseV2);
+
+    sideVertexLinearWrinkledV = upsampledTriV;
+    sideVertexWojtanWrinkledV = upsampledTriV;
+    ClouhTorcherWrinkledV = upsampledTriV;
+    loopWrinkledV = loopTriV;
+    loopReImWrinkledV = loopTriV;
+
+    Eigen::MatrixXd upsampledN, loopN;
+    igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledN);
+    igl::per_vertex_normals(loopTriV, loopTriF, loopN);
+
+    for(int i = 0; i < upsampledN.rows(); i++)
+    {
+        sideVertexLinearWrinkledV.row(i) += wrinkleAmpScalingRatio * sideVertexLinearAmp[i] * std::cos(sideVertexLinearPhi[i]) * upsampledN.row(i);
+        sideVertexWojtanWrinkledV.row(i) += wrinkleAmpScalingRatio * sideVertexWojtanAmp[i] * std::cos(sideVertexWojtanPhi[i]) * upsampledN.row(i);
+        ClouhTorcherWrinkledV.row(i) += wrinkleAmpScalingRatio * ClouhTorcherAmp[i] * std::cos(ClouhTorcherPhi[i]) * upsampledN.row(i);
+        loopWrinkledV.row(i) += wrinkleAmpScalingRatio * upLoopAmpPhi_Amp[i] * std::cos(upLoopAmpPhi_Phi[i]) * loopN.row(i);
+        loopReImWrinkledV.row(i) += wrinkleAmpScalingRatio * upLoopReIm_Amp[i] * std::cos(upLoopReIm_Phi[i]) * loopN.row(i);
+    }
+
+    std::vector<std::pair<int, Eigen::Vector3d>> bary;
+    Eigen::MatrixXd baseN, zuenkoN;
+    meshUpSampling(triV,  triF, zuenkoUpV, zuenkoUpF, upsamplingLevel, NULL, NULL, &bary);
+    igl::per_vertex_normals(triV, triF,  baseN);
+    ZuenkoAlg::spherigonSmoothing(triV, triMesh, baseN, bary, zuenkoUpV, zuenkoN, true);
+    igl::per_vertex_normals(zuenkoUpV, zuenkoUpF,  zuenkoN);
+
+    std::vector<std::complex<double>> curZvals = zvals;
+    for (int i = 0; i < curZvals.size(); i++)
+    {
+        double phi = std::arg(curZvals[i]);
+        curZvals[i] = std::complex<double>(std::cos(phi), std::sin(phi));
+    }
+    ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, amp, omega, zuenkoUpV, zuenkoUpF, zuenkoN, bary, zuenkoWrinkledV, zuenkoUpF, zuenkoAmp, zuenkoPhi, wrinkleAmpScalingRatio);
+
+    TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWUpF, TFWUpV, TFWUpF, NULL, NULL, NULL, NULL, TFWAmp, NULL, TFWPhi, upsamplingLevel, wrinkleAmpScalingRatio, false, true);
+
 }
 
 
 static void updateView()
 {
 	double shiftx = 1.5 * (triV.col(0).maxCoeff() - triV.col(0).minCoeff());
+    double shifty = 1.5 * (triV.col(1).maxCoeff() - triV.col(1).minCoeff());
+
+    if(shifty == 0 && shiftx != 0)
+        shifty = shiftx;
+    else if(shifty != 0 && shiftx == 0)
+        shiftx = shifty;
+    if(shifty == 0)
+    {
+        shiftx = 1.5 * (triV.col(2).maxCoeff() - triV.col(2).minCoeff());
+        shifty = shiftx;
+    }
+
 	int n = 0;
+    int m = 0;
 
-	polyscope::registerSurfaceMesh("base mesh", triV, triF);
-	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", faceOmega);
-	auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", amp);
-	initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-	n++;
-	
-	if (isShowEveryThing)
-	{
-		// wrinkle mesh
-		polyscope::registerSurfaceMesh("CWF wrinkled mesh", wrinkledV, loopTriF);
-		polyscope::getSurfaceMesh("CWF wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-		polyscope::getSurfaceMesh("CWF wrinkled mesh")->translate({ n * shiftx, 0, 0 });
-		n++;
+    if (isShowEveryThing)
+    {
+        polyscope::registerSurfaceMesh("base mesh", triV, triF);
+        polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", faceOmega);
+        auto initAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("amplitude", amp);
+        initAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+        n++;
+    }
+    int oldn = n;
 
+    // ours phase pattern
+    mPaint.setNormalization(false);
+    polyscope::registerSurfaceMesh("CWF phase mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("CWF phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    Eigen::MatrixXd phaseColor = mPaint.paintPhi(upPhi);
+    auto ourPhasePatterns = polyscope::getSurfaceMesh("CWF phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    ourPhasePatterns->setEnabled(true);
+    n++;
 
-		// amp pattern
-		polyscope::registerSurfaceMesh("CWF ampliude mesh", loopTriV, loopTriF);
-		polyscope::getSurfaceMesh("CWF ampliude mesh")->translate({ n * shiftx, 0, 0 });
-		auto ampPatterns = polyscope::getSurfaceMesh("CWF ampliude mesh")->addVertexScalarQuantity("vertex amplitude", upAmp);
-		ampPatterns->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-		ampPatterns->setEnabled(true);
-		n++;
-	}
-	
-
-	// ours phase pattern
-	mPaint.setNormalization(false);
-	polyscope::registerSurfaceMesh("CWF phase mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("CWF phase mesh")->translate({ n * shiftx, 0, 0 });
-	Eigen::MatrixXd phaseColor = mPaint.paintPhi(upPhi);
-	auto ourPhasePatterns = polyscope::getSurfaceMesh("CWF phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	ourPhasePatterns->setEnabled(true);
-	n++;
-
-	// naive loop amp and pahse pattern
-	polyscope::registerSurfaceMesh("loop_amp_phase phase mesh", loopTriV, loopTriF);
-	polyscope::getSurfaceMesh("loop_amp_phase phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(upLoopAmpPhi_Phi);
-	auto loopPhasePatterns = polyscope::getSurfaceMesh("loop_amp_phase phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    // naive loop amp and pahse pattern
+    polyscope::registerSurfaceMesh("loop_amp_phase phase mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("loop_amp_phase phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(upLoopAmpPhi_Phi);
+    auto loopPhasePatterns = polyscope::getSurfaceMesh("loop_amp_phase phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
     loopPhasePatterns->setEnabled(true);
-	n++;
+    n++;
 
     // naive loop Re and Im pattern
     polyscope::registerSurfaceMesh("loop_re_im phase mesh", loopTriV, loopTriF);
-    polyscope::getSurfaceMesh("loop_re_im phase mesh")->translate({ n * shiftx, 0, 0 });
+    polyscope::getSurfaceMesh("loop_re_im phase mesh")->translate({ n * shiftx, m * shifty, 0 });
     phaseColor = mPaint.paintPhi(upLoopReIm_Phi);
     loopPhasePatterns = polyscope::getSurfaceMesh("loop_re_im phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
     loopPhasePatterns->setEnabled(true);
     n++;
 
 
-	// linear side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Linear-side phase mesh", upsampledTriV, upsampledTriF);
-	polyscope::getSurfaceMesh("Linear-side phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(sideVertexLinearPhi);
-	auto linearPhasePatterns = polyscope::getSurfaceMesh("Linear-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	linearPhasePatterns->setEnabled(true);
-	n++;
+    // zuenko pattern
+    polyscope::registerSurfaceMesh("Zuenko phase mesh", zuenkoUpV, zuenkoUpF);
+    polyscope::getSurfaceMesh("Zuenko phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(zuenkoPhi);
+    loopPhasePatterns = polyscope::getSurfaceMesh("Zuenko phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    loopPhasePatterns->setEnabled(true);
+    n++;
 
 
-	// cubic side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Clouh-Torcher phase mesh", upsampledTriV, upsampledTriF);
-	polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(ClouhTorcherPhi);
-	auto cubicPhasePatterns = polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	cubicPhasePatterns->setEnabled(true);
-	n++;
+    // TFW pattern
+    polyscope::registerSurfaceMesh("TFW phase mesh", TFWUpV, TFWUpF);
+    polyscope::getSurfaceMesh("TFW phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(TFWPhi);
+    loopPhasePatterns = polyscope::getSurfaceMesh("TFW phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    loopPhasePatterns->setEnabled(true);
+    n++;
 
 
-	// wojtan side vertex pahse pattern
-	polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
-	polyscope::getSurfaceMesh("Wojtan-side phase mesh")->translate({ n * shiftx, 0, 0 });
-	phaseColor = mPaint.paintPhi(sideVertexWojtanPhi);
-	auto wojtanPhasePatterns = polyscope::getSurfaceMesh("Wojtan-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	wojtanPhasePatterns->setEnabled(true);
-	n++;
+    // wojtan side vertex pahse pattern
+    polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("Wojtan-side phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(sideVertexWojtanPhi);
+    auto wojtanPhasePatterns = polyscope::getSurfaceMesh("Wojtan-side phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    wojtanPhasePatterns->setEnabled(true);
+    n++;
+
+    // cubic side Clouh-Torcher pattern
+    polyscope::registerSurfaceMesh("Clouh-Torcher phase mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(ClouhTorcherPhi);
+    auto cubicPhasePatterns = polyscope::getSurfaceMesh("Clouh-Torcher phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    cubicPhasePatterns->setEnabled(true);
+    n++;
+
+    m++;
+    n = oldn;
+    // ours amp pattern
+    mPaint.setNormalization(false);
+    polyscope::registerSurfaceMesh("CWF amp mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("CWF amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto ourAmpPatterns = polyscope::getSurfaceMesh("CWF amp mesh")->addVertexScalarQuantity("vertex amp", upAmp);
+    ourAmpPatterns->setColorMap("coolwarm");
+    ourAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    ourAmpPatterns->setEnabled(true);
+    n++;
+
+    // naive loop amp and pahse pattern
+    polyscope::registerSurfaceMesh("loop_amp_phase amp mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("loop_amp_phase amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto loopAmpPatterns = polyscope::getSurfaceMesh("loop_amp_phase amp mesh")->addVertexScalarQuantity("vertex amp", upLoopAmpPhi_Amp);
+    loopAmpPatterns->setColorMap("coolwarm");
+    loopAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    loopAmpPatterns->setEnabled(true);
+    n++;
+
+    // naive loop Re and Im pattern
+    polyscope::registerSurfaceMesh("loop_re_im amp mesh", loopTriV, loopTriF);
+    polyscope::getSurfaceMesh("loop_re_im amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    loopAmpPatterns = polyscope::getSurfaceMesh("loop_re_im amp mesh")->addVertexScalarQuantity("vertex amp", upLoopReIm_Amp);
+    loopAmpPatterns->setColorMap("coolwarm");
+    loopAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    loopAmpPatterns->setEnabled(true);
+    n++;
+
+    // zuenko
+    polyscope::registerSurfaceMesh("Zuenko amp mesh", zuenkoUpV, zuenkoUpF);
+    polyscope::getSurfaceMesh("Zuenko amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto ZuenkoAmpPatterns = polyscope::getSurfaceMesh("Zuenko amp mesh")->addVertexScalarQuantity("vertex amp", zuenkoAmp);
+    ZuenkoAmpPatterns->setColorMap("coolwarm");
+    ZuenkoAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    ZuenkoAmpPatterns->setEnabled(true);
+    n++;
+
+    // tfw
+    polyscope::registerSurfaceMesh("TFW amp mesh", TFWUpV, TFWUpF);
+    polyscope::getSurfaceMesh("TFW amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto TFWAmpPatterns = polyscope::getSurfaceMesh("TFW amp mesh")->addVertexScalarQuantity("vertex amp", TFWAmp);
+    TFWAmpPatterns->setColorMap("coolwarm");
+    TFWAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    TFWAmpPatterns->setEnabled(true);
+    n++;
+
+
+    // wojtan side vertex pattern
+    polyscope::registerSurfaceMesh("Wojtan-side amp mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("Wojtan-side amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto wojtanAmpPatterns = polyscope::getSurfaceMesh("Wojtan-side amp mesh")->addVertexScalarQuantity("vertex amp", sideVertexWojtanAmp);
+    wojtanAmpPatterns->setColorMap("coolwarm");
+    wojtanAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    wojtanPhasePatterns->setEnabled(true);
+    n++;
+
+
+    // Clouh-Torcher
+    polyscope::registerSurfaceMesh("Clouh-Torcher amp mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("Clouh-Torcher amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto CTAmpPatterns = polyscope::getSurfaceMesh("Clouh-Torcher amp mesh")->addVertexScalarQuantity("vertex amp", ClouhTorcherAmp);
+    CTAmpPatterns->setColorMap("coolwarm");
+    CTAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    CTAmpPatterns->setEnabled(true);
+    n++;
+
+
+
+    m++;
+    n = oldn;
+    polyscope::registerSurfaceMesh("ours wrinkled mesh", wrinkledV, loopTriF);
+    polyscope::getSurfaceMesh("ours wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+    polyscope::registerSurfaceMesh("loop_amp_phase wrinkled mesh", loopWrinkledV, loopTriF);
+    polyscope::getSurfaceMesh("loop_amp_phase wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+    polyscope::registerSurfaceMesh("loop_re_im wrinkled mesh", loopReImWrinkledV, loopTriF);
+    polyscope::getSurfaceMesh("loop_re_im wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+    polyscope::registerSurfaceMesh("Zuenko wrinkled mesh", zuenkoWrinkledV, zuenkoUpF);
+    polyscope::getSurfaceMesh("Zuenko wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+    polyscope::registerSurfaceMesh("TFW wrinkled mesh", TFWWrinkledV, TFWUpF);
+    polyscope::getSurfaceMesh("TFW wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+
+    polyscope::registerSurfaceMesh("Wojtan-side wrinkled mesh", sideVertexWojtanWrinkledV, upsampledTriF);
+    polyscope::getSurfaceMesh("Wojtan-side wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+
+    polyscope::registerSurfaceMesh("Clouh-Torcher wrinkled mesh", ClouhTorcherWrinkledV, upsampledTriF);
+    polyscope::getSurfaceMesh("Clouh-Torcher wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
+
+
 }
 
 static bool loadProblem(std::string *inputpath = NULL)
@@ -447,31 +603,40 @@ static void callback() {
 	}
     if (ImGui::Button("save", ImVec2(-1, 0)))
     {
-        std::string saveFolder = workingFolder + "/otherUpPhi/";
+        std::string saveFolder = workingFolder + "/otherUpsampling/";
         mkdir(saveFolder);
         savePhi4Render(sideVertexWojtanPhi, saveFolder + "sideVertexWojtanPhi.cvs");
         savePhi4Render(ClouhTorcherPhi, saveFolder + "ClouhTorcherPhi.cvs");
-        igl::writeOBJ(saveFolder + "midpointMesh.obj", upsampledTriV, upsampledTriF);
-
-        Eigen::MatrixXd sideVertexWojtanV = upsampledTriV, ClouhTorcherV = upsampledTriV;
-        Eigen::MatrixXd upsampledTriN;
-        igl::per_vertex_normals(upsampledTriV, upsampledTriF, upsampledTriN);
-
-        for(int i = 0; i < sideVertexWojtanV.rows(); i++)
-        {
-            sideVertexWojtanV.row(i) += std::abs(amp[0]) * upsampledTriN.row(i) * std::cos(sideVertexWojtanPhi[i]);
-            ClouhTorcherV.row(i) += std::abs(amp[0]) * upsampledTriN.row(i) * std::cos(ClouhTorcherPhi[i]);
-        }
-        igl::writeOBJ(saveFolder + "ClouhTorcherMesh.obj", ClouhTorcherV, upsampledTriF);
-        igl::writeOBJ(saveFolder + "sideVertexWojtanMesh.obj", sideVertexWojtanV, upsampledTriF);
-        igl::writeOBJ(saveFolder + "CWFMesh.obj", wrinkledV, loopTriF);
-
-
-        igl::writeOBJ(saveFolder + "loopedMesh.obj", loopTriV, loopTriF);
-
         savePhi4Render(upPhi, saveFolder + "CWFPhi.cvs");
         savePhi4Render(upLoopAmpPhi_Phi, saveFolder + "LoopAmpPhasePhi.cvs");
         savePhi4Render(upLoopReIm_Phi, saveFolder + "LoopReImPhi.cvs");
+        savePhi4Render(zuenkoPhi, saveFolder + "ZuenkoPhi.cvs");
+        savePhi4Render(TFWPhi, saveFolder + "TFWPhi.cvs");
+
+
+        saveAmp4Render(sideVertexWojtanAmp, saveFolder + "sideVertexWojtanAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(ClouhTorcherAmp, saveFolder + "ClouhTorcherAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(upAmp, saveFolder + "CWFAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(upLoopAmpPhi_Amp, saveFolder + "LoopAmpPhaseAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(upLoopReIm_Amp, saveFolder + "LoopReImAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(zuenkoAmp, saveFolder + "ZuenkoAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(TFWAmp, saveFolder + "TFWAmp.cvs", globalAmpMin, globalAmpMax);
+
+
+
+        igl::writeOBJ(saveFolder + "ClouhTorcherWrinkledMesh.obj", ClouhTorcherWrinkledV, upsampledTriF);
+        igl::writeOBJ(saveFolder + "sideVertexWojtanWrinkledMesh.obj", sideVertexWojtanWrinkledV, upsampledTriF);
+        igl::writeOBJ(saveFolder + "CWFWrinkledMesh.obj", wrinkledV, loopTriF);
+        igl::writeOBJ(saveFolder + "loopAmpPhaseWrinkledMesh.obj", loopWrinkledV, loopTriF);
+        igl::writeOBJ(saveFolder + "loopReImWrinkledMesh.obj", loopReImWrinkledV, loopTriF);
+        igl::writeOBJ(saveFolder + "zuenkoWrinkledMesh.obj", zuenkoWrinkledV, zuenkoUpF);
+        igl::writeOBJ(saveFolder + "TFWWrinkledMesh.obj", TFWWrinkledV, TFWUpF);
+
+
+        igl::writeOBJ(saveFolder + "midpointUpMesh.obj", upsampledTriV, upsampledTriF);
+        igl::writeOBJ(saveFolder + "loopUpMesh.obj", loopTriV, loopTriF);
+        igl::writeOBJ(saveFolder + "TFWUpMesh.obj", TFWUpV, TFWUpF);
+        igl::writeOBJ(saveFolder + "ZuenkoUpMesh.obj", zuenkoUpV, zuenkoUpF);
     }
 
 	if (ImGui::InputInt("underline upsampling level", &upsamplingLevel))

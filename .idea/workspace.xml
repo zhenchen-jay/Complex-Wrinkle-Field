@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeRunConfigurationManager">
+    <generated>
+      <config projectName="Phase interpolation" targetName="OtherApproachesCli_bin" />
+      <config projectName="Phase interpolation" targetName="glad" />
+      <config projectName="Phase interpolation" targetName="InterpolationStaticComp_bin" />
+      <config projectName="Phase interpolation" targetName="TFWSamplingGui_bin" />
+      <config projectName="Phase interpolation" targetName="polyscope" />
+      <config projectName="Phase interpolation" targetName="LoadSequence_bin" />
+      <config projectName="Phase interpolation" targetName="tbbmalloc_proxy_static" />
+      <config projectName="Phase interpolation" targetName="CoMISo" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_core" />
+      <config projectName="Phase interpolation" targetName="userDesignerApp_bin" />
+      <config projectName="Phase interpolation" targetName="SmoothestVecGen_bin" />
+      <config projectName="Phase interpolation" targetName="imgui" />
+      <config projectName="Phase interpolation" targetName="WrinkleInterpolationCli_bin" />
+      <config projectName="Phase interpolation" targetName="CLI11" />
+      <config projectName="Phase interpolation" targetName="SpherigonTest_bin" />
+      <config projectName="Phase interpolation" targetName="LoopSundivision_bin" />
+      <config projectName="Phase interpolation" targetName="geometry-central" />
+      <config projectName="Phase interpolation" targetName="predicates" />
+      <config projectName="Phase interpolation" targetName="tbbmalloc_static" />
+      <config projectName="Phase interpolation" targetName="StaticWrinkleEditor_bin" />
+      <config projectName="Phase interpolation" targetName="WrinkleVisualization_bin" />
+      <config projectName="Phase interpolation" targetName="InterpolationComparison_bin" />
+      <config projectName="Phase interpolation" targetName="tetgen" />
+      <config projectName="Phase interpolation" targetName="tbb_static" />
+      <config projectName="Phase interpolation" targetName="update_mappings" />
+      <config projectName="Phase interpolation" targetName="igl_restricted_triangle" />
+      <config projectName="Phase interpolation" targetName="igl_predicates" />
+      <config projectName="Phase interpolation" targetName="triangle" />
+      <config projectName="Phase interpolation" targetName="didacticExample_bin" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_comiso" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_tetgen" />
+      <config projectName="Phase interpolation" targetName="OtherApproachesComparison_bin" />
+      <config projectName="Phase interpolation" targetName="tbb_def_files" />
+      <config projectName="Phase interpolation" targetName="LoopSundivisionTest_bin" />
+      <config projectName="Phase interpolation" targetName="igl_core" />
+      <config projectName="Phase interpolation" targetName="glfw" />
+      <config projectName="Phase interpolation" targetName="stb" />
+    </generated>
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/app/InterpolationComparison/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationComparison/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/GetInterpVertexValues.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/GetInterpVertexValues.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Visualization/PaintGeometry.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/Visualization/PaintGeometry.cpp" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Release" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectApplicationVersion">
+    <option name="ide" value="CLion" />
+    <option name="majorVersion" value="2022" />
+    <option name="minorVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2H5r4WG00OWz7cZnMsXJQOkGUK3" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "cf.advertisement.text.has.clang-format": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "cmake.loaded.for.project": "true",
+    "nodejs_package_manager_path": "npm"
+  }
+}]]></component>
+  <component name="RunManager" selected="CMake Application.InterpolationStaticComp_bin">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CoMISo" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CoMISo" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="InterpolationComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationComparison_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationComparison_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="InterpolationStaticComp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationStaticComp_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationStaticComp_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="LoadSequence_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoadSequence_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoadSequence_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="LoopSundivisionTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivisionTest_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivisionTest_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="LoopSundivision_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivision_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivision_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="OtherApproachesCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesCli_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesCli_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="OtherApproachesComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesComparison_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesComparison_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="SmoothestVecGen_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SmoothestVecGen_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SmoothestVecGen_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="SpherigonTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SpherigonTest_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SpherigonTest_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="StaticWrinkleEditor_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="StaticWrinkleEditor_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="StaticWrinkleEditor_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TFWSamplingGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="TFWSamplingGui_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="TFWSamplingGui_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="WrinkleInterpolationCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleInterpolationCli_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleInterpolationCli_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="WrinkleVisualization_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleVisualization_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleVisualization_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="didacticExample_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="didacticExample_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="didacticExample_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="geometry-central" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="geometry-central" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="glad" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glad" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="glfw" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glfw" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_copyleft_comiso" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_comiso" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_copyleft_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_core" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_copyleft_tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_tetgen" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_core" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_predicates" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="igl_restricted_triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_restricted_triangle" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="imgui" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="polyscope" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="polyscope" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="predicates" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="stb" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="stb" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="tbb_def_files" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_def_files" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="tbb_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_static" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="tbbmalloc_proxy_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_proxy_static" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="tbbmalloc_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_static" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tetgen" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="triangle" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="update_mappings" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="update_mappings" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="userDesignerApp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="userDesignerApp_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="userDesignerApp_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="CMake Application.didacticExample_bin" />
+      <item itemvalue="CMake Application.InterpolationComparison_bin" />
+      <item itemvalue="CMake Application.InterpolationStaticComp_bin" />
+      <item itemvalue="CMake Application.LoadSequence_bin" />
+      <item itemvalue="CMake Application.LoopSundivision_bin" />
+      <item itemvalue="CMake Application.LoopSundivisionTest_bin" />
+      <item itemvalue="CMake Application.OtherApproachesCli_bin" />
+      <item itemvalue="CMake Application.OtherApproachesComparison_bin" />
+      <item itemvalue="CMake Application.SmoothestVecGen_bin" />
+      <item itemvalue="CMake Application.SpherigonTest_bin" />
+      <item itemvalue="CMake Application.StaticWrinkleEditor_bin" />
+      <item itemvalue="CMake Application.TFWSamplingGui_bin" />
+      <item itemvalue="CMake Application.userDesignerApp_bin" />
+      <item itemvalue="CMake Application.WrinkleInterpolationCli_bin" />
+      <item itemvalue="CMake Application.WrinkleVisualization_bin" />
+      <item itemvalue="CMake Application.CLI11" />
+      <item itemvalue="CMake Application.CoMISo" />
+      <item itemvalue="CMake Application.geometry-central" />
+      <item itemvalue="CMake Application.igl_copyleft_comiso" />
+      <item itemvalue="CMake Application.igl_copyleft_core" />
+      <item itemvalue="CMake Application.igl_copyleft_tetgen" />
+      <item itemvalue="CMake Application.igl_core" />
+      <item itemvalue="CMake Application.igl_predicates" />
+      <item itemvalue="CMake Application.igl_restricted_triangle" />
+      <item itemvalue="CMake Application.glad" />
+      <item itemvalue="CMake Application.glfw" />
+      <item itemvalue="CMake Application.update_mappings" />
+      <item itemvalue="CMake Application.imgui" />
+      <item itemvalue="CMake Application.stb" />
+      <item itemvalue="CMake Application.polyscope" />
+      <item itemvalue="CMake Application.predicates" />
+      <item itemvalue="CMake Application.tbb_def_files" />
+      <item itemvalue="CMake Application.tbb_static" />
+      <item itemvalue="CMake Application.tbbmalloc_proxy_static" />
+      <item itemvalue="CMake Application.tbbmalloc_static" />
+      <item itemvalue="CMake Application.tetgen" />
+      <item itemvalue="CMake Application.triangle" />
+    </list>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="" />
+      <created>1667585595576</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1667585595576</updated>
+      <workItem from="1667585597791" duration="7658000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
