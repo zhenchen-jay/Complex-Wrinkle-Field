@@ -48,11 +48,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/app/InterpolationComparison/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationComparison/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/GetInterpVertexValues.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/GetInterpVertexValues.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Visualization/PaintGeometry.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/Visualization/PaintGeometry.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/LoopSubdivide/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/LoopSubdivide/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,10 +86,11 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "cmake.loaded.for.project": "true",
+    "last_opened_file_path": "/home/zchen96/Projects/PhaseInterpolation_polyscope",
     "nodejs_package_manager_path": "npm"
   }
 }]]></component>
-  <component name="RunManager" selected="CMake Application.InterpolationStaticComp_bin">
+  <component name="RunManager" selected="CMake Application.LoopSundivision_bin">
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="CLION.EXTERNAL.BUILD" enabled="true" />
@@ -332,6 +330,8 @@
       <option name="presentableId" value="Default" />
       <updated>1667585595576</updated>
       <workItem from="1667585597791" duration="7658000" />
+      <workItem from="1668035044008" duration="54000" />
+      <workItem from="1668118488275" duration="4745000" />
     </task>
     <servers />
   </component>
