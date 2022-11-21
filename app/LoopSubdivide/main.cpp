@@ -38,6 +38,7 @@
 #include "../../include/ComplexLoop/ComplexLoopReIm.h"
 #include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/ComplexLoop/ComplexLoopExtrinsically.h"
+#include "../../include/ComplexLoop/ComplexLoopIntrinsically.h"
 
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
@@ -49,7 +50,8 @@ enum LoopMethod
     ReIm = 1,
     MagArg = 2,
     MagArgFreq = 3,
-    ExtrinsicCWF = 4
+    ExtrinsicCWF = 4,
+    IntrinsicCWF = 5
 };
 
 Eigen::MatrixXd triV, loopTriV, NV, newN;
@@ -119,6 +121,8 @@ void updateMagnitudePhase(const Eigen::VectorXd& omega, const std::vector<std::c
         loopModel = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
     else if(loopMethod == ExtrinsicCWF)
         loopModel = std::make_shared<ComplexLoopZuenkoExtrinsically>();
+    else if (loopMethod == IntrinsicCWF)
+        loopModel = std::make_shared<ComplexLoopIntrinsically>();
 
     loopModel->SetMesh(secMesh);
     loopModel->setBndFixFlag(isFixBnd);
@@ -214,10 +218,15 @@ void updateFieldsInView()
         loopModel = std::make_shared<ComplexLoopAmpPhaseEdgeJump>();
         methodName = "MagArgFreq";
     }
-    else
+    else if (loopMethod == ExtrinsicCWF)
     {
         loopModel = std::make_shared<ComplexLoopZuenkoExtrinsically>();
         methodName = "extCWF";
+    }
+    else
+    {
+        loopModel = std::make_shared<ComplexLoopIntrinsically>();
+        methodName = "intrinsicCWF";
     }
     std::cout << methodName << std::endl;
     
@@ -513,7 +522,7 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-        ImGui::Combo("loop model", (int*)&loopMethod, "CFW\0ReIm\0MagArg\0MagArgFreq\0extCWF\0");
+        ImGui::Combo("loop model", (int*)&loopMethod, "CFW\0ReIm\0MagArg\0MagArgFreq\0extCWF\0intrinsicCWF\0");
 		if (ImGui::Checkbox("Fix bnd", &isFixBnd))
 			updateFieldsInView();
 		if (ImGui::Checkbox("is use tangent correction", &isUseTangentCorrection))
