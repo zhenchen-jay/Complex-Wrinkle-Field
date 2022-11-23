@@ -194,6 +194,6 @@ namespace IntrinsicFormula
 		Eigen::VectorXd _faceWeight;
 		Eigen::VectorXd _vertWeight;
 
-        std::vector<std::vector<Eigen::Matrix3d>> _faceGradientTheta;
+        std::vector<std::vector<std::vector<Eigen::Matrix2d>>> _faceIuInvOmegaOmega;
 	};
 }

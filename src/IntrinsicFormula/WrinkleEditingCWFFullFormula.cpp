@@ -180,15 +180,16 @@ void WrinkleEditingCWFFullFormula::computeFaceGradTheta()
 	int nfaces = _mesh.nFaces();
 	int nframes = _zvalsList.size();
 
-	_faceGradientTheta.resize(nframes);
+    _faceIuInvOmegaOmega.resize(nframes);
 
 	auto computeGradThetaPerframe = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			_faceGradientTheta[i].resize(nfaces);
+            _faceIuInvOmegaOmega[i].resize(nfaces);
 			for (int fid = 0; fid < nfaces; fid++)
 			{
+                _faceIuInvOmegaOmega[i][fid].resize(3);
 				for (int vInF = 0; vInF < 3; vInF++)
 				{
 					int eid0 = _mesh.faceEdge(fid, (vInF + 1) % 3);
@@ -205,8 +206,7 @@ void WrinkleEditingCWFFullFormula::computeFaceGradTheta()
 					double w2 = _combinedRefOmegaList[i](eid1);
 					rhs << w1, w2;
 
-					Eigen::Vector2d u = Iinv * rhs;
-					_faceGradientTheta[i][fid].row(vInF) = (u[0] * r0 + u[1] * r1);
+                    _faceIuInvOmegaOmega[i][fid][vInF] = Iinv * rhs * rhs.transpose();
 
 				}
 			}
@@ -236,46 +236,80 @@ double WrinkleEditingCWFFullFormula::workLoadEnergy(int frameId, Eigen::VectorXd
 		for (int j = 0; j < 3; j++)
 		{
 			int vid = _mesh.faceVertex(fid, j);
-
-			double coeff = _faceArea[fid] * std::pow(_faceGradientTheta[frameId][fid].row(j).squaredNorm(), 4) / (dt * dt) * std::pow(1e-2, 3.0) / 12;
+            double coeff = _faceArea[fid];
+            coeff *= 100;
 			Eigen::Vector2d zvecNew, zvec;
 			zvecNew << _zvalsList[frameId + 1][vid].real(), _zvalsList[frameId + 1][vid].imag();
 			zvec << _zvalsList[frameId][vid].real(), _zvalsList[frameId][vid].imag();
 
-			double work = (zvecNew - zvec).dot(zvec);
-			energy += 0.5 * coeff * work * work;
+            Eigen::Matrix2d curMat = _faceIuInvOmegaOmega[frameId][fid][j];
+            Eigen::Matrix2d diffMat = _faceIuInvOmegaOmega[frameId + 1][fid][j] - _faceIuInvOmegaOmega[frameId][fid][j];
+
+            double fbCurMat = (curMat.transpose() * curMat).trace();
+            double fbDiffMat = (diffMat.transpose() * diffMat).trace();
+
+            double f1 = zvec.dot(zvecNew - zvec);
+            double f2 = zvec.squaredNorm();
+
+			double work = f1 * f1 / f2 * fbCurMat + f2 * fbDiffMat;
+			fbCurMat = 1000;
+            work = fbCurMat * f1 * f1 / f2;
+//            work = f2 * fbDiffMat;
+			energy += 0.5 * coeff * work;
 
 			if (deriv || hessT)
 			{
-				Eigen::Vector4d dwork;
-				dwork << zvecNew[0] - 2 * zvec[0], zvecNew[1] - 2 * zvec[1], zvec[0], zvec[1];
+				Eigen::Vector4d df1, df2;
+				df1 << zvecNew[0] - 2 * zvec[0], zvecNew[1] - 2 * zvec[1], zvec[0], zvec[1];
+                df2 << 2 * zvec[0], 2 * zvec[1], 0, 0;
 
 				if (deriv)
 				{
-					deriv->segment<2>(2 * vid) += coeff * work * dwork.segment<2>(0);
-					deriv->segment<2>(2 * vid + DOFsPerframe) += coeff * work * dwork.segment<2>(2);
+                    Eigen::Vector4d dwork;
+                    dwork = fbCurMat * (2 * f1 / f2 * df1 - f1 * f1 / f2 / f2 * df2) + fbDiffMat * df2;
+                    dwork = fbCurMat * (2 * f1 / f2 * df1 - f1 * f1 / f2 / f2 * df2);
+					deriv->segment<2>(2 * vid) += 0.5 * coeff * dwork.segment<2>(0);
+					deriv->segment<2>(2 * vid + DOFsPerframe) += 0.5 * coeff * dwork.segment<2>(2);
 				}
 				
 				if (hessT)
 				{
-					Eigen::Matrix4d hwork, hDensity;
-					hwork <<
+					Eigen::Matrix4d hf1, hf2, hwork;
+					hf1 <<
 						-2, 0, 1, 0,
 						0, -2, 0, 1,
 						1, 0, 0, 0,
 						0, 1, 0, 0;
-					hDensity = coeff * (dwork * dwork.transpose() + hwork * work);
+
+                    hf2 <<
+                        2, 0, 0, 0,
+                        0, 2, 0, 0,
+                        0, 0, 0, 0,
+                        0, 0, 0, 0;
+
+                    hwork = fbCurMat * (  2.0 / f2 * (df1 * df1.transpose() + f1 * hf1)
+                                        - 2.0 * f1 / f2 / f2 * (df1 * df2.transpose() + df2 * df1.transpose())
+                                        - f1 * f1 / f2 / f2 * hf2
+                                        + 2.0 * f1 * f1 / f2 / f2 / f2 * (df2 * df2.transpose()))
+                          + fbDiffMat * hf2;
+
+                    hwork = fbCurMat * (  2.0 / f2 * (df1 * df1.transpose() + f1 * hf1)
+                                          - 2.0 * f1 / f2 / f2 * (df1 * df2.transpose() + df2 * df1.transpose())
+                                          - f1 * f1 / f2 / f2 * hf2
+                                          + 2.0 * f1 * f1 / f2 / f2 / f2 * (df2 * df2.transpose()));
+//                    hwork = fbDiffMat * hf2;
+//                    hwork = fbCurMat * (  2.0 / f2 * (df1 * df1.transpose() + f1 * hf1) - 2 * f1 / f2 / f2 * (df1 * df2.transpose()) );
 
 					if (isProj)
-						hDensity = SPDProjection(hDensity);
+                        hwork = SPDProjection(hwork);
 
 					for(int p = 0; p < 2; p++)
 						for (int q = 0; q < 2; q++)
 						{
-							hessT->push_back({ 2 * vid + p, 2 * vid + q, hDensity(p, q) });
-							hessT->push_back({ 2 * vid + p + DOFsPerframe, 2 * vid + q + DOFsPerframe, hDensity(2 + p, 2 + q) });
-							hessT->push_back({ 2 * vid + p + DOFsPerframe, 2 * vid + q, hDensity(2 + p, q) });
-							hessT->push_back({ 2 * vid + p, 2 * vid + q + DOFsPerframe, hDensity(p, 2 + q) });
+							hessT->push_back({ 2 * vid + p, 2 * vid + q, 0.5 * coeff * hwork(p, q) });
+							hessT->push_back({ 2 * vid + p + DOFsPerframe, 2 * vid + q + DOFsPerframe, 0.5 * coeff * hwork(2 + p, 2 + q) });
+							hessT->push_back({ 2 * vid + p + DOFsPerframe, 2 * vid + q, 0.5 * coeff * hwork(2 + p, q) });
+							hessT->push_back({ 2 * vid + p, 2 * vid + q + DOFsPerframe, 0.5 * coeff * hwork(p, 2 + q) });
 						}
 
 				}
@@ -323,12 +357,12 @@ double WrinkleEditingCWFFullFormula::computeEnergy(const Eigen::VectorXd& x, Eig
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames + 1, GRAIN_SIZE);
 	tbb::parallel_for(rangex, kineticEnergyPerframe);
 
-	for (uint32_t i =0; i < numFrames + 1; ++i)
-	{
-		woList[i] = workLoadEnergy(i, deriv ? &curWDerivList[i] : NULL, hess ? &curWTList[i] : NULL, isProj);
-	}
+//	for (uint32_t i =0; i < numFrames + 1; ++i)
+//	{
+//		woList[i] = workLoadEnergy(i, deriv ? &curWDerivList[i] : NULL, hess ? &curWTList[i] : NULL, isProj);
+//	}
 
-	/*auto workloadEnergyPerframe = [&](const tbb::blocked_range<uint32_t>& range)
+	auto workloadEnergyPerframe = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
@@ -336,7 +370,7 @@ double WrinkleEditingCWFFullFormula::computeEnergy(const Eigen::VectorXd& x, Eig
 		}
 	};
 
-	tbb::parallel_for(rangex, workloadEnergyPerframe);*/
+	tbb::parallel_for(rangex, workloadEnergyPerframe);
 
 
 	for (int i = 0; i < _zvalsList.size() - 1; i++)
