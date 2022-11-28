@@ -233,11 +233,12 @@ void WrinkleEditingCWFFullFormula::computeOptRefAmp()
             {
                 int vid = _mesh.faceVertex(fid, vInF);
                 double w0norm = _faceGradOmega[0][fid].row(vInF).norm();
-                double w1norm = _faceGradOmega[nfaces - 1][fid].row(vInF).norm();
+                double w1norm = _faceGradOmega[nframes - 1][fid].row(vInF).norm();
                 double denominant = std::pow((1 - t) * w0norm + t * w1norm, 2.0);
 
                 _combinedRefAmpList[i][vid] += (1 - t) * w0norm * w0norm * _combinedRefAmpList[0][vid] / denominant + t * w1norm * w1norm * _combinedRefAmpList[nframes - 1][vid] / denominant;
-                nNei[vid] += 1;
+                if(i == 1)
+                    nNei[vid] += 1;
             }
         }
 
@@ -560,9 +561,11 @@ void WrinkleEditingCWFFullFormula::solveIntermeditateFrames(Eigen::VectorXd& x, 
 		save(x, folder);
 	};
 
+    std::cout << "compute face gradient: " << std::endl;
 	computeFaceGradTheta();
+    std::cout << "compute optimal amplitude: " << std::endl;
     computeOptRefAmp();
-
+    std::cout << "test gradient and hesssian: " << std::endl;
 	OptSolver::testFuncGradHessian(funVal, x);
 
 	auto x0 = x;

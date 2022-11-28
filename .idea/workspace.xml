@@ -48,9 +48,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -343,7 +341,7 @@
       <workItem from="1668721216462" duration="7918000" />
       <workItem from="1669140124396" duration="774000" />
       <workItem from="1669145833603" duration="1513000" />
-      <workItem from="1669148745723" duration="7759000" />
+      <workItem from="1669148745723" duration="9174000" />
     </task>
     <servers />
   </component>
