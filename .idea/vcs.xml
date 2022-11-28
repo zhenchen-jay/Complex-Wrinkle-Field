@@ -2,5 +2,20 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/cli11-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/comiso-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/eigen-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/geometry-central-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/geometry-central-src/deps/happly" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/libigl-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/polyscope-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/polyscope-src/deps/glfw" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/polyscope-src/deps/happly" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/polyscope-src/deps/imgui/imgui" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/predicates-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/spectra-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/tbb-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/tetgen-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build-new/_deps/triangle-src" vcs="Git" />
   </component>
 </project>

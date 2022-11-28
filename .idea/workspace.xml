@@ -43,11 +43,12 @@
   </component>
   <component name="CMakeSettings">
     <configurations>
-      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Release" NO_GENERATOR="true" />
     </configurations>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" afterDir="false" />
@@ -76,6 +77,7 @@
     <option name="minorVersion" value="1" />
   </component>
   <component name="ProjectId" id="2H5r4WG00OWz7cZnMsXJQOkGUK3" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -341,7 +343,7 @@
       <workItem from="1668721216462" duration="7918000" />
       <workItem from="1669140124396" duration="774000" />
       <workItem from="1669145833603" duration="1513000" />
-      <workItem from="1669148745723" duration="4410000" />
+      <workItem from="1669148745723" duration="7759000" />
     </task>
     <servers />
   </component>

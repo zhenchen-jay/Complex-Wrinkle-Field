@@ -174,14 +174,15 @@ namespace IntrinsicFormula
 
 
 		// spatial-temporal energies
-        virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
+        virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
         virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 
         // work load energy
-        double workLoadEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+//        double workLoadEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
         void computeFaceGradTheta();
+        void computeOptRefAmp();
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)
@@ -194,6 +195,6 @@ namespace IntrinsicFormula
 		Eigen::VectorXd _faceWeight;
 		Eigen::VectorXd _vertWeight;
 
-        std::vector<std::vector<std::vector<Eigen::Matrix2d>>> _faceIuInvOmegaOmega;
+        std::vector<std::vector<Eigen::Matrix3d>> _faceGradOmega;
 	};
 }
