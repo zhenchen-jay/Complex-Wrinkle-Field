@@ -184,6 +184,9 @@ namespace IntrinsicFormula
         virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
+        
+
+        void testKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt);
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)

@@ -73,7 +73,7 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
 	int maxFreeVid = 0;
 
 	if (deriv)
-		deriv->setZero(2. * nverts + nedges);
+		deriv->setZero(2 * nverts + nedges);
 	if (hessT)
 		hessT->clear();
 
@@ -180,6 +180,8 @@ double WrinkleEditingCWFNew::computeKineticEnergyPerFaceVertex(int fid, int vInF
 {
 	int vid = _mesh.faceVertex(fid, vInF);
 	double coeff = _vertWeight(vid) / (dt * dt) * _faceArea[fid] / 3;
+	
+	coeff *= std::pow(1e-3, 3) / 12; // fake bending stiffness
 
 	int eid0 = _mesh.faceEdge(fid, (vInF + 1) % 3);
 	int eid1 = _mesh.faceEdge(fid, (vInF + 2) % 3);
@@ -206,6 +208,8 @@ double WrinkleEditingCWFNew::computeKineticEnergyPerFaceVertex(int fid, int vInF
 
 	double energy = 0.5 * coeff * ((diffx.transpose() * diffx).trace() + (diffy.transpose() * diffy).trace());
 
+	//double energy = coeff * (diffy).trace();
+
 	if (deriv || hess)
 	{
 		std::vector<Eigen::Matrix2d> gradDiffx(8), gradDiffy(8);
@@ -224,36 +228,41 @@ double WrinkleEditingCWFNew::computeKineticEnergyPerFaceVertex(int fid, int vInF
 
 
 		// d diffx / d z
-		gradDiffx[0] = -curOmegaMat;
+		gradDiffx[0] = -Iinv * curOmegaMat;
 		gradDiffx[1] = zeroMat;
-		gradDiffx[2] = nextOmegaMat;
-		gradDiffx[3] = zeroMat;
 
 		// d diffx / d w
-		gradDiffx[4] = -curZVec[0] * Iinv * gradCurOmegaMat[0];
-		gradDiffx[5] = -curZVec[0] * Iinv * gradCurOmegaMat[1];
+		gradDiffx[2] = -curZVec[0] * Iinv * gradCurOmegaMat[0];
+		gradDiffx[3] = -curZVec[0] * Iinv * gradCurOmegaMat[1];
+
+		// d diffx / d z
+		gradDiffx[4] = Iinv * nextOmegaMat;
+		gradDiffx[5] = zeroMat;
+
+		// d diffx / d w
 		gradDiffx[6] = nextZVec[0] * Iinv * gradNextOmegaMat[0];
-		gradDiffx[5] = nextZVec[0] * Iinv * gradNextOmegaMat[1];
+		gradDiffx[7] = nextZVec[0] * Iinv * gradNextOmegaMat[1];
 
 
 		// d diffy / d z
-		gradDiffx[0] = zeroMat;
-		gradDiffx[1] = -curOmegaMat;
-		gradDiffx[2] = zeroMat;
-		gradDiffx[3] = nextOmegaMat;
+		gradDiffy[0] = zeroMat;
+		gradDiffy[1] = -Iinv * curOmegaMat;
+		gradDiffy[4] = zeroMat;
+		gradDiffy[5] = Iinv * nextOmegaMat;
 
 		// d diffy / d w
-		gradDiffx[4] = -curZVec[1] * Iinv * gradCurOmegaMat[0];
-		gradDiffx[5] = -curZVec[1] * Iinv * gradCurOmegaMat[1];
-		gradDiffx[6] = nextZVec[1] * Iinv * gradNextOmegaMat[0];
-		gradDiffx[5] = nextZVec[1] * Iinv * gradNextOmegaMat[1];
+		gradDiffy[2] = -curZVec[1] * Iinv * gradCurOmegaMat[0];
+		gradDiffy[3] = -curZVec[1] * Iinv * gradCurOmegaMat[1];
+		gradDiffy[6] = nextZVec[1] * Iinv * gradNextOmegaMat[0];
+		gradDiffy[7] = nextZVec[1] * Iinv * gradNextOmegaMat[1];
 
 		if (deriv)
 		{
 			deriv->setZero();
 			for (int j = 0; j < 8; j++)
 			{
-				(* deriv)[j] = coeff * ((gradDiffx[j].transpose() * diffx).trace() + (gradDiffy[j].transpose() * diffy).trace());
+				(*deriv)[j] = coeff * ((gradDiffx[j].transpose() * diffx).trace() + (gradDiffy[j].transpose() * diffy).trace());
+				//(*deriv)[j] = coeff * (gradDiffy[j]).trace();
 			}
 		}
 
@@ -261,75 +270,78 @@ double WrinkleEditingCWFNew::computeKineticEnergyPerFaceVertex(int fid, int vInF
 		{
 			hess->setZero();
 
-			// d^2 diffx / (d z)^2 = 0 and d^2 diffy / (d z)^2 = 0
-			for (int i = 0; i < 4; i++)
-				for (int j = 0; j < 4; j++)
-					(*hess)(i, j) = coeff * ((gradDiffx[j].transpose() * gradDiffx[i]).trace() + (gradDiffy[j].transpose() * gradDiffy[i]).trace());
+			// stupid but easy to debug implementation
+			std::vector<std::vector<Eigen::Matrix2d>> hDiffx, hDiffy;
+			hDiffx.resize(8);
+			for (int i = 0; i < 8; i++)
+				hDiffx[i].resize(8, Eigen::Matrix2d::Zero());
+			hDiffy.resize(8);
+			for (int i = 0; i < 8; i++)
+				hDiffy[i].resize(8, Eigen::Matrix2d::Zero());
+				
 
-			// d^2 energy / dz dw
-			// d^2 diffx / dx dw_{t+1} = 0 and d diffx / dy = 0
-			for (int i = 0; i < 4; i++)
-				for (int j = 0; j < 4; j++)
+			hDiffx[0][2] = -Iinv * gradCurOmegaMat[0];
+			hDiffx[0][3] = -Iinv * gradCurOmegaMat[1];
+
+			
+			hDiffx[2][0] = -Iinv * gradCurOmegaMat[0];	// gradDiffx[2] = -curZVec[0] * Iinv * gradCurOmegaMat[0];
+			hDiffx[2][2] = -curZVec[0] * Iinv * (gradOmega[0] * gradOmega[0].transpose() + gradOmega[0] * gradOmega[0].transpose());
+			hDiffx[2][3] = -curZVec[0] * Iinv * (gradOmega[0] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[0].transpose());
+
+			hDiffx[3][0] = -Iinv * gradCurOmegaMat[1];	// gradDiffx[3] = -curZVec[0] * Iinv * gradCurOmegaMat[1];
+			hDiffx[3][2] = -curZVec[0] * Iinv * (gradOmega[1] * gradOmega[0].transpose() + gradOmega[1] * gradOmega[0].transpose());	
+			hDiffx[3][3] = -curZVec[0] * Iinv * (gradOmega[1] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[1].transpose());
+
+			
+			hDiffx[4][6] = Iinv * gradNextOmegaMat[0];  // gradDiffx[4] = Iinv * nextOmegaMat;
+			hDiffx[4][7] = Iinv * gradNextOmegaMat[1];												
+			
+			
+			hDiffx[6][4] = Iinv * gradNextOmegaMat[0]; // gradDiffx[6] = nextZVec[0] * Iinv * gradNextOmegaMat[0];
+			hDiffx[6][6] = nextZVec[0] * Iinv * (gradOmega[0] * gradOmega[0].transpose() + gradOmega[0] * gradOmega[0].transpose()); // gradDiffx[6] = nextZVec[0] * Iinv * gradNextOmegaMat[0];
+			hDiffx[6][7] = nextZVec[0] * Iinv * (gradOmega[0] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[0].transpose());// gradDiffx[6] = nextZVec[0] * Iinv * gradNextOmegaMat[0];
+
+			hDiffx[7][4] = Iinv * gradNextOmegaMat[1]; // gradDiffx[7] = nextZVec[0] * Iinv * gradNextOmegaMat[1];
+			hDiffx[7][6] = nextZVec[0] * Iinv * (gradOmega[1] * gradOmega[0].transpose() + gradOmega[1] * gradOmega[0].transpose()); // gradDiffx[7] = nextZVec[0] * Iinv * gradNextOmegaMat[1];
+			hDiffx[7][7] = nextZVec[0] * Iinv * (gradOmega[1] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[1].transpose()); // gradDiffx[7] = nextZVec[0] * Iinv * gradNextOmegaMat[1];
+
+
+
+			
+			hDiffy[1][2] = -Iinv * gradCurOmegaMat[0];	 // gradDiffy[1] = -Iinv * curOmegaMat;
+			hDiffy[1][3] = -Iinv * gradCurOmegaMat[1];	 // gradDiffy[1] = -Iinv * curOmegaMat;
+
+			hDiffy[2][1] = -Iinv * gradCurOmegaMat[0]; // gradDiffy[2] = -curZVec[1] * Iinv * gradCurOmegaMat[0];
+			hDiffy[2][2] = -curZVec[1] * Iinv * (gradOmega[0] * gradOmega[0].transpose() + gradOmega[0] * gradOmega[0].transpose()); // gradDiffy[2] = -curZVec[1] * Iinv * gradCurOmegaMat[0];
+			hDiffy[2][3] = -curZVec[1] * Iinv * (gradOmega[0] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[0].transpose()); // gradDiffy[2] = -curZVec[1] * Iinv * gradCurOmegaMat[0];
+
+
+			hDiffy[3][1] = -Iinv * gradCurOmegaMat[1]; // gradDiffy[3] = -curZVec[1] * Iinv * gradCurOmegaMat[1];
+			hDiffy[3][2] = -curZVec[1] * Iinv * (gradOmega[1] * gradOmega[0].transpose() + gradOmega[1] * gradOmega[0].transpose());
+			hDiffy[3][3] = -curZVec[1] * Iinv * (gradOmega[1] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[1].transpose());
+
+			
+			hDiffy[5][6] = Iinv * gradNextOmegaMat[0];	// gradDiffy[5] = Iinv * nextOmegaMat;
+			hDiffy[5][7] = Iinv * gradNextOmegaMat[1];	// gradDiffy[5] = Iinv * nextOmegaMat;
+
+			hDiffy[6][5] = Iinv * gradNextOmegaMat[0];	// gradDiffy[6] = nextZVec[1] * Iinv * gradNextOmegaMat[0];
+			hDiffy[6][6] = nextZVec[1] * Iinv * (gradOmega[0] * gradOmega[0].transpose() + gradOmega[0] * gradOmega[0].transpose()); // gradDiffy[6] = nextZVec[1] * Iinv * gradNextOmegaMat[0];
+			hDiffy[6][7] = nextZVec[1] * Iinv * (gradOmega[0] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[0].transpose()); // gradDiffy[6] = nextZVec[1] * Iinv * gradNextOmegaMat[0];
+
+			hDiffy[7][5] = Iinv * gradNextOmegaMat[1]; // gradDiffy[7] = nextZVec[1] * Iinv * gradNextOmegaMat[1];
+			hDiffy[7][6] = nextZVec[1] * Iinv * (gradOmega[1] * gradOmega[0].transpose() + gradOmega[1] * gradOmega[0].transpose()); // gradDiffy[7] = nextZVec[1] * Iinv * gradNextOmegaMat[1];
+			hDiffy[7][7] = nextZVec[1] * Iinv * (gradOmega[1] * gradOmega[1].transpose() + gradOmega[1] * gradOmega[1].transpose()); // gradDiffy[7] = nextZVec[1] * Iinv * gradNextOmegaMat[1];
+
+			for(int i = 0; i < 8; i++)
+				for (int j = 0; j < 8; j++)
 				{
-					Eigen::Matrix2d d2Diffx, d2Diffy;
+					//(*deriv)[j] = coeff * ((gradDiffx[j].transpose() * diffx).trace() + (gradDiffy[j].transpose() * diffy).trace());
+					 
+					(*hess)(i, j) = coeff * (gradDiffx[i].transpose() * gradDiffx[j] + gradDiffy[i].transpose() * gradDiffy[j]).trace();
+					(*hess)(i, j) += coeff * (hDiffx[i][j].transpose() * diffx + hDiffy[i][j].transpose() * diffy).trace();
 
-					if (i == 0) // first deriv is x_t
-					{
-						d2Diffy = zeroMat;
-						if (j < 2) // second deriv is w_t(j)
-						{
-							d2Diffx = -Iinv * gradCurOmegaMat[j];
-						}
-						else
-							d2Diffx = zeroMat;
-					}
-					else if (i == 1) // first deriv is y_t
-					{
-						d2Diffx = zeroMat;
-						if (j < 2) // second deriv is w_t(j)
-							d2Diffy = -Iinv * gradCurOmegaMat[j];
-						else
-							d2Diffy = zeroMat;
-					}
-
-
-					(*hess)(i, 4 + j) = coeff * (
-						(gradDiffx[4 + j].transpose() * gradDiffx[i] + d2Diffx.transpose() * diffx).trace()
-						+ (gradDiffy[4 + j].transpose() * gradDiffy[i] + d2Diffy.transpose() * diffy).trace());
+					//(*hess)(i, j) += coeff * (hDiffy[i][j]).trace();
 				}
-
-			(*hess).block<4, 4>(4, 0) = (*hess).block<4, 4>(0, 4).transpose();
-
-
-			// d^2 energy / dw dw
-			for (int i = 0; i < 4; i++)
-				for (int j = 0; j < 4; j++)
-				{
-					Eigen::Matrix2d d2Diffx = zeroMat, d2Diffy = zeroMat;
-					// all the cross w_t and w_{t + 1} second derivatives are 0
-
-					if (i < 2)	// first deriv is for w_t(i)
-					{
-						if (j < 2) // second deriv is for w_t(j)
-						{
-							d2Diffx = -curZVec[0] * Iinv * (gradOmega[i] * gradOmega[j].transpose() + gradOmega[j] * gradOmega[i].transpose());
-							d2Diffy = -curZVec[1] * Iinv * (gradOmega[i] * gradOmega[j].transpose() + gradOmega[j] * gradOmega[i].transpose());
-						}
-					}
-					else		// first deriv is for w_{t+1}(i - 2)
-					{
-						if (j >= 2)
-						{
-							d2Diffx = nextZVec[0] * Iinv * (gradOmega[i] * gradOmega[j].transpose() + gradOmega[j] * gradOmega[i].transpose());
-							d2Diffy = nextZVec[0] * Iinv * (gradOmega[i] * gradOmega[j].transpose() + gradOmega[j] * gradOmega[i].transpose());
-						}
-					}
-
-					(*hess)(4 + i, 4 + j) = coeff * (
-						(gradDiffx[4 + j].transpose() * gradDiffx[4 + i] + d2Diffx.transpose() * diffx).trace()
-						+ (gradDiffy[4 + j].transpose() * gradDiffy[4 + i] + d2Diffy.transpose() * diffy).trace());
-				}
-
 
 			if (isProj)
 				(*hess) = SPDProjection(*hess);
@@ -421,7 +433,7 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 
 	int numFrames = _zvalsList.size() - 2;
 
-	int DOFsPerframe = 2 * nverts;
+	int DOFsPerframe = 2 * nverts + nedges;
 
 	int DOFs = numFrames * DOFsPerframe;
 
@@ -501,7 +513,7 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-			ampEnergyList[i] = temporalAmpDifference(i + 1, deriv ? &ampDerivList[i] : NULL, hess ? &ampTList[i] : NULL, isProj);
+			//ampEnergyList[i] = temporalAmpDifference(i + 1, deriv ? &ampDerivList[i] : NULL, hess ? &ampTList[i] : NULL, isProj);
 			knoppelEnergyList[i] = spatialKnoppelEnergy(i + 1, deriv ? &knoppelDerivList[i] : NULL, hess ? &knoppelTList[i] : NULL, isProj);
 		}
 	};
@@ -518,15 +530,15 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 		if (deriv) 
 		{
 			deriv->segment(i * DOFsPerframe, DOFsPerframe) += knoppelDerivList[i];
-			deriv->segment(i * DOFsPerframe, 2 * nverts) += ampDerivList[i];
+			//deriv->segment(i * DOFsPerframe, 2 * nverts) += ampDerivList[i];
 		}
 
 		if (hess) 
 		{
-			for (auto& it : ampTList[i])
+			/*for (auto& it : ampTList[i])
 			{
 				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), it.value() });
-			}
+			}*/
 			for (auto& it : knoppelTList[i])
 			{
 				T.push_back({ i * DOFsPerframe + it.row(), i * DOFsPerframe + it.col(), it.value() });
@@ -544,7 +556,7 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 
 void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
 {
-	std::cout << " CWF model: " << std::endl;
+	std::cout << "New CWF model: " << std::endl;
 	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 		Eigen::VectorXd deriv;
 		Eigen::SparseMatrix<double> H;
@@ -574,8 +586,6 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
 		save(x, folder);
 	};
 
-
-
 	OptSolver::testFuncGradHessian(funVal, x);
 
 	auto x0 = x;
@@ -586,4 +596,53 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
 	OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, std::max(1e-16, xTol), std::max(1e-16, fTol), true, getVecNorm, &workingFolder, saveTmpRes);
 	std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 	std::cout << "solve finished." << std::endl;
+}
+
+void WrinkleEditingCWFNew::testKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt)
+{
+	Eigen::Matrix<double, 8, 1> deriv, deriv1;
+	Eigen::Matrix<double, 8, 8> hess;
+
+	double e0 = computeKineticEnergyPerFaceVertex(fid, vInF, frameId, dt, &deriv, &hess, false);
+
+	int vid = _mesh.faceVertex(fid, vInF);
+	int eid0 = _mesh.faceEdge(fid, (vInF + 1) % 3);
+	int eid1 = _mesh.faceEdge(fid, (vInF + 2) % 3);
+
+	std::complex<double> backupcurZvals = _zvalsList[frameId][vid];
+	std::complex<double> backupnextZvals = _zvalsList[frameId + 1][vid];
+
+	double backupCurW0 = _edgeOmegaList[frameId][eid0];
+	double backupCurW1 = _edgeOmegaList[frameId][eid1];
+	double backupNextW0 = _edgeOmegaList[frameId + 1][eid0];
+	double backupNextW1 = _edgeOmegaList[frameId + 1][eid1];
+
+	Eigen::Matrix<double, 8, 1> dir;
+	dir.setRandom();
+
+	dir(2) = 0;
+	dir(3) = 0;
+	dir(6) = 0;
+	dir(7) = 0;
+
+	for (int i = 3; i < 9; i++)
+	{
+		double eps = std::pow(0.1, i);
+		_zvalsList[frameId][vid] = std::complex<double>(backupcurZvals.real() + eps * dir(0), backupcurZvals.imag() + eps * dir(1));
+		_edgeOmegaList[frameId][eid0] = backupCurW0 + eps * dir(2);
+		_edgeOmegaList[frameId][eid1] = backupCurW1 + eps * dir(3);
+
+		_zvalsList[frameId + 1][vid] = std::complex<double>(backupnextZvals.real() + eps * dir(4), backupnextZvals.imag() + eps * dir(5));
+		_edgeOmegaList[frameId + 1][eid0] = backupNextW0 + eps * dir(6);
+		_edgeOmegaList[frameId + 1][eid1] = backupNextW1 + eps * dir(7);
+
+
+		double e1 = computeKineticEnergyPerFaceVertex(fid, vInF, frameId, 1, &deriv1, NULL, false);
+		std::cout << "eps: " << eps << std::endl;
+		std::cout << "energy-gradient: " << (e1 - e0) / eps - deriv.dot(dir) << std::endl;
+		std::cout << "gradient-hess: " << ((deriv1 - deriv) / eps - hess * dir).norm() << std::endl;
+
+	}
+
+
 }

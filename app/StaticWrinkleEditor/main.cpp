@@ -37,6 +37,7 @@
 #include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF_new.h"
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -169,7 +170,7 @@ std::vector<Eigen::VectorXd> refAmpList;
 // region edition
 RegionEdition regEdt;
 
-int upsampleTimes = 2;
+int upsampleTimes = 0;
 
 bool isShowVectorFields = true;
 bool isShowWrinkels = true;
@@ -310,14 +311,15 @@ enum ModelType
 	LocalCWF = 3,
 	LinearCWF = 4,
 	KnoppelCWF = 5,
-	CWFFullFormula = 6
+	CWFFullFormula = 6,
+	CWFNew = 7,
 };
 
 InitializationType initType = SeperateLinear;
 double zuenkoTau = 0.1;
 int zuenkoIter = 5;
 
-ModelType editModelType = CWFFullFormula;
+ModelType editModelType = CWFNew;
 
 static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
@@ -348,6 +350,10 @@ static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos,
 	else if (editType == CWFFullFormula)
 	{
 		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFFullFormula>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	}
+	else if (editType == CWFNew)
+	{
+		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFNew>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 	}
 	else
 	{
@@ -811,8 +817,9 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, c
 			LinearCWF = 4,
 			KnoppelCWF = 5,
 			CFWFFullFormula = 6
+			CWFNew = 7
     */
-    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula" << std::endl;
+    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
     std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
@@ -846,8 +853,9 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 		   LinearCWF = 4,
 		   KnoppelCWF = 5,
 		   CFWFFullFormula = 6
-   */
-	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula" << std::endl;
+		   CWFNew = 7
+    */
+	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
 	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	if (isForceReinitilaize)
@@ -1677,7 +1685,7 @@ void callback() {
 			LinearCWF = 4,
 			KnoppelCWF = 5,
     		*/
-		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0CWFFullFormula\0");
+		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0CWFFullFormula\0CWFNew\0");
 		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
         {
             std::cout << "init type: " << initType << std::endl;
