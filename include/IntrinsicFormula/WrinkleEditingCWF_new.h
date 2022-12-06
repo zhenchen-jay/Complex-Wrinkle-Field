@@ -108,7 +108,6 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
-
         virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder) override
         {
             convertVariable2List(x0);
@@ -137,7 +136,7 @@ namespace IntrinsicFormula
             {
                 for (uint32_t i = range.begin(); i < range.end(); ++i)
                 {
-
+                    saveVertexZvals(outputFolder + "unitZvals_" + std::to_string(i) + ".txt", _unitZvalsList[i]);
                     saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", _zvalsList[i]);
                     saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", _edgeOmegaList[i]);
                     saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", _combinedRefAmpList[i]);
@@ -154,7 +153,7 @@ namespace IntrinsicFormula
 			int nverts = _pos.rows();
 			int nedges = _mesh.nEdges();
 
-			int numFrames = _zvalsList.size() - 2;
+			int numFrames = _unitZvalsList.size() - 2;
 			int nDOFs = 2 * nverts + nedges;
 
 			znorm = 0;
@@ -163,30 +162,34 @@ namespace IntrinsicFormula
 			for (int i = 0; i < numFrames; i++)
 			{
 				for (int j = 0; j < nverts; j++)
-				{
-					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j)));
-					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j + 1)));
-				}
-                for (int j = 0; j < nedges; j++)
                 {
-                    wnorm = std::max(wnorm, std::abs(x(i * nDOFs + 2 * nverts + j)));
+                    znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j)));
+                    znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j + 1)));
                 }
 			}
 		}
 
-		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override;
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            for(int i = 1; i < _zvalsList.size() - 1; i++)
+            {
+                for(int j = 0; j < _zvalsList[i].size(); j++)
+                {
+                    _zvalsList[i][j] = _unitZvalsList[i][j] * _combinedRefAmpList[i][j];
+                }
+            }
+            return _zvalsList;
+        }
 
-        double computeKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt, Eigen::Matrix<double, 8, 1>* deriv = NULL, Eigen::Matrix<double, 8, 8>* hess = NULL, bool isProj = false);
+		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override;
 
 
 		// spatial-temporal energies
-        virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
+        virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
         virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
-        
 
-        void testKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt);
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)

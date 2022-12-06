@@ -83,6 +83,10 @@ namespace IntrinsicFormula
 				}
 			}
 		}
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            return _zvalsList;
+        }
 
         virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override
         {

@@ -108,6 +108,10 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            return _zvalsList;
+        }
 
         virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder) override
         {

@@ -805,7 +805,7 @@ void updatePaintingItems()
 	std::cout << "start to update viewer." << std::endl;
 }
 
-void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
+void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
 {
     std::cout << "model Type: " << editModelType << std::endl;
 
@@ -824,9 +824,14 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initzvals, c
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 	if(tarZvals.empty())
-        editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-    else
+    {
+        editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+    }
+
+    if(editModelType != CWFNew)
         editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+    else
+        editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
@@ -860,13 +865,16 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 	if (isForceReinitilaize)
 	{
-		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+        buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
         if(tarZvals.empty())
-            editModel->initialization(initzvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-        else
-            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+        {
+            editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+        }
 
-		std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
+        if(editModelType != CWFNew)
+            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+        else
+            editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 	}
 	editModel->convertList2Variable(x);
 //	editModel->testEnergy(x);

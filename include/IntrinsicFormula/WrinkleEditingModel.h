@@ -22,6 +22,7 @@ namespace IntrinsicFormula
 		void faceFlagsSetup(const Eigen::VectorXi& faceFlags);
 
 		void adjustOmegaForConsistency(const std::vector<std::complex<double>>& zvals, const Eigen::VectorXd& amp, Eigen::VectorXd& omega, Eigen::VectorXi* edgeFlag = NULL);
+        void adjustOmegaForConsistency(const std::vector<std::complex<double>>& zvals, const Eigen::VectorXd& omega, Eigen::VectorXd& newOmega, Eigen::VectorXd& deltaOmega, Eigen::VectorXi* edgeFlags = NULL);
 		void vecFieldSLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag = NULL);
         void vecFieldLERP(const Eigen::VectorXd& initVec, const Eigen::VectorXd& tarVec, std::vector<Eigen::VectorXd>& vecList, int numFrames, Eigen::VectorXi* edgeFlag = NULL);
 		void ampFieldLERP(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, std::vector<Eigen::VectorXd>& ampList, int numFrames, Eigen::VectorXi* vertFlag = NULL);
@@ -30,6 +31,13 @@ namespace IntrinsicFormula
         void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, InitializationType initType, bool applyAdj = true);
 		void initialization(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, int numFrames, bool applyAdj = true);
 		void initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, bool applyAdj = true);
+
+        void editCWFBasedOnVertOp(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<std::complex<double>>& editZvals, Eigen::VectorXd& editOmga);
+
+        void initializationNew(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, int numFrames, bool applyAdj = true);
+        Eigen::VectorXd ampTimeOmegaSqInitialization(const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, double t);
+        Eigen::VectorXd ampInitialization(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, const Eigen::VectorXd curAmpOmegaSq, double t);
+        Eigen::VectorXd omegaInitialization(const Eigen::VectorXd& initOmega, const Eigen::VectorXd& tarOmega, const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, const Eigen::VectorXd& curAmpOmegaSq, double t);
 
 		virtual void solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol = 1e-6, double xTol = 0, double fTol = 0, bool isdisplayInfo = false, std::string workingFolder = "") = 0;
 
@@ -42,7 +50,7 @@ namespace IntrinsicFormula
                 finalWList[i] -= _deltaOmegaList[i];
             return finalWList;
         }
-		std::vector<std::vector<std::complex<double>>> getVertValsList() { return _zvalsList; }
+		virtual std::vector<std::vector<std::complex<double>>> getVertValsList() = 0;
 
 		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
 		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
@@ -101,7 +109,8 @@ namespace IntrinsicFormula
 
 		void buildWeights();
 
-		
+        Eigen::Vector3d rot3dVec(const Eigen::Vector3d& v, const Eigen::Vector3d& axis, double angle);
+		void computeAmpOmegaSq(const Eigen::VectorXd& amp, const Eigen::VectorXd& omega, Eigen::VectorXd& ampOmegaSq);
 
 
 	public:
@@ -143,6 +152,7 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> _edgeOmegaList;
         std::vector<Eigen::VectorXd> _deltaOmegaList;
 		std::vector<std::vector<std::complex<double>>> _zvalsList;
+        std::vector<std::vector<std::complex<double>>> _unitZvalsList;  // the optimization variables for new formula
 
 		int _quadOrd;
 		std::vector<std::vector<int>> _vertNeiFaces;
@@ -177,7 +187,8 @@ namespace IntrinsicFormula
 	protected:
 		Eigen::VectorXd _faceWeight;
 		Eigen::VectorXd _vertWeight;
-
+        std::vector<Eigen::VectorXd> _ampTimesOmegaSq;
+        std::vector<Eigen::VectorXd> _ampTimesDeltaOmegaSq;
 
 	};
 }

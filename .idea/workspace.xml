@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="CMakePresetLoader">{
+  &quot;useNewFormat&quot;: true
+}</component>
+  <component name="CMakeReloadState">
+    <option name="reloaded" value="true" />
+  </component>
   <component name="CMakeRunConfigurationManager">
     <generated>
       <config projectName="Phase interpolation" targetName="OtherApproachesCli_bin" />
@@ -49,7 +55,20 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingFullCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingFullCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLinearCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLinearCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLocalCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLocalCWF.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/WrinkleFieldsEditor.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/WrinkleFieldsEditor.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,7 +86,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectApplicationVersion">
     <option name="ide" value="CLion" />
@@ -80,21 +99,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;cf.advertisement.text.has.clang-format&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;cmake.loaded.for.project&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/zchen96/Projects/PhaseInterpolation_polyscope&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;CMakeSettings&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "cf.advertisement.text.has.clang-format": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "cmake.loaded.for.project": "true",
+    "last_opened_file_path": "/home/zchen96/Projects/PhaseInterpolation_polyscope",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.editor"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="CMake Application.StaticWrinkleEditor_bin">
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
@@ -341,11 +360,24 @@
       <workItem from="1668721216462" duration="7918000" />
       <workItem from="1669140124396" duration="774000" />
       <workItem from="1669145833603" duration="1513000" />
-      <workItem from="1669148745723" duration="9174000" />
+      <workItem from="1669148745723" duration="9788000" />
+      <workItem from="1669755071108" duration="1323000" />
+      <workItem from="1670355598121" duration="13364000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp</url>
+          <line>827</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

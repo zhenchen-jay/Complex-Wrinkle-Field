@@ -8,10 +8,10 @@
 namespace IntrinsicFormula
 {
     // this is actually the one we used to generate the paper results, where we manaully blend to get omega (w_blend + dw_blend), and ask the w-z consistency for (z, w_blend), and our variables are the vertex zvals
-	class WrinkleEditingCWF : public WrinkleEditingModel
+	class WrinkleEditingCWFNewFullEnergy : public WrinkleEditingModel
 	{
 	public:
-        WrinkleEditingCWF(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
+        WrinkleEditingCWFNewFullEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
 			WrinkleEditingModel(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor)
 		{
 			int nverts = _pos.rows();
@@ -108,6 +108,10 @@ namespace IntrinsicFormula
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;
 
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            return _zvalsList;
+        }
 
         virtual void save(const Eigen::VectorXd& x0, std::string* workingFolder) override
         {
@@ -155,7 +159,7 @@ namespace IntrinsicFormula
 			int nedges = _mesh.nEdges();
 
 			int numFrames = _zvalsList.size() - 2;
-			int nDOFs = 2 * nverts;
+			int nDOFs = 2 * nverts + nedges;
 
 			znorm = 0;
 			wnorm = 0;
@@ -167,22 +171,26 @@ namespace IntrinsicFormula
 					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j)));
 					znorm = std::max(znorm, std::abs(x(i * nDOFs + 2 * j + 1)));
 				}
+                for (int j = 0; j < nedges; j++)
+                {
+                    wnorm = std::max(wnorm, std::abs(x(i * nDOFs + 2 * nverts + j)));
+                }
 			}
 		}
 
-        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
-        {
-            return _zvalsList;
-        }
-
 		virtual double computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv = NULL, Eigen::SparseMatrix<double>* hess = NULL, bool isProj = false) override;
+
+        double computeKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt, Eigen::Matrix<double, 8, 1>* deriv = NULL, Eigen::Matrix<double, 8, 8>* hess = NULL, bool isProj = false);
 
 
 		// spatial-temporal energies
-		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
+        virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
         virtual double temporalOmegaDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override { return 0; }
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
+        
+
+        void testKineticEnergyPerFaceVertex(int fid, int vInF, int frameId, double dt);
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)

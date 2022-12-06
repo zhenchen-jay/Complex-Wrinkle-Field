@@ -92,6 +92,10 @@ namespace IntrinsicFormula
 			for (int j = 0; j < _freeEids.size(); j++)
 				_actualEid2Free[_freeEids[j]] = j;
 		}
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            return _zvalsList;
+        }
 
 		virtual void convertVariable2List(const Eigen::VectorXd& x) override;
 		virtual void convertList2Variable(Eigen::VectorXd& x) override;

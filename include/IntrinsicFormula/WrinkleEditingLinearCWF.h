@@ -88,7 +88,10 @@ namespace IntrinsicFormula
         {
             return 0;
         }
-
+        virtual std::vector<std::vector<std::complex<double>>> getVertValsList() override
+        {
+            return _zvalsList;
+        }
 
 		// spatial-temporal energies
 		virtual double temporalAmpDifference(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override

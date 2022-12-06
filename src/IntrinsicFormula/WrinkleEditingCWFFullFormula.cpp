@@ -234,7 +234,8 @@ void WrinkleEditingCWFFullFormula::computeOptRefAmp()
                 int vid = _mesh.faceVertex(fid, vInF);
                 double w0norm = _faceGradOmega[0][fid].row(vInF).norm();
                 double w1norm = _faceGradOmega[nframes - 1][fid].row(vInF).norm();
-                double denominant = std::pow((1 - t) * w0norm + t * w1norm, 2.0);
+//                double denominant = std::pow((1 - t) * w0norm + t * w1norm, 2.0);
+                double denominant = (1 - t) * w0norm * w0norm + t * w1norm * w1norm;
 
                 _combinedRefAmpList[i][vid] += (1 - t) * w0norm * w0norm * _combinedRefAmpList[0][vid] / denominant + t * w1norm * w1norm * _combinedRefAmpList[nframes - 1][vid] / denominant;
                 if(i == 1)
