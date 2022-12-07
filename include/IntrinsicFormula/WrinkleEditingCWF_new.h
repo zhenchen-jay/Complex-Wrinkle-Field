@@ -80,7 +80,7 @@ namespace IntrinsicFormula
                     std::cout << "min geo: " << min << ", max geo: " << max << std::endl;
 
                     double mu = 0;
-                    double sigma = (max - min) / effectivedistFactor;
+                    double sigma = (max - min) / (2 * effectivedistFactor);
 
                     for (int i = 0; i < nfaces; i++)
                     {
