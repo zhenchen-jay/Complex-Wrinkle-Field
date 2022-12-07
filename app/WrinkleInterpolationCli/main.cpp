@@ -1011,7 +1011,7 @@ int main(int argc, char** argv)
 	app.add_option("-f,--fTol", args.fTol, "The functio value update tolerance for optimization.");
 	app.add_option("-n,--numIter", args.numIter, "The number of iteration for optimization.");
 	app.add_option("-a,--ampScaling", args.ampScale, "The amplitude scaling for wrinkled surface upsampling.");
-	app.add_flag("-r,--reoptimize", args.reOptimize, "Whether to reoptimize the input, default is no");
+	app.add_flag("-r,--reoptimize", args.reOptimize, "Whether to reoptimize the input, default is false");
 
 	try {
 		app.parse(argc, argv);
