@@ -626,19 +626,19 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 
 	MeshConnectivity mesh(triF);
 
-    // ToDo: remove this
-    Eigen::SparseMatrix<double> mat;
-    std::vector<int> facemap;
-    std::vector<std::pair<int, Eigen::Vector3d>> bary;
-    meshUpSampling(triV, triF, knoppelUpV, knoppelUpF, upsampleTimes, &mat, &facemap, &bary);
-    knoppelPhiList.resize(zFrames.size());
+	// ToDo: remove this
+	Eigen::SparseMatrix<double> mat;
+	std::vector<int> facemap;
+	std::vector<std::pair<int, Eigen::Vector3d>> bary;
+	meshUpSampling(triV, triF, knoppelUpV, knoppelUpF, upsampleTimes, &mat, &facemap, &bary);
+	knoppelPhiList.resize(zFrames.size());
 
 
 	auto computeMagPhase = [&](const tbb::blocked_range<uint32_t>& range)
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-            IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, wFrames[i], zFrames[i], bary, knoppelPhiList[i]); // knoppel's approach
+			IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, wFrames[i], zFrames[i], bary, knoppelPhiList[i]); // knoppel's approach
 			
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
 
@@ -807,10 +807,10 @@ void updatePaintingItems()
 
 void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
 {
-    std::cout << "model Type: " << editModelType << std::endl;
+	std::cout << "model Type: " << editModelType << std::endl;
 
-    /*
-    * 		CWF = 0,
+	/*
+	* 		CWF = 0,
 			HalfFullCWF = 1,
 			FullCWF = 2,
 			LocalCWF = 3,
@@ -818,20 +818,20 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 			KnoppelCWF = 5,
 			CFWFFullFormula = 6
 			CWFNew = 7
-    */
-    std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
-    std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
+	*/
+	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
+	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 	if(tarZvals.empty())
-    {
-        editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
-    }
+	{
+		editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+	}
 
-    if(editModelType != CWFNew)
-        editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-    else
-        editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+	if(editModelType != CWFNew)
+		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+	else
+		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
@@ -841,7 +841,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
-    std::cout << (wFrames[0] - initOmega).norm() << std::endl;
+	std::cout << (wFrames[0] - initOmega).norm() << std::endl;
 
 }
 
@@ -859,22 +859,22 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 		   KnoppelCWF = 5,
 		   CFWFFullFormula = 6
 		   CWFNew = 7
-    */
+	*/
 	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
 	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	if (isForceReinitilaize)
 	{
-        buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-        if(tarZvals.empty())
-        {
-            editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
-        }
+		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		if(tarZvals.empty())
+		{
+			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+		}
 
-        if(editModelType != CWFNew)
-            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-        else
-            editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		if(editModelType != CWFNew)
+			editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		else
+			editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 	}
 	editModel->convertList2Variable(x);
 //	editModel->testEnergy(x);
@@ -889,7 +889,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
 
-    std::cout << (wFrames[0] - initOmega).norm() << std::endl;
+	std::cout << (wFrames[0] - initOmega).norm() << std::endl;
 }
 
 void registerMesh(int frameId, bool isFirstTime = true)
@@ -904,14 +904,14 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 	updateSelectedRegionSetViz();
 
-    Eigen::VectorXd baseAmplitude = refAmpList[frameId];
-    for(int i = 0 ; i < refAmpList[frameId].size(); i++)
-    {
-        baseAmplitude(i) = std::abs(zList[frameId][i]);
-    }
-    auto baseAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("opt amplitude", baseAmplitude);
-    baseAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
-    polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("opt frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
+	Eigen::VectorXd baseAmplitude = refAmpList[frameId];
+	for(int i = 0 ; i < refAmpList[frameId].size(); i++)
+	{
+		baseAmplitude(i) = std::abs(zList[frameId][i]);
+	}
+	auto baseAmp = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("opt amplitude", baseAmplitude);
+	baseAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("opt frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
 
 	auto consPatterns = polyscope::getSurfaceMesh("base mesh")->addVertexScalarQuantity("inconsistency", consistencyVec[frameId]);
 	consPatterns->setMapRange(std::pair<double, double>(globalCoarseInconMin, globalCoarseInconMax));
@@ -930,30 +930,30 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	curShift++;
 
 	// phase pattern
-    if(isShowActualKnoppel && editModelType == KnoppelCWF)
-    {
+	if(isShowActualKnoppel && editModelType == KnoppelCWF)
+	{
 		if(isFirstTime)
 		{
 			polyscope::registerSurfaceMesh("phase mesh", knoppelUpV, knoppelUpF);
 			polyscope::getSurfaceMesh("phase mesh")->translate({ curShift * shiftx, 0, 0 });
 		}
-        	
-        mPaint.setNormalization(false);
-        Eigen::MatrixXd phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
-        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-    }
-    else
-    {
+			
+		mPaint.setNormalization(false);
+		Eigen::MatrixXd phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
+		polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	}
+	else
+	{
 		if(isFirstTime)
 		{
 			polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
 			polyscope::getSurfaceMesh("phase mesh")->translate({ curShift * shiftx, 0, 0 });
 		}
-        	
-        mPaint.setNormalization(false);
-        Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
-        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-    }
+			
+		mPaint.setNormalization(false);
+		Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
+		polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+	}
 	curShift++;
 
 	// amp pattern
@@ -1026,10 +1026,10 @@ bool loadProblem()
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
-    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
-    {
-        wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
-    }
+	if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+	{
+		wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
+	}
 
 	isSelectAll = jval["region_global_details"]["select_all"];
 	isCoupled = jval["region_global_details"]["amp_omega_coupling"];
@@ -1159,59 +1159,59 @@ bool loadProblem()
 	{
 		initAmp.setZero(triV.rows());
 		for (int i = 0; i < initZvals.size(); i++)
-        {
-            initAmp(i) = std::abs(initZvals[i]);
-        }
+		{
+			initAmp(i) = std::abs(initZvals[i]);
+		}
 
 	}
 
-    std::string tarAmpPath = "amp_tar.txt";
-    if (jval.contains(std::string_view{ "tar_amp" }))
-    {
-        tarAmpPath = jval["tar_amp"];
-    }
-    std::string tarOmegaPath = "omega_tar.txt";
-    if (jval.contains(std::string_view{ "tar_omega" }))
-    {
-        tarOmegaPath = jval["tar_omega"];
-    }
-    std::string tarZValsPath = "zvals_tar.txt";
-    if (jval.contains(std::string_view{ "tar_zvals" }))
-    {
-        tarZValsPath = jval["tar_zvals"];
-    }
-    bool loadTar = true;
-    tarOmega.resize(0);
-    tarZvals = {};
+	std::string tarAmpPath = "amp_tar.txt";
+	if (jval.contains(std::string_view{ "tar_amp" }))
+	{
+		tarAmpPath = jval["tar_amp"];
+	}
+	std::string tarOmegaPath = "omega_tar.txt";
+	if (jval.contains(std::string_view{ "tar_omega" }))
+	{
+		tarOmegaPath = jval["tar_omega"];
+	}
+	std::string tarZValsPath = "zvals_tar.txt";
+	if (jval.contains(std::string_view{ "tar_zvals" }))
+	{
+		tarZValsPath = jval["tar_zvals"];
+	}
+	bool loadTar = true;
+	tarOmega.resize(0);
+	tarZvals = {};
 
-    if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega)) {
-        std::cout << "missing tar edge omega file." << std::endl;
-        loadTar = false;
-    }
+	if (!loadEdgeOmega(workingFolder + tarOmegaPath, nedges, tarOmega)) {
+		std::cout << "missing tar edge omega file." << std::endl;
+		loadTar = false;
+	}
 
-    if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
-    {
-        std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
-        if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
-        {
-            std::cout << "missing tar amp file: " << std::endl;
-            loadTar = false;
-        }
+	if (!loadVertexZvals(workingFolder + tarZValsPath, triV.rows(), tarZvals))
+	{
+		std::cout << "missing tar zval file, try to load amp file, and round zvals from amp and omega" << std::endl;
+		if (!loadVertexAmp(workingFolder + tarAmpPath, triV.rows(), tarAmp))
+		{
+			std::cout << "missing tar amp file: " << std::endl;
+			loadTar = false;
+		}
 
-        else
-        {
-            Eigen::VectorXd edgeArea, vertArea;
-            edgeArea = getEdgeArea(triV, triMesh);
-            vertArea = getVertArea(triV, triMesh);
-            IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, triV.rows(), tarZvals);
-        }
-    }
-    else
-    {
-        tarAmp.setZero(triV.rows());
-        for (int i = 0; i < tarZvals.size(); i++)
-            tarAmp(i) = std::abs(tarZvals[i]);
-    }
+		else
+		{
+			Eigen::VectorXd edgeArea, vertArea;
+			edgeArea = getEdgeArea(triV, triMesh);
+			vertArea = getVertArea(triV, triMesh);
+			IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, triV.rows(), tarZvals);
+		}
+	}
+	else
+	{
+		tarAmp.setZero(triV.rows());
+		for (int i = 0; i < tarZvals.size(); i++)
+			tarAmp(i) = std::abs(tarZvals[i]);
+	}
 
 
 	std::string refAmp = jval["reference"]["ref_amp"];
@@ -1273,15 +1273,15 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
-        buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-        if(!loadTar)
-        {
-            editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
-        }
-        else
-        {
-            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-        }
+		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		if(!loadTar)
+		{
+			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+		}
+		if (editModelType != CWFNew)
+			editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		else
+			editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
@@ -1323,7 +1323,7 @@ bool saveProblem()
 	{
 			{"mesh_name",         "mesh.obj"},
 			{"num_frame",         zList.size()},
-            {"wrinkle_amp_ratio", wrinkleAmpScalingRatio},
+			{"wrinkle_amp_ratio", wrinkleAmpScalingRatio},
 			{"quad_order",        quadOrder},
 			{"spatial_ratio",     {
 										   {"amp_ratio", spatialAmpRatio},
@@ -1387,9 +1387,9 @@ bool saveProblem()
 	std::string workingFolder = filePath.substr(0, id + 1);
 
 
-    saveEdgeOmega(workingFolder + "omega.txt", initOmega);
-    saveVertexAmp(workingFolder + "amp.txt", initAmp);
-    saveVertexZvals(workingFolder + "zvals.txt", initZvals);
+	saveEdgeOmega(workingFolder + "omega.txt", initOmega);
+	saveVertexAmp(workingFolder + "amp.txt", initAmp);
+	saveVertexZvals(workingFolder + "zvals.txt", initZvals);
 
 	igl::writeOBJ(workingFolder + "mesh.obj", triV, triF);
 
@@ -1399,28 +1399,28 @@ bool saveProblem()
 	std::string omegaOutputFolder = workingFolder + "/optOmega/";
 	mkdir(omegaOutputFolder);
 
-    std::string refOmegaOutputFolder = workingFolder + "/refOmega/";
-    mkdir(refOmegaOutputFolder);
+	std::string refOmegaOutputFolder = workingFolder + "/refOmega/";
+	mkdir(refOmegaOutputFolder);
 
-    // save reference
-    std::string refAmpOutputFolder = workingFolder + "/refAmp/";
-    mkdir(refAmpOutputFolder);
+	// save reference
+	std::string refAmpOutputFolder = workingFolder + "/refAmp/";
+	mkdir(refAmpOutputFolder);
 
-    int nframes = zList.size();
-    auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
-    {
-        for (uint32_t i = range.begin(); i < range.end(); ++i)
-        {
+	int nframes = zList.size();
+	auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
 
-            saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
-            saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
-            saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
-            saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
-        }
-    };
+			saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
+			saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
+			saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
+			saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
+		}
+	};
 
-    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
-    tbb::parallel_for(rangex, savePerFrame);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
+	tbb::parallel_for(rangex, savePerFrame);
 
 //	for (int i = 0; i < zList.size(); i++)
 //	{
@@ -1440,85 +1440,85 @@ bool saveProblem()
 
 bool saveForRender()
 {
-    std::string saveFileName = igl::file_dialog_save();
-    std::string filePath = saveFileName;
-    std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
-    int id = filePath.rfind("/");
-    std::string workingFolder = filePath.substr(0, id + 1);
+	std::string saveFileName = igl::file_dialog_save();
+	std::string filePath = saveFileName;
+	std::replace(filePath.begin(), filePath.end(), '\\', '/'); // handle the backslash issue for windows
+	int id = filePath.rfind("/");
+	std::string workingFolder = filePath.substr(0, id + 1);
 
-    // render information
-    std::string renderFolder = workingFolder + "/render/";
-    mkdir(renderFolder);
-    igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
-    igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
+	// render information
+	std::string renderFolder = workingFolder + "/render/";
+	mkdir(renderFolder);
+	igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
+	igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
 
-    if(editModelType == KnoppelCWF)
-        igl::writeOBJ(renderFolder + "knoppelUpmesh.obj", knoppelUpV, knoppelUpF);
+	if(editModelType == KnoppelCWF)
+		igl::writeOBJ(renderFolder + "knoppelUpmesh.obj", knoppelUpV, knoppelUpF);
 
-    saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
+	saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
 
-    std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
-    mkdir(outputFolderAmp);
+	std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
+	mkdir(outputFolderAmp);
 
-    std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
-    mkdir(outputFolderPhase);
+	std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
+	mkdir(outputFolderPhase);
 
-    std::string outputFolderKnoppelPhase = renderFolder + "/upsampledKnoppelPhase/";
-    if(editModelType == KnoppelCWF)
-        mkdir(outputFolderKnoppelPhase);
+	std::string outputFolderKnoppelPhase = renderFolder + "/upsampledKnoppelPhase/";
+	if(editModelType == KnoppelCWF)
+		mkdir(outputFolderKnoppelPhase);
 
 
-    std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
-    mkdir(outputFolderWrinkles);
+	std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
+	mkdir(outputFolderWrinkles);
 
-    std::string refAmpFolder = renderFolder + "/refAmp/";
-    mkdir(refAmpFolder);
-    std::string refOmegaFolder = renderFolder + "/refOmega/";
-    mkdir(refOmegaFolder);
+	std::string refAmpFolder = renderFolder + "/refAmp/";
+	mkdir(refAmpFolder);
+	std::string refOmegaFolder = renderFolder + "/refOmega/";
+	mkdir(refOmegaFolder);
 
-    std::string optAmpFolder = renderFolder + "/optAmp/";
-    mkdir(optAmpFolder);
-    std::string optOmegaFolder = renderFolder + "/optOmega/";
-    mkdir(optOmegaFolder);
+	std::string optAmpFolder = renderFolder + "/optAmp/";
+	mkdir(optAmpFolder);
+	std::string optOmegaFolder = renderFolder + "/optOmega/";
+	mkdir(optOmegaFolder);
 
-    int nframes = ampFieldsList.size();
+	int nframes = ampFieldsList.size();
 
-    auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
-    {
-        for (uint32_t i = range.begin(); i < range.end(); ++i)
-        {
+	auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+	{
+		for (uint32_t i = range.begin(); i < range.end(); ++i)
+		{
 
-            // upsampled information
-            igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
-            Eigen::MatrixXd lapWrinkledV;
-            laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
-            igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
+			// upsampled information
+			igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
+			Eigen::MatrixXd lapWrinkledV;
+			laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
+			igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
 
-            saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
-            savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
-            if(editModelType == KnoppelCWF)
-                savePhi4Render(knoppelPhiList[i], outputFolderKnoppelPhase + "upKnoppelPhase" + std::to_string(i) + ".cvs");
-            saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
+			saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+			savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
+			if(editModelType == KnoppelCWF)
+				savePhi4Render(knoppelPhiList[i], outputFolderKnoppelPhase + "upKnoppelPhase" + std::to_string(i) + ".cvs");
+			saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
 
-            // reference information
-            Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
-            saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
-            saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
+			// reference information
+			Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
+			saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+			saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
 
-            // optimal information
-            saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
-            Eigen::VectorXd baseAmplitude = refAmpList[i];
-            for(int j = 0 ; j < refAmpList[i].size(); j++)
-            {
-                baseAmplitude(j) = std::abs(zList[i][j]);
-            }
+			// optimal information
+			saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
+			Eigen::VectorXd baseAmplitude = refAmpList[i];
+			for(int j = 0 ; j < refAmpList[i].size(); j++)
+			{
+				baseAmplitude(j) = std::abs(zList[i][j]);
+			}
 
-            saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
-        }
-    };
+			saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
+		}
+	};
 
-    tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
-    tbb::parallel_for(rangex, savePerFrame);
+	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
+	tbb::parallel_for(rangex, savePerFrame);
 
 //    for (int i = 0; i < nframes; i++)
 //    {
@@ -1542,7 +1542,7 @@ bool saveForRender()
 //        saveAmp4Render(zList[i], optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs");
 //    }
 
-    return true;
+	return true;
 }
 
 void callback() {
@@ -1570,26 +1570,26 @@ void callback() {
 		if (ImGui::BeginTabItem("Wrinkle Mesh Upsampling"))
 		{
 			if (ImGui::InputInt("upsampled level", &upsampleTimes))
-            {
-                if (upsampleTimes >= 0)
-                {
-                    getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-                    updatePaintingItems();
-                    updateFieldsInView(curFrame, true);
-                }
-            }
+			{
+				if (upsampleTimes >= 0)
+				{
+					getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+					updatePaintingItems();
+					updateFieldsInView(curFrame, true);
+				}
+			}
 			if (ImGui::Checkbox("fix bnd", &isFixedBnd))
 			{
 				getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
 				updatePaintingItems();
 				updateFieldsInView(curFrame, true);
 			}
-            if (ImGui::Checkbox("show actual knoppel", &isShowActualKnoppel))
-            {
-                getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
-                updatePaintingItems();
-                updateFieldsInView(curFrame, true);
-            }
+			if (ImGui::Checkbox("show actual knoppel", &isShowActualKnoppel))
+			{
+				getUpsampledMesh(triV, triF, upsampledTriV, upsampledTriF);
+				updatePaintingItems();
+				updateFieldsInView(curFrame, true);
+			}
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Wrinkle Mesh Smoothing"))
@@ -1626,10 +1626,10 @@ void callback() {
 			updateFieldsInView(curFrame, false);
 		}
 		if (ImGui::DragFloat("wrinkle amp scaling ratio", &wrinkleAmpScalingRatio, 0.0005, 0, 1))
-        {
-            if (wrinkleAmpScalingRatio >= 0)
-                updateFieldsInView(curFrame, false);
-        }
+		{
+			if (wrinkleAmpScalingRatio >= 0)
+				updateFieldsInView(curFrame, false);
+		}
 	}
 
 	if (ImGui::CollapsingHeader("Edition Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1667,16 +1667,16 @@ void callback() {
 	if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 //		if (ImGui::SliderInt("current frame", &curFrame, 0, numFrames - 1))
-        if (ImGui::DragInt("current frame", &curFrame, 1, 0, numFrames - 1))
+		if (ImGui::DragInt("current frame", &curFrame, 1, 0, numFrames - 1))
 		{
 			curFrame = curFrame % (numFrames + 1);
 			updateFieldsInView(curFrame, false);
 		}
-        if (ImGui::SliderInt("current frame slider bar", &curFrame, 0, numFrames - 1))
-        {
-            curFrame = curFrame % (numFrames + 1);
-            updateFieldsInView(curFrame, false);
-        }
+		if (ImGui::SliderInt("current frame slider bar", &curFrame, 0, numFrames - 1))
+		{
+			curFrame = curFrame % (numFrames + 1);
+			updateFieldsInView(curFrame, false);
+		}
 		if (ImGui::DragFloat("vec ratio", &(vecratio), 0.00005, 0, 1))
 		{
 			updateFieldsInView(curFrame, false);
@@ -1686,18 +1686,18 @@ void callback() {
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		   /*
-     		CWF = 0,
+			CWF = 0,
 			HalfFullCWF = 1,
 			FullCWF = 2,
 			LocalCWF = 3,
 			LinearCWF = 4,
 			KnoppelCWF = 5,
-    		*/
+			*/
 		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0CWFFullFormula\0CWFNew\0");
 		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
-        {
-            std::cout << "init type: " << initType << std::endl;
-        }
+		{
+			std::cout << "init type: " << initType << std::endl;
+		}
 		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
 		{
 			if (zuenkoTau < 0)
@@ -1853,12 +1853,12 @@ int main(int argc, char** argv)
 
    for (int i = 0; i < tmpMesh.nFaces(); i++)
    {
-       for (int j = 0; j < 3; j++)
-       {
-           int eid = tmpMesh.faceEdge(i, j);
-           int vid = tmpMesh.faceVertex(i, j);
-           tmpWeights(eid) += cotMatrixEntries(i, j);
-       }
+	   for (int j = 0; j < 3; j++)
+	   {
+		   int eid = tmpMesh.faceEdge(i, j);
+		   int vid = tmpMesh.faceVertex(i, j);
+		   tmpWeights(eid) += cotMatrixEntries(i, j);
+	   }
    }
 
 //    tmpWeights = getEdgeArea(tmpV, tmpMesh);

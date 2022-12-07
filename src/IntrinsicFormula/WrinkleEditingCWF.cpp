@@ -261,10 +261,10 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames + 1, GRAIN_SIZE);
 	tbb::parallel_for(rangex, kineticEnergyPerframe);
 
-
+	double ke = 0;
 	for (int i = 0; i < _zvalsList.size() - 1; i++)
 	{
-		energy += keList[i];
+		ke += keList[i];
 
 		if (deriv)
 		{
@@ -302,7 +302,7 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 			}
 		}
 	}
-
+	energy += ke;
 	std::vector<Eigen::VectorXd> ampDerivList(numFrames), knoppelDerivList(numFrames);
 	std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), knoppelTList(numFrames);
 	std::vector<double> ampEnergyList(numFrames), knoppelEnergyList(numFrames);
@@ -320,10 +320,12 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 	tbb::parallel_for(rangex1, otherEnergiesPerframe);
 	
 
+	double ampE = 0, knoppelE = 0;
+
 	for (int i = 0; i < numFrames; i++)
 	{
-		energy += ampEnergyList[i];
-		energy += knoppelEnergyList[i];
+		ampE += ampEnergyList[i];
+		knoppelE += knoppelEnergyList[i];
 
 		if (deriv) 
 		{
@@ -343,11 +345,13 @@ double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorX
 			}
 		}
 	}
+	energy += ampE + knoppelE;
 	if (hess)
 	{
 		//std::cout << "num of triplets: " << T.size() << std::endl;
 		hess->resize(DOFs, DOFs);
 		hess->setFromTriplets(T.begin(), T.end());
+		std::cout << "kinetic energy: " << ke << ", amp energy: " << ampE << ", knoppel energy: " << knoppelE << std::endl;
 	}
 	return energy;
 }

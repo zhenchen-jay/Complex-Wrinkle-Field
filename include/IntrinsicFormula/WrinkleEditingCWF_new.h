@@ -151,10 +151,9 @@ namespace IntrinsicFormula
 		virtual void getComponentNorm(const Eigen::VectorXd& x, double& znorm, double& wnorm) override
 		{
 			int nverts = _pos.rows();
-			int nedges = _mesh.nEdges();
-
+			
 			int numFrames = _unitZvalsList.size() - 2;
-			int nDOFs = 2 * nverts + nedges;
+			int nDOFs = 2 * nverts;
 
 			znorm = 0;
 			wnorm = 0;
@@ -190,17 +189,15 @@ namespace IntrinsicFormula
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 
+        void computeAmpSqOmegaQuaticAverage();
 
 	private:
 		double expGrowth(double x, double mu, double sigma)		// f = exp((x-mu)^2 / sigma^2)
 		{
 			return std::exp((x - mu) * (x - mu) / sigma / sigma);
 		}
-
-
-	private:
-		Eigen::VectorXd _faceWeight;
-		Eigen::VectorXd _vertWeight;
+        
+        double _ampSqOmegaQuaticAverage;
 
 	};
 }

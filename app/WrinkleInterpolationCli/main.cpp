@@ -22,7 +22,7 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF_new.h"
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -283,7 +283,7 @@ int zuenkoIter = 5;
 
 static void buildEditModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
-	editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFNew>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 }
 
 void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std::vector<std::vector<std::complex<double>>>& zFrames, 
@@ -489,10 +489,13 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	editModel->setSaveFolder(workingFolder);
 
 	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-    if(tarZvals.empty())
-	    editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-    else
-        editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+
+	if (tarZvals.empty())
+	{
+		editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
+	}
+	editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+
 	editModel->convertList2Variable(x);
 
 	editModel->solveIntermeditateFrames(x, args.numIter, args.gradTol, args.xTol, args.fTol, true, workingFolder);
@@ -779,12 +782,9 @@ bool loadProblem()
 
         if(!isLoadTar)
         {
-            editModel->initialization(initZvals, initOmega, numFrames - 2, initType, 0.1);
+            editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
         }
-        else
-        {
-            editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-        }
+		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
@@ -1011,7 +1011,7 @@ int main(int argc, char** argv)
 	app.add_option("-f,--fTol", args.fTol, "The functio value update tolerance for optimization.");
 	app.add_option("-n,--numIter", args.numIter, "The number of iteration for optimization.");
 	app.add_option("-a,--ampScaling", args.ampScale, "The amplitude scaling for wrinkled surface upsampling.");
-	app.add_option("-r,--reoptimizae", args.reOptimize, "The amplitude scaling for wrinkled surface upsampling.");
+	app.add_flag("-r,--reoptimize", args.reOptimize, "Whether to reoptimize the input, default is no");
 
 	try {
 		app.parse(argc, argv);

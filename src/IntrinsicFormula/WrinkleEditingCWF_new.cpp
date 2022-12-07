@@ -50,6 +50,21 @@ void WrinkleEditingCWFNew::convertVariable2List(const Eigen::VectorXd& x)
     }
 }
 
+void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
+{
+    int numFrames = _unitZvalsList.size();
+    double surfaceArea = _vertArea.sum();
+    _ampSqOmegaQuaticAverage = 0;
+    for (int i = 0; i < numFrames; i++)
+    {
+        int nverts = _pos.rows();
+        for (int j = 0; j < nverts; j++)
+        {
+            _ampSqOmegaQuaticAverage += _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / (surfaceArea * numFrames);
+        }
+    }
+}
+
 double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
     int nverts = _pos.rows();
@@ -59,14 +74,13 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
         deriv->setZero(2 * nverts);
     if (hessT)
         hessT->clear();
-    double ampOmegaSqAve = _ampTimesOmegaSq[frameId].sum() / _ampTimesOmegaSq[frameId].size();
 
     for (int vid = 0; vid < nverts; vid++)
     {
         double ampSq = _unitZvalsList[frameId][vid].real() * _unitZvalsList[frameId][vid].real() +
                        _unitZvalsList[frameId][vid].imag() * _unitZvalsList[frameId][vid].imag();
         double refAmpSq = 1;
-        double ca = _spatialAmpRatio * _vertArea(vid) * ampOmegaSqAve;
+        double ca = _spatialAmpRatio * _vertArea(vid);
 
         energy += ca * (ampSq - refAmpSq) * (ampSq - refAmpSq);
 
@@ -109,8 +123,6 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
     std::vector<Eigen::Triplet<double>> AT;
     AT.clear();
 
-    double ampOmegaSqAve = _ampTimesOmegaSq[frameId].sum() / _ampTimesOmegaSq[frameId].size();
-
     for (int eid = 0; eid < nedges; eid++)
     {
         int vid0 = _mesh.edgeVertex(eid, 0);
@@ -124,7 +136,7 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
         std::complex<double> z0 = _unitZvalsList[frameId][vid0];
         std::complex<double> z1 = _unitZvalsList[frameId][vid1];
 
-        double ce = _spatialKnoppelRatio * _edgeArea(eid) * ampOmegaSqAve;
+        double ce = _spatialKnoppelRatio * _edgeArea(eid);
 
         energy += 0.5 * norm((r1 * z0 * expw0 - r0 * z1)) * ce;
 
@@ -192,7 +204,7 @@ double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, 
     for (int vid = 0; vid < nverts; vid++)
     {
         Eigen::Vector2d diff;
-        double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesDeltaOmegaSq[frameId][vid];
+        double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage;
         diff << (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).real(), (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).imag();
         energy += 0.5 * coeff * diff.squaredNorm();
 
@@ -257,10 +269,10 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
     tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames + 1, GRAIN_SIZE);
     tbb::parallel_for(rangex, kineticEnergyPerframe);
 
-
+    double ke = 0;
     for (int i = 0; i < _unitZvalsList.size() - 1; i++)
     {
-        energy += keList[i];
+        ke += keList[i];
 
         if (deriv)
         {
@@ -298,6 +310,7 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
             }
         }
     }
+    energy += ke;
 
     std::vector<Eigen::VectorXd> ampDerivList(numFrames), knoppelDerivList(numFrames);
     std::vector<std::vector<Eigen::Triplet<double>>> ampTList(numFrames), knoppelTList(numFrames);
@@ -315,11 +328,12 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
     tbb::blocked_range<uint32_t> rangex1(0u, (uint32_t)numFrames, GRAIN_SIZE);
     tbb::parallel_for(rangex1, otherEnergiesPerframe);
 
+    double ampE = 0, knoppelE = 0;
 
     for (int i = 0; i < numFrames; i++)
     {
-        energy += ampEnergyList[i];
-        energy += knoppelEnergyList[i];
+        ampE += ampEnergyList[i];
+        knoppelE += knoppelEnergyList[i];
 
         if (deriv)
         {
@@ -339,11 +353,15 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
             }
         }
     }
+
+    energy += ampE + knoppelE;
+
     if (hess)
     {
         //std::cout << "num of triplets: " << T.size() << std::endl;
         hess->resize(DOFs, DOFs);
         hess->setFromTriplets(T.begin(), T.end());
+        std::cout << "kinetic energy: " << ke << ", amp energy: " << ampE << ", knoppel energy: " << knoppelE << std::endl;
     }
     return energy;
 }
@@ -351,6 +369,8 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
 void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
 {
     std::cout << "CWF model with new formula" << std::endl;
+    computeAmpSqOmegaQuaticAverage();
+    std::cout << "a^2 * |w|^4 = " << _ampSqOmegaQuaticAverage << std::endl;
     auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
         Eigen::VectorXd deriv;
         Eigen::SparseMatrix<double> H;

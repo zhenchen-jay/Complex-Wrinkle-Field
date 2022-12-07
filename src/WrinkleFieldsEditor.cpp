@@ -85,10 +85,6 @@ void WrinkleFieldsEditor::edgeBasedWrinkleEdition(const Eigen::MatrixXd& pos, co
 
 	ampNew = amp;
 	omegaNew = omega;
-
-
-	Eigen::VectorXi edgeFlags;
-	edgeFlags.setZero(nedges);
     omegaNew.setZero();
 
 	Eigen::VectorXi vertexFlags;
@@ -193,22 +189,18 @@ void WrinkleFieldsEditor::edgeBasedWrinkleEdition(const Eigen::MatrixXd& pos, co
                     if (vertInfo[vid].isMagOptCoupled && !vertexFlags(vid))
                         ampNew(vid) *= c;
                 }
-                omegaNew(eid0) += flag0 * w.dot(e0);
-                omegaNew(eid1) += flag1 * w.dot(e1);
+
+				double div0 = mesh.edgeFace(eid0, 0) == -1 || mesh.edgeFace(eid0, 1) == -1 ? 1 : 2; // whethe an edge is boundary edge
+				double div1 = mesh.edgeFace(eid1, 0) == -1 || mesh.edgeFace(eid1, 1) == -1 ? 1 : 2;
+
+                omegaNew(eid0) += flag0 * w.dot(e0) / div0 / 2;
+                omegaNew(eid1) += flag1 * w.dot(e1) / div1 / 2;
+
             }
 
-
-
-            edgeFlags(eid0)++;
-            edgeFlags(eid1)++;
 			vertexFlags(vid) = 1;
 		}
 	}
-
-    for(int i = 0; i < nedges; i++)
-    {
-        omegaNew[i] /= edgeFlags[i];
-    }
 }
 
 void WrinkleFieldsEditor::halfEdgeBasedWrinkleEdition(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const Eigen::VectorXd& amp, const Eigen::MatrixXd& omega, const std::vector<VertexOpInfo>& vertInfo, Eigen::VectorXd& ampNew, Eigen::MatrixXd& omegaNew)
