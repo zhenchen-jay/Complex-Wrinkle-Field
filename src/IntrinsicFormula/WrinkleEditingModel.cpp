@@ -485,8 +485,6 @@ void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<do
         roundZvalsFromEdgeOmegaVertexMag(_mesh, editOmga, tarAmp, _edgeArea, _vertArea, _pos.rows(), editZvals);
     else
     {
-        buildWeights();
-
         Eigen::VectorXi fixedVertsFlag, fixedEdgeFlags, unchangedEdgeFlags;
         fixedVertsFlag.setZero(_pos.rows());
         unchangedEdgeFlags.setZero(_mesh.nEdges());
