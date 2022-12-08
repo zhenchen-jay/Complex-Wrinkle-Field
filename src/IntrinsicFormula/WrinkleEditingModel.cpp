@@ -761,6 +761,7 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     // we use our new formula to initialize everything
     _combinedRefAmpList.resize(numFrames + 2);
     _combinedRefOmegaList.resize(numFrames + 2);
+	_edgeOmegaList.resize(numFrames + 2);
     _deltaOmegaList.resize(numFrames + 2, Eigen::VectorXd::Zero(_mesh.nEdges()));
     _zvalsList.resize(numFrames + 2);
     _unitZvalsList.resize(numFrames + 2);
@@ -771,8 +772,8 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     initAmp.setZero(_pos.rows());
     tarAmp.setZero(_pos.rows());
 
-    _combinedRefOmegaList[0] = initOmega;
-    _combinedRefOmegaList[numFrames + 1] = tarOmega;
+    _edgeOmegaList[0] = initOmega;
+    _edgeOmegaList[numFrames + 1] = tarOmega;
 
 
 	_zvalsList[0] = initZvals;
@@ -793,8 +794,15 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     _combinedRefAmpList[0] = initAmp;
     _combinedRefAmpList[numFrames + 1] = tarAmp;
 
-    computeAmpOmegaSq(_combinedRefAmpList[0], _combinedRefOmegaList[0], _ampTimesOmegaSq[0]);
-    computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _combinedRefOmegaList[numFrames + 1], _ampTimesOmegaSq[numFrames + 1]);
+	if (applyAdj)
+	{
+		// we first adjust the input, to make sure that (z, w) are consistent
+		adjustOmegaForConsistency(initZvals, initOmega, _edgeOmegaList[0], _deltaOmegaList[0]);
+		adjustOmegaForConsistency(tarZvals, tarOmega, _edgeOmegaList[numFrames + 1], _deltaOmegaList[numFrames + 1]);
+	}
+
+    computeAmpOmegaSq(_combinedRefAmpList[0], _edgeOmegaList[0], _ampTimesOmegaSq[0]);
+    computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _edgeOmegaList[numFrames + 1], _ampTimesOmegaSq[numFrames + 1]);
 
     computeAmpOmegaSq(_combinedRefAmpList[0], _deltaOmegaList[0], _ampTimesDeltaOmegaSq[0]);
     computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[numFrames + 1]);
@@ -807,8 +815,10 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         double t = i * dt;
         _ampTimesOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], t);
         _combinedRefAmpList[i] = ampInitialization(_combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
-        _combinedRefOmegaList[i] = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
+        _edgeOmegaList[i] = omegaInitialization(_edgeOmegaList[0], _edgeOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
 
+		_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
+        _deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
 
         // zvals
         _zvalsList[i] = tarZvals;
@@ -820,20 +830,10 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         }
     }
 
-	_edgeOmegaList = _combinedRefOmegaList;
-	if (applyAdj)
+	_combinedRefOmegaList = _edgeOmegaList;
+	for(int i = 0; i < _combinedRefOmegaList.size(); i++)
 	{
-		// we first adjust the input, to make sure that (z, w) are consistent
-		adjustOmegaForConsistency(initZvals, initOmega, _edgeOmegaList[0], _deltaOmegaList[0]);
-		adjustOmegaForConsistency(tarZvals, tarOmega, _edgeOmegaList[numFrames + 1], _deltaOmegaList[numFrames + 1]);
-
-		for (int i = 1; i < numFrames + 1; i++)
-		{
-			double t = i * dt;
-			_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
-			_deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
-			_edgeOmegaList[i] -= _deltaOmegaList[i];
-		}
+		_combinedRefOmegaList[i] += _deltaOmegaList[i];
 	}
 
     _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);

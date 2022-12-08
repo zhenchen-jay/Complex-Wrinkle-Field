@@ -74,7 +74,6 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
         deriv->setZero(2 * nverts);
     if (hessT)
         hessT->clear();
-    double dt = 1. / (_unitZvalsList.size() - 1);
 
 	double dt = 1. / (_unitZvalsList.size() - 1);
 

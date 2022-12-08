@@ -14,8 +14,8 @@ def batchCWF(exePath : str, CWFDataFolder : str):
         # screenShotsPath = os.path.join(modelFolder, "screenshots")
         # if os.path.exists(screenShotsPath):
         #     continue
-        if modelFolder.find('Decimated') == -1:
-            continue
+        # if modelFolder.find('Decimated') == -1:
+        #     continue
 
         jsonPath = os.path.join(modelFolder, "data.json")
         args = [exePath, "-i", jsonPath, "-r"]
