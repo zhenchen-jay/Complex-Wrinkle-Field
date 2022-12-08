@@ -819,7 +819,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 			CFWFFullFormula = 6
 			CWFNew = 7
 	*/
-	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
+	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n7: new CWF formula" << std::endl;
 	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
 
 	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
@@ -830,6 +830,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 
 	if(editModelType != CWFNew)
 		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		//editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
 	else
 		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
@@ -841,8 +842,16 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
-	std::cout << (wFrames[0] - initOmega).norm() << std::endl;
 
+	std::cout << "check boundary matches: " << std::endl;
+
+	std::cout << "omega match: " << std::endl;
+	std::cout << (wFrames[0] - initOmega).norm() << std::endl;
+	std::cout << (wFrames[wFrames.size() - 1] - tarOmega).norm() << std::endl;
+
+	std::cout << "z match: " << std::endl;
+	std::cout << getZListNorm(zFrames[0]) - getZListNorm(initZvals) << std::endl;
+	std::cout << getZListNorm(zFrames[zFrames.size() - 1]) - getZListNorm(tarZvals) << std::endl;
 }
 
 void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)

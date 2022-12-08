@@ -95,6 +95,7 @@ void computeBaryGradient(const Eigen::Vector3d& P0, const Eigen::Vector3d& P1, c
 
 void mkdir(const std::string& foldername);
 Eigen::VectorXd inconsistencyComputation(const Mesh& mesh, const Eigen::VectorXd& edgeW, const std::vector<std::complex<double>>& zval);
+double getZListNorm(const std::vector<std::complex<double>>& zvals);
 
 
 // save for render

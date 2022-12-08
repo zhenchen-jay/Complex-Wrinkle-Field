@@ -45,9 +45,9 @@ namespace IntrinsicFormula
 
 		std::vector<Eigen::VectorXd> getWList()
         {
-            std::vector<Eigen::VectorXd> finalWList = _edgeOmegaList;
+            std::vector<Eigen::VectorXd> finalWList = _edgeOmegaList;		// _edgeOmega is the one after adjust
             for(int i = 0;  i < _edgeOmegaList.size(); i++)
-                finalWList[i] -= _deltaOmegaList[i];
+                finalWList[i] += _deltaOmegaList[i];
             return finalWList;
         }
 		virtual std::vector<std::vector<std::complex<double>>> getVertValsList() = 0;
@@ -90,9 +90,9 @@ namespace IntrinsicFormula
 		void computeCombinedRefOmegaList(const std::vector<Eigen::VectorXd>& refOmegaList);
 
 
-		Eigen::VectorXd computeCombinedRefAmp(const Eigen::VectorXd& refAmp, Eigen::VectorXd* combinedOmega = NULL);
+		Eigen::VectorXd computeCombinedRefAmp(const Eigen::VectorXd& curAmp, const Eigen::VectorXd& refAmp, Eigen::VectorXd* combinedOmega = NULL);
 
-		Eigen::VectorXd computeCombinedRefOmega(const Eigen::VectorXd& refOmega);
+		Eigen::VectorXd computeCombinedRefOmega(const Eigen::VectorXd& curOmega, const Eigen::VectorXd& refOmega);
 
 
 		double amplitudeEnergyWithGivenOmega(const Eigen::VectorXd& amp, const Eigen::VectorXd& w, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL);

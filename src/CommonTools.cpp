@@ -1221,3 +1221,16 @@ Eigen::VectorXd inconsistencyComputation(const Mesh& mesh, const Eigen::VectorXd
 	}
 	return incons;
 }
+
+double getZListNorm(const std::vector<std::complex<double>>& zvals)
+{
+	int size = zvals.size();
+	if (!size)
+		return 0;
+	double norm = 0;
+	for (int i = 0; i < size; i++)
+	{
+		norm += std::norm(zvals[i]);	//squared norm!
+	}
+	return norm > 0 ? std::sqrt(norm) : 0;
+}

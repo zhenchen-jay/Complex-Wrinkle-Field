@@ -469,7 +469,7 @@ void WrinkleEditingModel::ampFieldLERP(const Eigen::VectorXd& initAmp, const Eig
 	}
 }
 
-void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<std::complex<double>>& editZvals, Eigen::VectorXd& editOmga)
+void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<std::complex<double>>& editZvals, Eigen::VectorXd& editOmega)
 {
     Eigen::VectorXd initAmp;
     initAmp.setZero(_pos.rows());
@@ -479,10 +479,13 @@ void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<do
         initAmp(i) = std::abs(initZvals[i]);
     }
     Eigen::VectorXd tarAmp;
-    WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmega, _vertexOpts, tarAmp, editOmga);
+    WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmega, _vertexOpts, tarAmp, editOmega);
+
+	editOmega = computeCombinedRefOmega(editOmega, initOmega);
+	tarAmp = computeCombinedRefAmp(tarAmp, initAmp, &editOmega);
 
     if (!_nInterfaces)
-        roundZvalsFromEdgeOmegaVertexMag(_mesh, editOmga, tarAmp, _edgeArea, _vertArea, _pos.rows(), editZvals);
+        roundZvalsFromEdgeOmegaVertexMag(_mesh, editOmega, tarAmp, _edgeArea, _vertArea, _pos.rows(), editZvals);
     else
     {
         Eigen::VectorXi fixedVertsFlag, fixedEdgeFlags, unchangedEdgeFlags;
@@ -508,7 +511,7 @@ void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<do
 
         editZvals = initZvals;
 
-        roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, editOmga, fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), editZvals, &(tarAmp));
+        roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, editOmega, fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), editZvals, &(tarAmp));
 
 		for (int i = 0; i < editZvals.size(); i++)
 		{
@@ -650,7 +653,7 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
             double w0 = initFaceOmega.norm();
             double w1 = tarFaceOmega.norm();
 
-            if((r0.cross(r1)).norm() < 1e-12 || w0 < 1e-12 || w1 < 1 - 12) // to skinny triangles, or 0-cases
+            if((r0.cross(r1)).norm() < 1e-12 || w0 < 1e-12 || w1 < 1e-12) // to skinny triangles, or 0-cases
             {
                 faceOmega = (1 - t) * initFaceOmega + t * tarFaceOmega;
             }
@@ -771,6 +774,7 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     _combinedRefOmegaList[0] = initOmega;
     _combinedRefOmegaList[numFrames + 1] = tarOmega;
 
+
 	_zvalsList[0] = initZvals;
 	_zvalsList[numFrames + 1] = tarZvals;
 
@@ -789,43 +793,13 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     _combinedRefAmpList[0] = initAmp;
     _combinedRefAmpList[numFrames + 1] = tarAmp;
 
-    if(applyAdj)
-    {
-        // we first adjust the input, to make sure that (z, w) are consistent
-        adjustOmegaForConsistency(initZvals, initOmega, _combinedRefOmegaList[0], _deltaOmegaList[0]);
-        adjustOmegaForConsistency(tarZvals, tarOmega, _combinedRefOmegaList[numFrames + 1], _deltaOmegaList[numFrames + 1]);
-    }
-
     computeAmpOmegaSq(_combinedRefAmpList[0], _combinedRefOmegaList[0], _ampTimesOmegaSq[0]);
     computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _combinedRefOmegaList[numFrames + 1], _ampTimesOmegaSq[numFrames + 1]);
 
     computeAmpOmegaSq(_combinedRefAmpList[0], _deltaOmegaList[0], _ampTimesDeltaOmegaSq[0]);
     computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[numFrames + 1]);
 
-	Eigen::VectorXd testOmega = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[0], 0);
-
 	double dt = 1.0 / (numFrames + 1);
-
-	std::vector<Eigen::VectorXd> refAmpList(numFrames + 2), refOmegaList(numFrames + 2);
-	refAmpList[0] = initAmp;
-	refOmegaList[0] = initOmega;
-	for (int i = 1; i <= numFrames + 1; i++)
-	{
-		std::vector<VertexOpInfo> curVertOpts = _vertexOpts;
-		for (int j = 0; j < _vertexOpts.size(); j++)
-		{
-			if (_vertexOpts[j].vecOptType == None)
-				continue;
-			double offset = _vertexOpts[j].vecOptType != Enlarge ? 0 : 1;
-			double A = _vertexOpts[j].vecOptType != Enlarge ? _vertexOpts[j].vecOptValue : _vertexOpts[j].vecOptValue - 1;
-
-			curVertOpts[j].vecOptValue = offset + A * dt * i;
-			curVertOpts[j].vecMagValue = 1 + (_vertexOpts[j].vecMagValue - 1) * dt * i;
-
-		}
-
-		WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmega, curVertOpts, refAmpList[i], refOmegaList[i]);
-	}
 
 
     for(int i = 1; i < numFrames + 1; i++)
@@ -834,11 +808,7 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         _ampTimesOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], t);
         _combinedRefAmpList[i] = ampInitialization(_combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
         _combinedRefOmegaList[i] = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
-	
-		
 
-        _ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
-        _deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
 
         // zvals
         _zvalsList[i] = tarZvals;
@@ -850,12 +820,21 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         }
     }
 
-    _edgeOmegaList = _combinedRefOmegaList;
+	_edgeOmegaList = _combinedRefOmegaList;
+	if (applyAdj)
+	{
+		// we first adjust the input, to make sure that (z, w) are consistent
+		adjustOmegaForConsistency(initZvals, initOmega, _edgeOmegaList[0], _deltaOmegaList[0]);
+		adjustOmegaForConsistency(tarZvals, tarOmega, _edgeOmegaList[numFrames + 1], _deltaOmegaList[numFrames + 1]);
 
-    for(int i = 0; i < _edgeOmegaList.size(); i++)
-    {
-        _edgeOmegaList[i] += _deltaOmegaList[i];
-    }
+		for (int i = 1; i < numFrames + 1; i++)
+		{
+			double t = i * dt;
+			_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
+			_deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
+			_edgeOmegaList[i] -= _deltaOmegaList[i];
+		}
+	}
 
     _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
     _refAmpAveList.resize(numFrames + 2);
@@ -929,7 +908,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
     for(int i = 0; i < _edgeOmegaList.size(); i++)
     {
-        _edgeOmegaList[i] += _deltaOmegaList[i];
+        _edgeOmegaList[i] -= _deltaOmegaList[i];
     }
 
     _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
@@ -986,7 +965,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 		WrinkleFieldsEditor::edgeBasedWrinkleEdition(_pos, _mesh, initAmp, initOmegaAdj, curVertOpts, refAmpList[i], refOmegaList[i]);
 	}
-
+	std::cout << "target omega norm: " << refOmegaList[numFrames + 1].norm() << std::endl;
 	
 
 	std::cout << "initialize bnd zvals." << std::endl;
@@ -1046,6 +1025,10 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 		tarZvals = initZvals;
 		
 		roundZvalsForSpecificDomainFromEdgeOmegaBndValues(_mesh, tarOmega, fixedVertsFlag, _edgeArea, _vertArea, _pos.rows(), tarZvals, &(tarAmp));
+
+		std::cout << "target amplitude norm: " << tarAmp.norm() << std::endl;
+		std::cout << "target zval norm before rescale: " << getZListNorm(tarZvals) << std::endl;
+		std::cout << "target omega norm: " << tarOmega.norm() << std::endl;
 
 		for (int i = 0; i < tarZvals.size(); i++)
 		{
@@ -1121,7 +1104,7 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 			for (int i = 0; i < _edgeOmegaList.size(); i++)
 			{
-				_edgeOmegaList[i] += _deltaOmegaList[i];
+				_edgeOmegaList[i] -= _deltaOmegaList[i];
 			}
 		}
 		else
@@ -1410,7 +1393,7 @@ double WrinkleEditingModel::amplitudeEnergyWithGivenOmega(const Eigen::VectorXd&
 	return energy;
 }
 
-Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd& refAmp, Eigen::VectorXd* combinedOmega)
+Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd& curAmp, const Eigen::VectorXd& refAmp0, Eigen::VectorXd* combinedOmega)
 {
 	int nverts = _pos.rows();
 	int nfaces = _mesh.nFaces();
@@ -1433,8 +1416,7 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd
 
 	auto projVar = [&]()
 	{
-		Eigen::MatrixXd fullX = refAmp;
-		Eigen::VectorXd x0 = projM * fullX;
+		Eigen::VectorXd x0 = projM * curAmp;
 		return x0;
 	};
 
@@ -1446,7 +1428,7 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd
 		{
 			if (fixedFlags(i))
 			{
-				fullX(i) = refAmp(i);
+				fullX(i) = curAmp(i);
 			}
 		}
 		return fullX;
@@ -1455,24 +1437,36 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd
 	Eigen::SparseMatrix<double> L;
 	igl::cotmatrix(_pos, _mesh.faces(), L);
 
+	double c = 1e-3;
+	Eigen::SparseMatrix<double> idmat(refAmp0.rows(), refAmp0.rows());
+	idmat.setIdentity();
+
 	auto funVal = [&](const Eigen::VectorXd& x, Eigen::VectorXd* grad, Eigen::SparseMatrix<double>* hess, bool isProj) {
 		Eigen::VectorXd deriv, deriv1;
 		std::vector<Eigen::Triplet<double>> T;
 		Eigen::SparseMatrix<double> H;
 
 		Eigen::VectorXd fullx = unProjVar(x);
-		double E = -0.5 * fullx.dot(L * fullx);
+		double E = -0.5 * fullx.dot(L * fullx) + 0.5 * c * (fullx - refAmp0).squaredNorm();
+
+		if (hess)
+			std::cout << "before combine omega: " << E << ", penalty: " << c << std::endl;
 
 		if (combinedOmega)
 		{
+			if (hess)
+				std::cout << (*combinedOmega).norm() << ", " << fullx.norm() << std::endl;
 			E += amplitudeEnergyWithGivenOmega(fullx, (*combinedOmega), grad ? &deriv1 : NULL, hess ? &T : NULL);
 		}
+		if (hess)
+			std::cout << "after combine omega: " << E << std::endl;
 
 		if (grad)
 		{
-			deriv = -L * fullx;
+			deriv = -L * fullx + c * (fullx - refAmp0);
 			if (combinedOmega)
 				deriv += deriv1;
+			(*grad) = projM * deriv;
 		}
 
 		if (hess)
@@ -1481,11 +1475,11 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefAmp(const Eigen::VectorXd
 			{
 				H.resize(fullx.rows(), fullx.rows());
 				H.setFromTriplets(T.begin(), T.end());
-				(*hess) = projM * (H - L) * unProjM;
+				(*hess) = projM * (H - L + c * idmat) * unProjM;
 			}
 
 			else
-				(*hess) = projM * (-L) * unProjM;
+				(*hess) = projM * (-L + c * idmat) * unProjM;
 
 		}
 
@@ -1577,10 +1571,16 @@ void WrinkleEditingModel::computeCombinedRefAmpList(const std::vector<Eigen::Vec
 			Eigen::VectorXd fullx = unProjVar(x, i);
 			double E = -0.5 * fullx.dot(L * fullx) + 0.5 * c * (fullx - prevX).squaredNorm();
 
+			if (hess)
+				std::cout << "before combine omega: " << E << ", penalty: " << c << std::endl;
 			if (combinedOmegaList)
 			{
+				if(hess)
+					std::cout << (*combinedOmegaList)[i].norm() << ", " << fullx.norm() << std::endl;
 				E += amplitudeEnergyWithGivenOmega(fullx, (*combinedOmegaList)[i], grad ? &deriv1 : NULL, hess ? &T : NULL);
 			}
+			if (hess)
+				std::cout << "after combine omega: " << E<< std::endl;
 
 			if (grad)
 			{
@@ -1912,7 +1912,7 @@ void WrinkleEditingModel::computeCombinedRefOmegaList(const std::vector<Eigen::V
 			}
 
 
-			// we need some reg to remove the singularity, where we choose some kinetic energy (||w - prevw||^2), which coeff = 1e-3
+			// we need some reg to remove the singularity, where we choose some kinetic energy (||w - prevw||^2), where coeff = 1e-3
 			double c = std::min(1.0 / (nFrames * nFrames), 1e-3);
 			E += c / 2.0 * (w - prevw).squaredNorm();
 
@@ -1950,10 +1950,10 @@ void WrinkleEditingModel::computeCombinedRefOmegaList(const std::vector<Eigen::V
 	}
 }
 
-Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::VectorXd& refOmega)
+Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::VectorXd& curOmega, const Eigen::VectorXd& refOmega)
 {
 	int nedges = _mesh.nEdges();
-
+	double c = 1e-3;
 	std::vector<Eigen::Triplet<double>> T;
 	// projection matrix
 	std::vector<int> freeEid = _interfaceEids;
@@ -1977,7 +1977,7 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::Vector
 		{
 			if (fixedFlags(i))
 			{
-				fullX(i) = refOmega(i);
+				fullX(i) = curOmega(i);
 			}
 		}
 		Eigen::VectorXd x0 = projM * fullX;
@@ -1992,7 +1992,7 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::Vector
 		{
 			if (fixedFlags(i))
 			{
-				fullX(i) = refOmega(i);
+				fullX(i) = curOmega(i);
 			}
 
 		}
@@ -2018,15 +2018,19 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::Vector
 			H.setFromTriplets(T.begin(), T.end());
 		}
 
+		// we need some reg to remove the singularity, where we choose some penalty energy (||w - refOmega||^2). This terms says that should not be far away from the reference
+		E += c / 2.0 * (w - refOmega).squaredNorm();
 
 		if (grad)
 		{
-			(*grad) = projM * deriv;
+			(*grad) = projM * (deriv + c * (w - refOmega));
 		}
 
 		if (hess)
 		{
-			(*hess) = projM * H * unProjM;
+			Eigen::SparseMatrix<double> idMat(w.rows(), w.rows());
+			idMat.setIdentity();
+			(*hess) = projM * (H + c * idMat) * unProjM;
 		}
 
 		return E;
@@ -2037,6 +2041,15 @@ Eigen::VectorXd WrinkleEditingModel::computeCombinedRefOmega(const Eigen::Vector
 
 	Eigen::VectorXd x0 = projVar();
 	Eigen::VectorXd fullx = unProjVar(x0);
+
+	if (_nInterfaces)
+	{
+		OptSolver::newtonSolver(funVal, maxStep, x0, 1000, 1e-6, 1e-10, 1e-15, false);
+		Eigen::VectorXd deriv;
+		double E = funVal(x0, &deriv, NULL, false);
+		std::cout << "terminated with energy : " << E << ", gradient norm : " << deriv.norm() << ", x norm: " << x0.norm() << std::endl;
+		fullx = unProjVar(x0);
+	}
 
 	return fullx;
 }

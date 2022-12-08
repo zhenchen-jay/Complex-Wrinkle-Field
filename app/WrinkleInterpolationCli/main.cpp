@@ -458,7 +458,6 @@ void updateEverythingForSaving()
 		globalCoarseInconMin = std::min(globalCoarseInconMin, consistencyVec[i].minCoeff());
 	}
 
-	std::cout << "start to update viewer." << std::endl;
 }
 
 void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
@@ -507,6 +506,16 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
 	zFrames = editModel->getVertValsList();
+
+	std::cout << "check boundary matches: " << std::endl;
+
+	std::cout << "omega match: " << std::endl;
+	std::cout << (wFrames[0] - initOmega).norm() << std::endl;
+	std::cout << (wFrames[wFrames.size() - 1] - tarOmega).norm() << std::endl;
+
+	std::cout << "z match: " << std::endl;
+	std::cout << getZListNorm(zFrames[0]) - getZListNorm(initZvals) << std::endl;
+	std::cout << getZListNorm(zFrames[zFrames.size() - 1]) - getZListNorm(tarZvals) << std::endl;
 }
 
 bool loadProblem()
