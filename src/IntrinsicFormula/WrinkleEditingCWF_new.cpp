@@ -76,6 +76,8 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
         hessT->clear();
     double dt = 1. / (_unitZvalsList.size() - 1);
 
+	double dt = 1. / (_unitZvalsList.size() - 1);
+
     for (int vid = 0; vid < nverts; vid++)
     {
         double ampSq = _unitZvalsList[frameId][vid].real() * _unitZvalsList[frameId][vid].real() +
@@ -412,6 +414,11 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
     Eigen::SparseMatrix<double> hess;
     double f0 = funVal(x0, &grad, &hess, false);
     std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
+	if(std::isnan(grad.norm()) || std::isnan(hess.norm()))
+	{
+		std::cerr << "get nan error in hessian or gradient computation!" << std::endl;
+		exit(EXIT_FAILURE);
+	}
     OptSolver::newtonSolver(funVal, maxStep, x, numIter, gradTol, std::max(1e-16, xTol), std::max(1e-16, fTol), true, getVecNorm, &workingFolder, saveTmpRes);
     std::cout << "before optimization: " << x0.norm() << ", after optimization: " << x.norm() << std::endl;
 

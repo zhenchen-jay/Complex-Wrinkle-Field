@@ -49,26 +49,16 @@
   </component>
   <component name="CMakeSettings">
     <configurations>
-      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Release" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="RelWithDebInfo" ENABLED="true" CONFIG_NAME="RelWithDebInfo" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Release" NO_GENERATOR="true" />
     </configurations>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingFullCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingFullCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLinearCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLinearCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLocalCWF.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingLocalCWF.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWFFullFormula.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/WrinkleInterpolationCli/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/WrinkleInterpolationCli/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pythonScript/CWFCommon.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/CWFCommon.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/WrinkleFieldsEditor.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/WrinkleFieldsEditor.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,7 +68,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Release" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:RelWithDebInfo" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -111,196 +101,196 @@
     "cmake.loaded.for.project": "true",
     "last_opened_file_path": "/home/zchen96/Projects/PhaseInterpolation_polyscope",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.editor"
+    "settings.editor.selected.configurable": "CMakeSettings"
   }
 }]]></component>
   <component name="RunManager" selected="CMake Application.StaticWrinkleEditor_bin">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="Release">
+    <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="CoMISo" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CoMISo" CONFIG_NAME="Release">
+    <configuration name="CoMISo" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CoMISo" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="InterpolationComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationComparison_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationComparison_bin">
+    <configuration name="InterpolationComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationComparison_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationComparison_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="InterpolationStaticComp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationStaticComp_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationStaticComp_bin">
+    <configuration name="InterpolationStaticComp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="InterpolationStaticComp_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="InterpolationStaticComp_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="LoadSequence_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoadSequence_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoadSequence_bin">
+    <configuration name="LoadSequence_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoadSequence_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoadSequence_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="LoopSundivisionTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivisionTest_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivisionTest_bin">
+    <configuration name="LoopSundivisionTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivisionTest_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivisionTest_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="LoopSundivision_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivision_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivision_bin">
+    <configuration name="LoopSundivision_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoopSundivision_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoopSundivision_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="OtherApproachesCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesCli_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesCli_bin">
+    <configuration name="OtherApproachesCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesCli_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesCli_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="OtherApproachesComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesComparison_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesComparison_bin">
+    <configuration name="OtherApproachesComparison_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="OtherApproachesComparison_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="OtherApproachesComparison_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="SmoothestVecGen_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SmoothestVecGen_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SmoothestVecGen_bin">
+    <configuration name="SmoothestVecGen_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SmoothestVecGen_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SmoothestVecGen_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="SpherigonTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SpherigonTest_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SpherigonTest_bin">
+    <configuration name="SpherigonTest_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="SpherigonTest_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="SpherigonTest_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="StaticWrinkleEditor_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="StaticWrinkleEditor_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="StaticWrinkleEditor_bin">
+    <configuration name="StaticWrinkleEditor_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="StaticWrinkleEditor_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="StaticWrinkleEditor_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="TFWSamplingGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="TFWSamplingGui_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="TFWSamplingGui_bin">
+    <configuration name="TFWSamplingGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="TFWSamplingGui_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="TFWSamplingGui_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="WrinkleInterpolationCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleInterpolationCli_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleInterpolationCli_bin">
+    <configuration name="WrinkleInterpolationCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleInterpolationCli_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleInterpolationCli_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="WrinkleVisualization_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleVisualization_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleVisualization_bin">
+    <configuration name="WrinkleVisualization_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleVisualization_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleVisualization_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="didacticExample_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="didacticExample_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="didacticExample_bin">
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="geometry-central" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="geometry-central" CONFIG_NAME="Release">
+    <configuration name="didacticExample_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="didacticExample_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="didacticExample_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="glad" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glad" CONFIG_NAME="Release">
+    <configuration name="geometry-central" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="geometry-central" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="glfw" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glfw" CONFIG_NAME="Release">
+    <configuration name="glad" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glad" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_comiso" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_comiso" CONFIG_NAME="Release">
+    <configuration name="glfw" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="glfw" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_core" CONFIG_NAME="Release">
+    <configuration name="igl_copyleft_comiso" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_comiso" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_tetgen" CONFIG_NAME="Release">
+    <configuration name="igl_copyleft_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_core" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_core" CONFIG_NAME="Release">
+    <configuration name="igl_copyleft_tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_copyleft_tetgen" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_predicates" CONFIG_NAME="Release">
+    <configuration name="igl_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_core" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_restricted_triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_restricted_triangle" CONFIG_NAME="Release">
+    <configuration name="igl_predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_predicates" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="imgui" CONFIG_NAME="Release">
+    <configuration name="igl_restricted_triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="igl_restricted_triangle" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="polyscope" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="polyscope" CONFIG_NAME="Release">
+    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="imgui" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="predicates" CONFIG_NAME="Release">
+    <configuration name="polyscope" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="polyscope" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="stb" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="stb" CONFIG_NAME="Release">
+    <configuration name="predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="predicates" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbb_def_files" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_def_files" CONFIG_NAME="Release">
+    <configuration name="stb" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="stb" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbb_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_static" CONFIG_NAME="Release">
+    <configuration name="tbb_def_files" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_def_files" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbbmalloc_proxy_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_proxy_static" CONFIG_NAME="Release">
+    <configuration name="tbb_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbb_static" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbbmalloc_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_static" CONFIG_NAME="Release">
+    <configuration name="tbbmalloc_proxy_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_proxy_static" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tetgen" CONFIG_NAME="Release">
+    <configuration name="tbbmalloc_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tbbmalloc_static" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="triangle" CONFIG_NAME="Release">
+    <configuration name="tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="tetgen" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="update_mappings" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="update_mappings" CONFIG_NAME="Release">
+    <configuration name="triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="triangle" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="userDesignerApp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="userDesignerApp_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="userDesignerApp_bin">
+    <configuration name="update_mappings" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="update_mappings" CONFIG_NAME="RelWithDebInfo">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="userDesignerApp_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="userDesignerApp_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="userDesignerApp_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -362,7 +352,8 @@
       <workItem from="1669145833603" duration="1513000" />
       <workItem from="1669148745723" duration="9788000" />
       <workItem from="1669755071108" duration="1323000" />
-      <workItem from="1670355598121" duration="13364000" />
+      <workItem from="1670355598121" duration="14409000" />
+      <workItem from="1670441161625" duration="568000" />
     </task>
     <servers />
   </component>

@@ -11,12 +11,14 @@ from CWFCommon import *
 def batchCWF(exePath : str, CWFDataFolder : str):
     allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
     for modelFolder in allModelFolders:
-        screenShotsPath = os.path.join(modelFolder, "screenshots")
-        if os.path.exists(screenShotsPath):
+        # screenShotsPath = os.path.join(modelFolder, "screenshots")
+        # if os.path.exists(screenShotsPath):
+        #     continue
+        if modelFolder.find('Decimated') == -1:
             continue
 
         jsonPath = os.path.join(modelFolder, "data.json")
-        args = [exePath, "-i", jsonPath]
+        args = [exePath, "-i", jsonPath, "-r"]
         print(args)
         try:
             cmd = subprocess.check_output(args, stderr=subprocess.STDOUT)
