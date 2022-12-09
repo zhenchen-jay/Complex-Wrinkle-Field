@@ -55,6 +55,8 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> getRefWList() { return _combinedRefOmegaList; }
 		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
 
+        std::vector<Eigen::VectorXd> getDeltaWList() {return _deltaOmegaList;}
+
 
 		void setSaveFolder(const std::string& savingFolder)
 		{

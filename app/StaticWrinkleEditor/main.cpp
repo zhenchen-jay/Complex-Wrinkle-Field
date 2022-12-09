@@ -167,6 +167,9 @@ std::vector<Eigen::VectorXd> upConsistencyVec;
 std::vector<Eigen::VectorXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
 
+// delta omega
+std::vector<Eigen::VectorXd> deltaOmegaList;
+
 // region edition
 RegionEdition regEdt;
 
@@ -838,6 +841,8 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
 
+    deltaOmegaList = editModel->getDeltaWList();
+
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
@@ -893,6 +898,8 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
 
+    deltaOmegaList = editModel->getDeltaWList();
+
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
 	std::cout << "get z list" << std::endl;
@@ -927,6 +934,7 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	curShift++;
 
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
+    Eigen::MatrixXd deltaFaceOmega = intrinsicEdgeVec2FaceVec(deltaOmegaList[frameId], triV, triMesh);
 	if(isFirstTime)
 	{
 		polyscope::registerSurfaceMesh("reference mesh", triV, triF);
@@ -936,6 +944,7 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	auto refAmp = polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
 	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
+    polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("delta frequency field", vecratio * deltaFaceOmega, polyscope::VectorType::AMBIENT);
 	curShift++;
 
 	// phase pattern
@@ -1279,6 +1288,7 @@ bool loadProblem()
 	if (isLoadOpt)
 	{
 		std::cout << "load zvals and omegas from file!" << std::endl;
+        deltaOmegaList.resize(omegaList.size(), Eigen::VectorXd::Zero(omegaList[0].size()));
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
@@ -1294,6 +1304,7 @@ bool loadProblem()
 
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
+        deltaOmegaList = editModel->getDeltaWList();
 
 		if (!isLoadOpt)
 		{

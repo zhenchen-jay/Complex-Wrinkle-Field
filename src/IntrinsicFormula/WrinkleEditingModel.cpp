@@ -698,6 +698,17 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
                     else
 						Omega = Omega0 + (F - F0) / (F1 - F0) * (Omega1 - Omega0);
                     w = std::exp(Omega);
+
+					if(std::abs(t - 49.0 / 50) < 1e-4 && std::abs(w0 - w1) > 1e-4)
+					{
+						std::cout << "\nfid: " << fid << ", vid: " << vid << ", phi0: " << phi0 << ", phi1: " << phi1 << ", phi: " << phi << std::endl;
+						std::cout << "F0: " <<  F0 << ", F1: " << F1 << ", F: " << F << std::endl;
+						std::cout << "f0: " << initAmpOmegaSq[vid] << ", f1: " << tarAmpOmegaSq[vid] << ", f: " << curAmpOmegaSq[vid] << std::endl;
+						std::cout << "log |w_0|: " << Omega0 << ", log |w_1|: " << Omega1 << ", log |w|: " << Omega << std::endl;
+						std::cout << "|w_0|: " << w0 << ", |w_1|: " << w1 << ", |w|: " << w << std::endl;
+						std::cout << "a_0: " << _combinedRefAmpList[0][vid] << ", a_1: " << _combinedRefAmpList[_combinedRefAmpList.size() - 1][vid] << ", a: " << _combinedRefAmpList[49][vid]  << std::endl;
+						std::cout << "a_0 |w_0|^2: " << _combinedRefAmpList[0][vid] * w0 * w0 << ", a_1 w_1^2: " << _combinedRefAmpList[0][vid] * w1 * w1 << ", a w^2: " << _combinedRefAmpList[49][vid] * w * w << std::endl;
+					}
                 }
 
                 
@@ -794,12 +805,23 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
     _combinedRefAmpList[0] = initAmp;
     _combinedRefAmpList[numFrames + 1] = tarAmp;
 
+    double knoppel0 = KnoppelEdgeEnergy(_mesh, _edgeOmegaList[0], _edgeArea, initZvals, NULL, NULL);
+    double knoppel1 = KnoppelEdgeEnergy(_mesh, _edgeOmegaList[numFrames + 1], _edgeArea, tarZvals, NULL, NULL);
+
+    std::cout << "init knoppel: " << knoppel0 << ", tar knoppel: " << knoppel1 << std::endl;
+
 	if (applyAdj)
 	{
 		// we first adjust the input, to make sure that (z, w) are consistent
 		adjustOmegaForConsistency(initZvals, initOmega, _edgeOmegaList[0], _deltaOmegaList[0]);
 		adjustOmegaForConsistency(tarZvals, tarOmega, _edgeOmegaList[numFrames + 1], _deltaOmegaList[numFrames + 1]);
 	}
+
+    std::cout << "after adjust, knoppel energy is: " << std::endl;
+    knoppel0 = KnoppelEdgeEnergy(_mesh, _edgeOmegaList[0], _edgeArea, initZvals, NULL, NULL);
+    knoppel1 = KnoppelEdgeEnergy(_mesh, _edgeOmegaList[numFrames + 1], _edgeArea, tarZvals, NULL, NULL);
+
+    std::cout << "init knoppel: " << knoppel0 << ", tar knoppel: " << knoppel1 << std::endl;
 
     computeAmpOmegaSq(_combinedRefAmpList[0], _edgeOmegaList[0], _ampTimesOmegaSq[0]);
     computeAmpOmegaSq(_combinedRefAmpList[numFrames + 1], _edgeOmegaList[numFrames + 1], _ampTimesOmegaSq[numFrames + 1]);
@@ -817,8 +839,12 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         _combinedRefAmpList[i] = ampInitialization(_combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
         _edgeOmegaList[i] = omegaInitialization(_edgeOmegaList[0], _edgeOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
 
-		_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
-        _deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
+//		_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
+//        _deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
+        _deltaOmegaList[i] = (1 - t) * _deltaOmegaList[0] + t * _deltaOmegaList[numFrames + 1];
+
+
+
 
         // zvals
         _zvalsList[i] = tarZvals;
@@ -830,10 +856,21 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         }
     }
 
-	_combinedRefOmegaList = _edgeOmegaList;
-	for(int i = 0; i < _combinedRefOmegaList.size(); i++)
+    std::vector<Eigen::VectorXd> _ampTimesCombinedOmegaSq(numFrames + 2);
+    std::vector<Eigen::VectorXd> _ampTest(numFrames + 2);
+    _combinedRefOmegaList[0] = initOmega;
+    _combinedRefOmegaList[numFrames + 1] = tarOmega;
+    _ampTest = _combinedRefAmpList;
+
+    computeAmpOmegaSq(_ampTest[0], _combinedRefOmegaList[0], _ampTimesCombinedOmegaSq[0]);
+    computeAmpOmegaSq(_ampTest[numFrames + 1], _combinedRefOmegaList[numFrames + 1], _ampTimesCombinedOmegaSq[numFrames + 1]);
+
+	for(int i = 0; i < numFrames + 1; i++)
 	{
-		_combinedRefOmegaList[i] += _deltaOmegaList[i];
+        double t = i * dt;
+        _ampTimesCombinedOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], t);
+        _ampTest[i] = ampInitialization(_ampTest[0], _ampTest[numFrames + 1], _ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], _ampTimesCombinedOmegaSq[i], t);
+        _combinedRefOmegaList[i] = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], _ampTimesCombinedOmegaSq[i], t);
 	}
 
     _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
