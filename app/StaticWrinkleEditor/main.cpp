@@ -169,6 +169,7 @@ std::vector<Eigen::VectorXd> refAmpList;
 
 // delta omega
 std::vector<Eigen::VectorXd> deltaOmegaList;
+std::vector<Eigen::VectorXd> actualOmegaList;
 
 // region edition
 RegionEdition regEdt;
@@ -487,7 +488,7 @@ void updateSelectedRegionSetViz()
 		else if (interfaceFids(i) == 1)
 			renderColor.row(i) << 0, 1.0, 0;
 	}
-	polyscope::getSurfaceMesh("base mesh")->addFaceColorQuantity("selected region", renderColor);
+	polyscope::getSurfaceMesh("reference mesh")->addFaceColorQuantity("selected region", renderColor);
 }
 
 void addPickedFace(size_t ind)
@@ -842,6 +843,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 	refAmpList = editModel->getRefAmpList();
 
     deltaOmegaList = editModel->getDeltaWList();
+	actualOmegaList = editModel->getActualOptWList();
 
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
@@ -899,6 +901,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	refAmpList = editModel->getRefAmpList();
 
     deltaOmegaList = editModel->getDeltaWList();
+	actualOmegaList = editModel->getActualOptWList();
 
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
@@ -918,7 +921,6 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	}
 	
 	polyscope::getSurfaceMesh("base mesh")->addFaceVectorQuantity("frequency field", vecratio * faceOmegaList[frameId], polyscope::VectorType::AMBIENT);
-	updateSelectedRegionSetViz();
 
 	Eigen::VectorXd baseAmplitude = refAmpList[frameId];
 	for(int i = 0 ; i < refAmpList[frameId].size(); i++)
@@ -935,6 +937,7 @@ void registerMesh(int frameId, bool isFirstTime = true)
 
 	Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[frameId], triV, triMesh);
     Eigen::MatrixXd deltaFaceOmega = intrinsicEdgeVec2FaceVec(deltaOmegaList[frameId], triV, triMesh);
+	Eigen::MatrixXd actualFaceOmega = intrinsicEdgeVec2FaceVec(actualOmegaList[frameId], triV, triMesh);
 	if(isFirstTime)
 	{
 		polyscope::registerSurfaceMesh("reference mesh", triV, triF);
@@ -945,7 +948,9 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
     polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("delta frequency field", vecratio * deltaFaceOmega, polyscope::VectorType::AMBIENT);
+	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("actual opt frequency field", vecratio * actualFaceOmega, polyscope::VectorType::AMBIENT);
 	curShift++;
+	updateSelectedRegionSetViz();
 
 	// phase pattern
 	if(isShowActualKnoppel && editModelType == KnoppelCWF)
@@ -1289,6 +1294,7 @@ bool loadProblem()
 	{
 		std::cout << "load zvals and omegas from file!" << std::endl;
         deltaOmegaList.resize(omegaList.size(), Eigen::VectorXd::Zero(omegaList[0].size()));
+		actualOmegaList.resize(omegaList.size(), Eigen::VectorXd::Zero(omegaList[0].size()));
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
@@ -1305,6 +1311,7 @@ bool loadProblem()
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
         deltaOmegaList = editModel->getDeltaWList();
+		actualOmegaList = editModel->getActualOptWList();
 
 		if (!isLoadOpt)
 		{
@@ -1853,50 +1860,6 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-   Eigen::MatrixXd tmpV;
-   Eigen::MatrixXi tmpF;
-   Eigen::VectorXd tmpOmega, tmpAmp;
-   generateTorusWaves(1.0, 0.5, 20, 20, 10, tmpV, tmpF, tmpOmega, tmpAmp, true);
-   tmpAmp *= 0.1;
-   igl::writeOBJ("torus.obj", tmpV, tmpF);
-   saveEdgeOmega("omega.txt", tmpOmega);
-   saveVertexAmp("amp.txt", tmpAmp);
-
-   Eigen::VectorXd tmpWeights, tmpArea;
-   std::vector<std::complex<double>> tmpZvals;
-   MeshConnectivity tmpMesh(tmpF);
-
-   Eigen::MatrixXd cotMatrixEntries;
-
-   igl::cotmatrix_entries(tmpV, tmpMesh.faces(), cotMatrixEntries);
-   tmpWeights.setZero(tmpMesh.nEdges());
-
-   for (int i = 0; i < tmpMesh.nFaces(); i++)
-   {
-	   for (int j = 0; j < 3; j++)
-	   {
-		   int eid = tmpMesh.faceEdge(i, j);
-		   int vid = tmpMesh.faceVertex(i, j);
-		   tmpWeights(eid) += cotMatrixEntries(i, j);
-	   }
-   }
-
-//    tmpWeights = getEdgeArea(tmpV, tmpMesh);
-   tmpArea = getVertArea(tmpV, tmpMesh);
-   tmpArea.setConstant(1.0);
-   //tmpWeights.setConstant(1.0);
-
-   IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
-   saveVertexZvals("zvals.txt", tmpZvals);
-
-   generateTorusWaves(1.0, 0.5, 20, 20, 10, tmpV, tmpF, tmpOmega, tmpAmp, false);
-	tmpAmp *= 0.1;
-   saveEdgeOmega("omega_tar.txt", tmpOmega);
-   saveVertexAmp("amp_tar.txt", tmpAmp);
-
-   IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(tmpMesh, tmpOmega, tmpAmp, tmpWeights, tmpArea, tmpV.rows(), tmpZvals);
-   saveVertexZvals("zvals_tar.txt", tmpZvals);
-
 	if (!loadProblem())
 	{
 		std::cout << "failed to load file." << std::endl;

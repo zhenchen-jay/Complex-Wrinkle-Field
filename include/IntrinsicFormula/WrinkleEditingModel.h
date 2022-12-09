@@ -37,7 +37,7 @@ namespace IntrinsicFormula
         void initializationNew(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, int numFrames, bool applyAdj = true);
         Eigen::VectorXd ampTimeOmegaSqInitialization(const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, double t);
         Eigen::VectorXd ampInitialization(const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, const Eigen::VectorXd curAmpOmegaSq, double t);
-        Eigen::VectorXd omegaInitialization(const Eigen::VectorXd& initOmega, const Eigen::VectorXd& tarOmega, const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, const Eigen::VectorXd& curAmpOmegaSq, double t);
+        Eigen::VectorXd omegaInitialization(const Eigen::VectorXd& initOmega, const Eigen::VectorXd& tarOmega, const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, double t);
 
 		virtual void solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol = 1e-6, double xTol = 0, double fTol = 0, bool isdisplayInfo = false, std::string workingFolder = "") = 0;
 
@@ -56,6 +56,7 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> getRefAmpList() { return _combinedRefAmpList; }
 
         std::vector<Eigen::VectorXd> getDeltaWList() {return _deltaOmegaList;}
+		std::vector<Eigen::VectorXd> getActualOptWList() { return _edgeOmegaList; }
 
 
 		void setSaveFolder(const std::string& savingFolder)

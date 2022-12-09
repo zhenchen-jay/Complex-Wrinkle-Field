@@ -23,14 +23,44 @@ namespace IntrinsicFormula
             if(_selectedVids.size() && effectivedistFactor > 0)
             {
 
+                // selected edges and verts
                 Eigen::VectorXi selectedEdgeFlags, selectedVertFlags;
                 getVertIdinGivenDomain(_selectedFids, selectedVertFlags);
                 getEdgeIdinGivenDomain(_selectedFids, selectedEdgeFlags);
+
+                // unselected edges and verts
+                Eigen::VectorXi unselectedEdgeFlags, unselectedVertFlags;
+                getVertIdinGivenDomain(_unselectedFids, unselectedVertFlags);
+                getEdgeIdinGivenDomain(_unselectedFids, unselectedEdgeFlags);
 
                 // interface edges and verts
                 Eigen::VectorXi interfaceEdgeFlags, interfaceVertFlags;
                 getVertIdinGivenDomain(_interfaceFids, interfaceVertFlags);
                 getEdgeIdinGivenDomain(_interfaceFids, interfaceEdgeFlags);
+
+                // build the list
+                int nverts = _pos.rows();
+                int nedges = _mesh.nEdges();
+
+                for (int i = 0; i < nverts; i++)
+                {
+                    if (selectedVertFlags(i))
+                        _selectedVids.push_back(i);
+                    else if (unselectedVertFlags(i))
+                        _unselectedVids.push_back(i);
+                    else
+                        _interfaceVids.push_back(i);
+                }
+
+                for (int i = 0; i < nedges; i++)
+                {
+                    if (selectedEdgeFlags(i))
+                        _selectedEids.push_back(i);
+                    else if (unselectedEdgeFlags(i))
+                        _unselectedEids.push_back(i);
+                    else
+                        _interfaceEids.push_back(i);
+                }
 
                 std::vector<int> sourceVerts;
                 for (int i = 0; i < nverts; i++)

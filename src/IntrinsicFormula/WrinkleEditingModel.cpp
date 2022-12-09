@@ -383,6 +383,8 @@ void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Ei
 			}
 				
 			double angle = std::acos(cos);
+			if (e0.cross(e1).dot(faceNormals.row(i).segment<3>(0)) < 0)
+				angle *= 0;
             theta(i) = angle;
 		}
 			
@@ -400,7 +402,6 @@ void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Ei
 		
 		for (int f = 0; f < faceVec.rows(); f++)
 		{
-			Eigen::Vector3d axis = faceNormals.row(f);
 			Eigen::Vector3d vec = Eigen::Vector3d::Zero();
 
 			if (initFaceVec.row(f).norm() == 0)
@@ -409,6 +410,7 @@ void WrinkleEditingModel::vecFieldSLERP(const Eigen::VectorXd& initVec, const Ei
 				vec = (1 - t) * initFaceVec.row(f);
 			else
 			{
+				Eigen::Vector3d axis = faceNormals.row(f);
 				double angle = t * theta(f);
 				// slerp on theta
 				double ux = axis(0) / axis.norm(), uy = axis(1) / axis.norm(), uz = axis(2) / axis.norm();
@@ -522,6 +524,7 @@ void WrinkleEditingModel::editCWFBasedOnVertOp(const std::vector<std::complex<do
 			}
 
 		}
+		std::cout << "tar amp min: " << tarAmp.minCoeff() << ", tar amp max: " << tarAmp.maxCoeff() << std::endl;
     }
 }
 
@@ -532,14 +535,7 @@ Eigen::VectorXd WrinkleEditingModel::ampTimeOmegaSqInitialization(const Eigen::V
 
     for(int i = 0; i < nverts; i++)
     {
-        if(initAmpOmegaSq[i] < 1e-12 || tarAmpOmegaSq[i] < 1e-12)
-        {
-            curAmpOmegaSq[i] = (1 - t) * initAmpOmegaSq[i] + t * tarAmpOmegaSq[i];
-        }
-        else
-        {
-            curAmpOmegaSq[i] = initAmpOmegaSq[i] * tarAmpOmegaSq[i] / std::sqrt(t * initAmpOmegaSq[i] * initAmpOmegaSq[i] + (1 - t) * tarAmpOmegaSq[i] * tarAmpOmegaSq[i]);
-        }
+		curAmpOmegaSq[i] = (1 - t) * initAmpOmegaSq[i] + t * tarAmpOmegaSq[i];
     }
     return curAmpOmegaSq;
 }
@@ -551,30 +547,7 @@ Eigen::VectorXd WrinkleEditingModel::ampInitialization(const Eigen::VectorXd& in
 
     for(int i = 0; i < nverts; i++)
     {
-        if(initAmp[i] < 1e-12 || tarAmp[i] < 1e-12 || curAmpOmegaSq[i] < 1e-12 || initAmpOmegaSq[i] < 1e-12 || tarAmpOmegaSq[i] < 1e-12)
-        {
-            curAmp[i] = (1 - t) * initAmp[i] + t * tarAmp[i];
-        }
-        else
-        {
-            double A0 = std::log(initAmp[i]);
-            double A1 = std::log(tarAmp[i]);
-            double F0 = std::log(initAmpOmegaSq[i]);
-            double F1 = std::log(tarAmpOmegaSq[i]);
-            double F = std::log(curAmpOmegaSq[i]);
-
-            double A = 0;
-
-            if(std::abs(F1 - F0) < 1e-12)
-            {
-                A = (1 - t) * A0 + t * A1;
-            }
-            else
-            {
-                A = A0 + (F - F0) / (F1 - F0) * (A1 - A0);
-            }
-            curAmp[i] = std::exp(A);
-        }
+		curAmp[i] = (1 - t) * initAmp[i] + t * tarAmp[i];
     }
     return curAmp;
 }
@@ -594,7 +567,7 @@ Eigen::Vector3d WrinkleEditingModel::rot3dVec(const Eigen::Vector3d& v, const Ei
     return vec;
 }
 
-Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& initOmega, const Eigen::VectorXd& tarOmega, const Eigen::VectorXd& initAmpOmegaSq, const Eigen::VectorXd& tarAmpOmegaSq, const Eigen::VectorXd& curAmpOmegaSq, double t)
+Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& initOmega, const Eigen::VectorXd& tarOmega, const Eigen::VectorXd& initAmp, const Eigen::VectorXd& tarAmp, double t)
 {
     int nfaces = _mesh.nFaces();
     int nedges = _mesh.nEdges();
@@ -650,80 +623,64 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
             Eigen::Vector3d initFaceOmega = sol0[0] * r0 + sol0[1] * r1;
             Eigen::Vector3d tarFaceOmega = sol1[0] * r0 + sol1[1] * r1;
 
-            double w0 = initFaceOmega.norm();
-            double w1 = tarFaceOmega.norm();
+			if ((r0.cross(r1)).norm() < 1e-10 || initFaceOmega.norm() < 1e-10 || tarFaceOmega.norm() < 1e-10) // to skinny triangles, or 0-cases
+			{
+				faceOmega = (1 - t) * initFaceOmega + t * tarFaceOmega;
+			}
+			else
+			{
+				double w0Sq = initFaceOmega.squaredNorm();
+				double w1Sq = tarFaceOmega.squaredNorm();
 
-            if((r0.cross(r1)).norm() < 1e-12 || w0 < 1e-12 || w1 < 1e-12) // to skinny triangles, or 0-cases
-            {
-                faceOmega = (1 - t) * initFaceOmega + t * tarFaceOmega;
-            }
-            else
-            {
-                // rotation angle.
+				double a0 = initAmp[vid];
+				double a1 = tarAmp[vid];
+				double wSq = 0;
+
+
+
+				if (a0 < 1e-10 || a1 < 1e-10)
+				{
+					wSq = (1 - t) * w0Sq + t * w1Sq;
+				}
+					
+				wSq = (1 - t) * a0 / ((1 - t) * a0 + t * a1) * w0Sq + t * a1 / ((1 - t) * a0 + t * a1) * w1Sq;
+
 				Eigen::Vector3d rotAxis = faceNormals.row(fid);
-                double phi0 = 0;
-                double cos = initFaceOmega.dot(tarFaceOmega) / w0 / w1;
-                cos = std::clamp(cos, -1., 1.);   // avoid numerical issues
-                double phi1 = std::acos(cos);
+				double phi0 = 0;
+				double cos = initFaceOmega.dot(tarFaceOmega) / initFaceOmega.norm() / tarFaceOmega.norm();
+				cos = std::clamp(cos, -1., 1.);   // avoid numerical issues
+				double phi1 = std::acos(cos);
+				
+				if (initFaceOmega.cross(tarFaceOmega).dot(rotAxis) < 0)
+					phi1 *= -1;
 
-                double phi = 0;
-                if(initAmpOmegaSq[vid] < 1e-12 || tarAmpOmegaSq[vid] < 1e-12)
-                {
-                    phi = (1 - t) * phi0 + t * phi1;
-                }
-                else
-                {
-                    double f0 = initAmpOmegaSq[vid];
-                    double f1 = tarAmpOmegaSq[vid];
-                    phi = (f0 * f0 - f1 * f1) / (f0 * f0 + f1 * f1) * (phi1 - phi0) * t * t + 2 * f1 * f1 / (f0 * f0 + f1 * f1) * (phi1 - phi0) * t + phi0;
-                }
+				double phi = 0;
 
-                // omega norm
-                double w = 0;
-                if(initAmpOmegaSq[vid] < 1e-12 || tarAmpOmegaSq[vid] < 1e-12)
-                {
-                    w = (1 - t) * w0 + t * w1;
-                }
-                else
-                {
-                    double Omega0 = std::log(w0);
-                    double Omega1 = std::log(w1);
-                    double F0 = std::log(initAmpOmegaSq[vid]);
-                    double F1 = std::log(tarAmpOmegaSq[vid]);
-                    double F = std::log(curAmpOmegaSq[vid]);
+				double f0 = a0 * w0Sq;
+				double f1 = a1 * w1Sq;
 
-					double Omega = 0;
-					if (std::abs(F0 - F1) < 1e-12)
-						Omega = (1 - t) * Omega0 + t * Omega1;
-                    else
-						Omega = Omega0 + (F - F0) / (F1 - F0) * (Omega1 - Omega0);
-                    w = std::exp(Omega);
+				if (f0 < 1e-10 || f1 < 1e-10)
+				{
+					phi = (1 - t) * phi0 + t * phi1;
+				}
 
-					if(std::abs(t - 49.0 / 50) < 1e-4 && std::abs(w0 - w1) > 1e-4)
-					{
-						std::cout << "\nfid: " << fid << ", vid: " << vid << ", phi0: " << phi0 << ", phi1: " << phi1 << ", phi: " << phi << std::endl;
-						std::cout << "F0: " <<  F0 << ", F1: " << F1 << ", F: " << F << std::endl;
-						std::cout << "f0: " << initAmpOmegaSq[vid] << ", f1: " << tarAmpOmegaSq[vid] << ", f: " << curAmpOmegaSq[vid] << std::endl;
-						std::cout << "log |w_0|: " << Omega0 << ", log |w_1|: " << Omega1 << ", log |w|: " << Omega << std::endl;
-						std::cout << "|w_0|: " << w0 << ", |w_1|: " << w1 << ", |w|: " << w << std::endl;
-						std::cout << "a_0: " << _combinedRefAmpList[0][vid] << ", a_1: " << _combinedRefAmpList[_combinedRefAmpList.size() - 1][vid] << ", a: " << _combinedRefAmpList[49][vid]  << std::endl;
-						std::cout << "a_0 |w_0|^2: " << _combinedRefAmpList[0][vid] * w0 * w0 << ", a_1 w_1^2: " << _combinedRefAmpList[0][vid] * w1 * w1 << ", a w^2: " << _combinedRefAmpList[49][vid] * w * w << std::endl;
-					}
-                }
+				else
+				{
+					phi = (1 - t) * f0 / ((1 - t) * f0 + t * f1) * phi0 + t * f1 / ((1 - t) * f0 + t * f1) * phi1;
+				}
 
-                
-                faceOmega = rot3dVec(initFaceOmega, rotAxis, phi);
-                faceOmega = faceOmega / faceOmega.norm() * w;
 
-            }
-			
+				faceOmega = rot3dVec(initFaceOmega, rotAxis, phi);
+				faceOmega = faceOmega / faceOmega.norm() * std::sqrt(wSq);
+
+			}
+			//faceOmega = (1 - t) * initFaceOmega + t * tarFaceOmega;
 			double div0 = _mesh.edgeFace(eid0, 0) == -1 || _mesh.edgeFace(eid0, 1) == -1 ? 1 : 2; // whethe an edge is boundary edge
 			double div1 = _mesh.edgeFace(eid1, 0) == -1 || _mesh.edgeFace(eid1, 1) == -1 ? 1 : 2;
 
 			curOmega[eid0] += flag0 * faceOmega.dot(r0) / div0 / 2; // #div of edge faces, and two edge vertices
 			curOmega[eid1] += flag1 * faceOmega.dot(r1) / div1 / 2;
-			
-        }
+        }	
     }
     return curOmega;
 }
@@ -769,6 +726,7 @@ void WrinkleEditingModel::computeAmpOmegaSq(const Eigen::VectorXd& amp, const Ei
 
 void WrinkleEditingModel::initializationNew(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const std::vector<std::complex<double>>& tarZvals, const Eigen::VectorXd& tarOmega, int numFrames, bool applyAdj)
 {
+
     // we use our new formula to initialize everything
     _combinedRefAmpList.resize(numFrames + 2);
     _combinedRefOmegaList.resize(numFrames + 2);
@@ -837,10 +795,8 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         double t = i * dt;
         _ampTimesOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], t);
         _combinedRefAmpList[i] = ampInitialization(_combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
-        _edgeOmegaList[i] = omegaInitialization(_edgeOmegaList[0], _edgeOmegaList[numFrames + 1], _ampTimesOmegaSq[0], _ampTimesOmegaSq[numFrames + 1], _ampTimesOmegaSq[i], t);
+        _edgeOmegaList[i] = omegaInitialization(_edgeOmegaList[0], _edgeOmegaList[numFrames + 1], _combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], t);
 
-//		_ampTimesDeltaOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], t);
-//        _deltaOmegaList[i] = omegaInitialization(_deltaOmegaList[0], _deltaOmegaList[numFrames + 1], _ampTimesDeltaOmegaSq[0], _ampTimesDeltaOmegaSq[numFrames + 1], _ampTimesDeltaOmegaSq[i], t);
         _deltaOmegaList[i] = (1 - t) * _deltaOmegaList[0] + t * _deltaOmegaList[numFrames + 1];
 
 
@@ -856,6 +812,8 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         }
     }
 
+	std::cout << "omega list initialization finished!" << std::endl;
+
     std::vector<Eigen::VectorXd> _ampTimesCombinedOmegaSq(numFrames + 2);
     std::vector<Eigen::VectorXd> _ampTest(numFrames + 2);
     _combinedRefOmegaList[0] = initOmega;
@@ -870,7 +828,7 @@ void WrinkleEditingModel::initializationNew(const std::vector<std::complex<doubl
         double t = i * dt;
         _ampTimesCombinedOmegaSq[i] = ampTimeOmegaSqInitialization(_ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], t);
         _ampTest[i] = ampInitialization(_ampTest[0], _ampTest[numFrames + 1], _ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], _ampTimesCombinedOmegaSq[i], t);
-        _combinedRefOmegaList[i] = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _ampTimesCombinedOmegaSq[0], _ampTimesCombinedOmegaSq[numFrames + 1], _ampTimesCombinedOmegaSq[i], t);
+        _combinedRefOmegaList[i] = omegaInitialization(_combinedRefOmegaList[0], _combinedRefOmegaList[numFrames + 1], _combinedRefAmpList[0], _combinedRefAmpList[numFrames + 1], t);
 	}
 
     _zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
