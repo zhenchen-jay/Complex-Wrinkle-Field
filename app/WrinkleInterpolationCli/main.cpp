@@ -550,10 +550,10 @@ bool loadProblem()
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
-    if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+    if (jval.contains(std::string_view{ "wrinkle_amp_ratio" }))
     {
         if(args.ampScale == 1)
-            args.ampScale = jval["wrinkle_amp_scale"];
+            args.ampScale = jval["wrinkle_amp_ratio"];
     }
 
 	isSelectAll = jval["region_global_details"]["select_all"];

@@ -636,14 +636,10 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
 				double a1 = tarAmp[vid];
 				double wSq = 0;
 
-
-
 				if (a0 < 1e-10 || a1 < 1e-10)
-				{
 					wSq = (1 - t) * w0Sq + t * w1Sq;
-				}
-					
-				wSq = (1 - t) * a0 / ((1 - t) * a0 + t * a1) * w0Sq + t * a1 / ((1 - t) * a0 + t * a1) * w1Sq;
+				else
+					wSq = (1 - t) * a0 / ((1 - t) * a0 + t * a1) * w0Sq + t * a1 / ((1 - t) * a0 + t * a1) * w1Sq;
 
 				Eigen::Vector3d rotAxis = faceNormals.row(fid);
 				double phi0 = 0;
@@ -663,7 +659,6 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
 				{
 					phi = (1 - t) * phi0 + t * phi1;
 				}
-
 				else
 				{
 					phi = (1 - t) * f0 / ((1 - t) * f0 + t * f1) * phi0 + t * f1 / ((1 - t) * f0 + t * f1) * phi1;

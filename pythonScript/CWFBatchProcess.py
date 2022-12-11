@@ -8,15 +8,23 @@ import subprocess
 from os.path import exists
 from CWFCommon import *
 
+def batchCWFUpsampling(exePath : str, CWFDataFolder : str):
+    allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
+    for modelFolder in allModelFolders:
+        jsonPath = os.path.join(modelFolder, "data.json")
+        if modelFolder.find("pantasma") == -1 and modelFolder.find("face") == -1:
+            continue
+        args = [exePath, "-i", jsonPath]
+        print(args)
+        try:
+            cmd = subprocess.check_output(args, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            print(["run time error"])
+            pass
+
 def batchCWF(exePath : str, CWFDataFolder : str):
     allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
     for modelFolder in allModelFolders:
-        # screenShotsPath = os.path.join(modelFolder, "screenshots")
-        # if os.path.exists(screenShotsPath):
-        #     continue
-        # if modelFolder.find('Decimated') == -1:
-        #     continue
-
         jsonPath = os.path.join(modelFolder, "data.json")
         args = [exePath, "-i", jsonPath, "-r"]
         print(args)
@@ -27,4 +35,5 @@ def batchCWF(exePath : str, CWFDataFolder : str):
             pass
         
 if __name__ == '__main__':
-    batchCWF(CWFEXEPath, CWFDataFolder)
+    batchCWFUpsampling(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_1000/")
+    batchCWF(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_100/")

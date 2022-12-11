@@ -1049,10 +1049,11 @@ bool loadProblem()
 
 	quadOrder = jval["quad_order"];
 	numFrames = jval["num_frame"];
-	if (jval.contains(std::string_view{ "wrinkle_amp_scale" }))
+	if (jval.contains(std::string_view{ "wrinkle_amp_ratio" }))
 	{
-		wrinkleAmpScalingRatio = jval["wrinkle_amp_scale"];
+		wrinkleAmpScalingRatio = jval["wrinkle_amp_ratio"];
 	}
+	std::cout << "wrinkle amplitude scaling ratio: " << wrinkleAmpScalingRatio << std::endl;
 
 	isSelectAll = jval["region_global_details"]["select_all"];
 	isCoupled = jval["region_global_details"]["amp_omega_coupling"];
