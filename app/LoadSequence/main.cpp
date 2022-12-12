@@ -27,10 +27,11 @@ enum DisplayType
     comparison = 0,
     CWFRes = 1
 };
-DisplayType displayType = comparison;
+DisplayType displayType = CWFRes;
 int curFrame = 0;
 int nFrames = 10;
 std::string loadPath = "";
+bool isFirstRun = true;
 
 void loadCVSFile(const std::string& filename, Eigen::VectorXd& vec, int nlines)
 {
@@ -66,23 +67,39 @@ void registerMesh(int frameId)
     if(displayType == CWFRes)
     {
         PaintGeometry mPaint;
-        polyscope::registerSurfaceMesh("phase mesh", upTriV, upTriF);
+        if (isFirstRun)
+        {
+            polyscope::registerSurfaceMesh("phase mesh", upTriV, upTriF);
+            polyscope::getSurfaceMesh("phase mesh")->translate({ 0, 0, 0 });
+        }
+           
         mPaint.setNormalization(false);
         Eigen::MatrixXd phaseColor = mPaint.paintPhi(CWFPhaseList[frameId]);
-        polyscope::getSurfaceMesh("phase mesh")->translate({ 0, 0, 0 });
-        polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+        
+        auto phiPatterns = polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+        phiPatterns->setEnabled(true);
         polyscope::getSurfaceMesh("phase mesh")->setEnabled(true);
 
-        polyscope::registerSurfaceMesh("amplitude mesh", upTriV, upTriF);
-        polyscope::getSurfaceMesh("amplitude mesh")->translate({ shiftx, 0, 0 });
+        if (isFirstRun)
+        {
+            polyscope::registerSurfaceMesh("amplitude mesh", upTriV, upTriF);
+            polyscope::getSurfaceMesh("amplitude mesh")->translate({ shiftx, 0, 0 });
+        }
+            
         auto ampPatterns = polyscope::getSurfaceMesh("amplitude mesh")->addVertexScalarQuantity("vertex amplitude", CWFAmpList[frameId]);
         ampPatterns->setMapRange(std::pair<double, double>(0, 1));
+        ampPatterns->setEnabled(true);
         polyscope::getSurfaceMesh("amplitude mesh")->setEnabled(true);
 
         // wrinkle mesh
-        polyscope::registerSurfaceMesh("wrinkled mesh", wrinkleVList[frameId], upTriF);
+        if (isFirstRun)
+        {
+            polyscope::registerSurfaceMesh("wrinkled mesh", wrinkleVList[frameId], upTriF);
+            polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 2 * shiftx, 0, 0 });
+        }
+        else
+            polyscope::getSurfaceMesh("wrinkled mesh")->updateVertexPositions(wrinkleVList[frameId]);
         polyscope::getSurfaceMesh("wrinkled mesh")->setSurfaceColor({ 80 / 255.0, 122 / 255.0, 91 / 255.0 });
-        polyscope::getSurfaceMesh("wrinkled mesh")->translate({ 2 * shiftx, 0, 0 });
         polyscope::getSurfaceMesh("wrinkled mesh")->setEnabled(true);
     }
     else
@@ -110,11 +127,12 @@ void registerMesh(int frameId)
         polyscope::getSurfaceMesh("Knoppel phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
         polyscope::getSurfaceMesh("Knoppel phase mesh")->setEnabled(true);
     }
+    isFirstRun = false;
 }
 
 void updateFieldsInView(int frameId)
 {
-	std::cout << "update viewer. " << std::endl;
+	//std::cout << "update viewer. " << std::endl;
 	registerMesh(frameId);
 }
 
@@ -151,12 +169,12 @@ bool loadProblem(const std::string loadingPath, const std::string disType, int n
 
         int nupverts = upTriV.rows();
 
-//        for (uint32_t i = 0; i < numFrames; ++i)
-//        {
-//            loadCVSFile(CWFFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", CWFPhaseList[i], nupverts);
-//            loadCVSFile(knoppelFolder + "upsampledKnoppelPhase/upKnoppelPhase" + std::to_string(i) + ".cvs", KnoppelPhaseList[i], nupverts);
-//            loadCVSFile(linearFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", LinearPhaseList[i], nupverts);
-//        }
+        //for (uint32_t i = 0; i < numFrames; ++i)
+        //{
+        //    loadCVSFile(CWFFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", CWFPhaseList[i], nupverts);
+        //    loadCVSFile(knoppelFolder + "upsampledKnoppelPhase/upKnoppelPhase" + std::to_string(i) + ".cvs", KnoppelPhaseList[i], nupverts);
+        //    loadCVSFile(linearFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", LinearPhaseList[i], nupverts);
+        //}
 
         auto loadPerFrame = [&](const tbb::blocked_range<uint32_t>& range)
         {
@@ -167,13 +185,13 @@ bool loadProblem(const std::string loadingPath, const std::string disType, int n
                 loadCVSFile(linearFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", LinearPhaseList[i], nupverts);
             }
         };
-        tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames, GRAIN_SIZE);
+        tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames, 1);
         tbb::parallel_for(rangex, loadPerFrame);
 
     }
     else
     {
-        std::string CWFFolder = loadingPath + "/CWF/render/";
+        std::string CWFFolder = loadingPath + "/render/";
 
         CWFPhaseList.resize(numFrames);
         CWFAmpList.resize(numFrames);
@@ -184,18 +202,29 @@ bool loadProblem(const std::string loadingPath, const std::string disType, int n
 
         int nupverts = upTriV.rows();
 
-        auto loadPerFrame = [&](const tbb::blocked_range<uint32_t>& range)
+        /*for (uint32_t i = 0; i < numFrames; ++i)
+        {
+            std::cout << "loading mesh: " << i << std::endl;
+            loadCVSFile(CWFFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", CWFPhaseList[i], nupverts);
+            loadCVSFile(CWFFolder + "upsampledAmp/upAmp_" + std::to_string(i) + ".cvs", CWFAmpList[i], nupverts);
+            igl::readOBJ(CWFFolder + "wrinkledMesh/wrinkledMesh_" + std::to_string(i) + ".obj", wrinkleVList[i], wrinkleFList[i]);
+        }*/
+
+       auto loadPerFrame = [&](const tbb::blocked_range<uint32_t>& range)
         {
             for (uint32_t i = range.begin(); i < range.end(); ++i)
             {
+                //std::cout << "loading mesh: " << i << std::endl;
                 loadCVSFile(CWFFolder + "upsampledPhase/upPhase" + std::to_string(i) + ".cvs", CWFPhaseList[i], nupverts);
                 loadCVSFile(CWFFolder + "upsampledAmp/upAmp_" + std::to_string(i) + ".cvs", CWFAmpList[i], nupverts);
                 igl::readOBJ(CWFFolder + "wrinkledMesh/wrinkledMesh_" + std::to_string(i) + ".obj", wrinkleVList[i], wrinkleFList[i]);
             }
         };
-        tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames, GRAIN_SIZE);
+        tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)numFrames, 1);
         tbb::parallel_for(rangex, loadPerFrame);
+        std::cout << "load mesh finished!" << std::endl;
     }
+    isFirstRun = true;
 
 	return true;
 }
@@ -237,10 +266,9 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-    std::cout << argc << std::endl;
     if(argc != 4)
     {
-        std::cerr << "usage:  ./loadSequece_bin [loading_path] [type (comparison or CWEFRes)] [num frames]" << std::endl;
+        std::cerr << "usage:  ./loadSequece_bin [loading_path] [type (comparison or CWFRes)] [num frames]" << std::endl;
         exit(EXIT_FAILURE);
     }
 	if (!loadProblem(argv[1], argv[2], std::stoi(argv[3])))
