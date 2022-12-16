@@ -7,7 +7,45 @@
     <option name="reloaded" value="true" />
   </component>
   <component name="CMakeRunConfigurationManager">
-    <generated />
+    <generated>
+      <config projectName="Phase interpolation" targetName="OtherApproachesCli_bin" />
+      <config projectName="Phase interpolation" targetName="glad" />
+      <config projectName="Phase interpolation" targetName="InterpolationStaticComp_bin" />
+      <config projectName="Phase interpolation" targetName="TFWSamplingGui_bin" />
+      <config projectName="Phase interpolation" targetName="polyscope" />
+      <config projectName="Phase interpolation" targetName="LoadSequence_bin" />
+      <config projectName="Phase interpolation" targetName="tbbmalloc_proxy_static" />
+      <config projectName="Phase interpolation" targetName="CoMISo" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_core" />
+      <config projectName="Phase interpolation" targetName="userDesignerApp_bin" />
+      <config projectName="Phase interpolation" targetName="SmoothestVecGen_bin" />
+      <config projectName="Phase interpolation" targetName="imgui" />
+      <config projectName="Phase interpolation" targetName="WrinkleInterpolationCli_bin" />
+      <config projectName="Phase interpolation" targetName="CLI11" />
+      <config projectName="Phase interpolation" targetName="SpherigonTest_bin" />
+      <config projectName="Phase interpolation" targetName="LoopSundivision_bin" />
+      <config projectName="Phase interpolation" targetName="geometry-central" />
+      <config projectName="Phase interpolation" targetName="predicates" />
+      <config projectName="Phase interpolation" targetName="tbbmalloc_static" />
+      <config projectName="Phase interpolation" targetName="StaticWrinkleEditor_bin" />
+      <config projectName="Phase interpolation" targetName="WrinkleVisualization_bin" />
+      <config projectName="Phase interpolation" targetName="InterpolationComparison_bin" />
+      <config projectName="Phase interpolation" targetName="tetgen" />
+      <config projectName="Phase interpolation" targetName="tbb_static" />
+      <config projectName="Phase interpolation" targetName="update_mappings" />
+      <config projectName="Phase interpolation" targetName="igl_restricted_triangle" />
+      <config projectName="Phase interpolation" targetName="igl_predicates" />
+      <config projectName="Phase interpolation" targetName="triangle" />
+      <config projectName="Phase interpolation" targetName="didacticExample_bin" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_comiso" />
+      <config projectName="Phase interpolation" targetName="igl_copyleft_tetgen" />
+      <config projectName="Phase interpolation" targetName="OtherApproachesComparison_bin" />
+      <config projectName="Phase interpolation" targetName="tbb_def_files" />
+      <config projectName="Phase interpolation" targetName="LoopSundivisionTest_bin" />
+      <config projectName="Phase interpolation" targetName="igl_core" />
+      <config projectName="Phase interpolation" targetName="glfw" />
+      <config projectName="Phase interpolation" targetName="stb" />
+    </generated>
   </component>
   <component name="CMakeSettings">
     <configurations>
@@ -17,6 +55,11 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pythonScript/batchImg2Videos.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/batchImg2Videos.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,7 +69,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:RelWithDebInfo" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -62,7 +105,7 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;CMakeSettings&quot;
   }
 }</component>
-  <component name="RunManager" selected="CMake Application.LoopSundivision_bin">
+  <component name="RunManager" selected="CMake Application.StaticWrinkleEditor_bin">
     <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -313,7 +356,7 @@
       <workItem from="1670355598121" duration="14409000" />
       <workItem from="1670441161625" duration="568000" />
       <workItem from="1670529608748" duration="4075000" />
-      <workItem from="1671055255751" duration="279000" />
+      <workItem from="1671055255751" duration="4947000" />
     </task>
     <servers />
   </component>
@@ -325,7 +368,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp</url>
-          <line>831</line>
+          <line>847</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">

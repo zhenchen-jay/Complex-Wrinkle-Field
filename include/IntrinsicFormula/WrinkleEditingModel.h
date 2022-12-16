@@ -59,6 +59,9 @@ namespace IntrinsicFormula
 		std::vector<Eigen::VectorXd> getActualOptWList() { return _edgeOmegaList; }
 
 
+        std::vector<Eigen::VectorXd> getF2List() {return _ampTimesOmegaSq;}
+
+
 		void setSaveFolder(const std::string& savingFolder)
 		{
 			_savingFolder = savingFolder;

@@ -166,6 +166,7 @@ std::vector<Eigen::VectorXd> upConsistencyVec;
 // reference amp and omega
 std::vector<Eigen::VectorXd> refOmegaList;
 std::vector<Eigen::VectorXd> refAmpList;
+std::vector<Eigen::VectorXd> refF2List;
 
 // delta omega
 std::vector<Eigen::VectorXd> deltaOmegaList;
@@ -186,6 +187,9 @@ int curFrame = 0;
 
 double globalAmpMax = 1;
 double globalAmpMin = 0;
+
+double globalFMax = 1;
+double globalFmin = 0;
 
 double globalInconMax = 1;
 double globalInconMin = 0;
@@ -784,6 +788,18 @@ void updatePaintingItems()
 		globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), refAmpList[i].minCoeff()));
 	}
 
+
+    // update global maximum f
+    std::cout << "update max and min f. " << std::endl;
+
+    globalFMax = std::max(refF2List[0].maxCoeff(), refF2List[0].maxCoeff());
+    globalFmin = std::min(refF2List[0].minCoeff(), refF2List[0].minCoeff());
+    for (int i = 1; i < refF2List.size(); i++)
+    {
+        globalFMax = std::max(globalAmpMax, std::max(refF2List[i].maxCoeff(), refF2List[i].maxCoeff()));
+        globalFmin = std::min(globalAmpMin, std::min(refF2List[i].minCoeff(), refF2List[i].minCoeff()));
+    }
+
 	// update global maximum amplitude
 	std::cout << "update max and min consistency. " << std::endl;
 
@@ -841,6 +857,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
+    refF2List = editModel->getF2List();
 
     deltaOmegaList = editModel->getDeltaWList();
 	actualOmegaList = editModel->getActualOptWList();
@@ -899,6 +916,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	editModel->convertVariable2List(x);
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
+    refF2List = editModel->getF2List();
 
     deltaOmegaList = editModel->getDeltaWList();
 	actualOmegaList = editModel->getActualOptWList();
@@ -946,6 +964,8 @@ void registerMesh(int frameId, bool isFirstTime = true)
 		
 	auto refAmp = polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("reference amplitude", refAmpList[frameId]);
 	refAmp->setMapRange(std::pair<double, double>(globalAmpMin, globalAmpMax));
+    auto reff = polyscope::getSurfaceMesh("reference mesh")->addVertexScalarQuantity("f", refF2List[frameId]);
+    reff->setMapRange(std::pair<double, double>(globalFmin, globalFMax));
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("reference frequency field", vecratio * refFaceOmega, polyscope::VectorType::AMBIENT);
     polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("delta frequency field", vecratio * deltaFaceOmega, polyscope::VectorType::AMBIENT);
 	polyscope::getSurfaceMesh("reference mesh")->addFaceVectorQuantity("actual opt frequency field", vecratio * actualFaceOmega, polyscope::VectorType::AMBIENT);
@@ -1250,6 +1270,7 @@ bool loadProblem()
 	refAmpList.resize(numFrames);
 	refOmegaList.resize(numFrames);
 
+
 	for (uint32_t i = 0; i < numFrames; ++i) {
 
 		if (!loadVertexAmp(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt", triV.rows(), refAmpList[i]))
@@ -1326,7 +1347,7 @@ bool loadProblem()
 		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 		editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
 	}
-   
+    refF2List = refAmpList;
 
 	updatePaintingItems();
 

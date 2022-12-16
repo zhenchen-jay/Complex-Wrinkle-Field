@@ -53,6 +53,7 @@ void WrinkleEditingCWFNew::convertVariable2List(const Eigen::VectorXd& x)
 void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
 {
     int numFrames = _unitZvalsList.size();
+    _ampSqOmegaQauticAverageList.resize(numFrames, 0);
     double surfaceArea = _vertArea.sum();
     _ampSqOmegaQuaticAverage = 0;
     for (int i = 0; i < numFrames; i++)
@@ -61,6 +62,7 @@ void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
         for (int j = 0; j < nverts; j++)
         {
             _ampSqOmegaQuaticAverage += _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / (surfaceArea * numFrames);
+            _ampSqOmegaQauticAverageList[i] += _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / surfaceArea;
         }
     }
 }
@@ -206,7 +208,51 @@ double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, 
     for (int vid = 0; vid < nverts; vid++)
     {
         Eigen::Vector2d diff;
-        double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage * dt;
+       double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQauticAverage * dt;
+        // double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * dt;
+        diff << (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).real(), (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).imag();
+        energy += 0.5 * coeff * diff.squaredNorm();
+
+        if (deriv)
+        {
+            deriv->segment<2>(2 * vid) += -coeff * diff;
+            deriv->segment<2>(2 * vid + DOFsPerframe) += coeff * diff;
+        }
+
+        if (hessT)
+        {
+            hessT->push_back({ 2 * vid, 2 * vid, coeff });
+            hessT->push_back({ 2 * vid, DOFsPerframe + 2 * vid, -coeff });
+
+            hessT->push_back({ 2 * vid + 1, 2 * vid + 1, coeff });
+            hessT->push_back({ 2 * vid + 1, DOFsPerframe + 2 * vid + 1, -coeff });
+
+            hessT->push_back({ DOFsPerframe + 2 * vid, DOFsPerframe + 2 * vid, coeff });
+            hessT->push_back({ DOFsPerframe + 2 * vid, 2 * vid, -coeff });
+
+            hessT->push_back({ DOFsPerframe + 2 * vid + 1, DOFsPerframe + 2 * vid + 1, coeff });
+            hessT->push_back({ DOFsPerframe + 2 * vid + 1, 2 * vid + 1, -coeff });
+
+        }
+    }
+    return energy;
+}
+
+double WrinkleEditingCWFNew::kineticEnergyWithoutFSq(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+{
+    int nverts = _pos.rows();
+    double dt = 1. / (_unitZvalsList.size() - 1);
+    double energy = 0;
+
+    int DOFsPerframe = 2 * nverts;
+
+    if (deriv)
+        deriv->setZero(4 * nverts);
+
+    for (int vid = 0; vid < nverts; vid++)
+    {
+        Eigen::Vector2d diff;
+        double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * dt;
         diff << (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).real(), (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).imag();
         energy += 0.5 * coeff * diff.squaredNorm();
 
@@ -404,8 +450,6 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
         save(x, folder);
     };
 
-
-
     OptSolver::testFuncGradHessian(funVal, x);
 
     auto x0 = x;
@@ -432,4 +476,21 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
     }
 
     std::cout << "solve finished." << std::endl;
+
+    convertVariable2List(x);
+
+    for(int i = 0; i < _zvalsList.size() - 2; i++)
+    {
+        std::cout << "frame: " << i << std::endl;
+        double kinetic = kineticEnergy(i, NULL, NULL);
+        double ampEnergy = temporalAmpDifference(i + 1, NULL, NULL);
+        double knoppelEnergy = spatialKnoppelEnergy(i + 1, NULL, NULL);
+        double kineticWithoutF = kineticEnergyWithoutFSq(i, NULL, NULL);
+        std::cout << "kinetic: " << kinetic << ", without f^2: " << kineticWithoutF << ", amp: " << ampEnergy << ", knoppel: " << knoppelEnergy << std::endl;
+    }
+    std::cout << "frame: " << _zvalsList.size() - 2 << std::endl;
+    double kinetic = kineticEnergy(_zvalsList.size() - 2, NULL, NULL);
+    double kineticWithoutF = kineticEnergyWithoutFSq(_zvalsList.size() - 2, NULL, NULL);
+    std::cout << "kinetic: " << kinetic << ", without f^2: " << kineticWithoutF << ", amp: " << 0 << ", knoppel: " << 0 << std::endl;
+    return;
 }

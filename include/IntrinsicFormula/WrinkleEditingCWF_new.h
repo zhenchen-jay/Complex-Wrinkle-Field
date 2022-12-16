@@ -219,6 +219,8 @@ namespace IntrinsicFormula
 		virtual double spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 		virtual double kineticEnergy(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false) override;
 
+        double kineticEnergyWithoutFSq(int frameId, Eigen::VectorXd* deriv = NULL, std::vector<Eigen::Triplet<double>>* hessT = NULL, bool isProj = false);
+
         void computeAmpSqOmegaQuaticAverage();
 
 	private:
@@ -228,6 +230,7 @@ namespace IntrinsicFormula
 		}
         
         double _ampSqOmegaQuaticAverage;
+        std::vector<int> _ampSqOmegaQauticAverageList;
 
 	};
 }
