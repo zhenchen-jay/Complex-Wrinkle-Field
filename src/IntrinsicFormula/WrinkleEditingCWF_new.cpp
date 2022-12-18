@@ -7,7 +7,7 @@
 #include <igl/doublearea.h>
 #include <igl/boundary_loop.h>
 #include <Eigen/SPQRSupport>
-
+#include <unordered_set>
 using namespace IntrinsicFormula;
 
 void WrinkleEditingCWFNew::convertList2Variable(Eigen::VectorXd& x)
@@ -54,17 +54,33 @@ void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
 {
     int numFrames = _unitZvalsList.size();
     _ampSqOmegaQauticAverageList.resize(numFrames, 0);
-    double surfaceArea = _vertArea.sum();
     _ampSqOmegaQuaticAverage = 0;
+    std::unordered_set<int> unorderedSet = {};
+    double activeArea = 0;
+    if(!_selectedVids.size())
+    {
+        activeArea = _vertArea.sum();
+    }
+    else
+        unorderedSet = std::unordered_set<int>(_unselectedVids.begin(), _unselectedVids.end());
     for (int i = 0; i < numFrames; i++)
     {
         int nverts = _pos.rows();
         for (int j = 0; j < nverts; j++)
         {
-            _ampSqOmegaQuaticAverage += _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / (surfaceArea * numFrames);
-            _ampSqOmegaQauticAverageList[i] += _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / surfaceArea;
+            if(unorderedSet.find(j) == unorderedSet.end())
+            {
+                _ampSqOmegaQuaticAverage +=
+                        _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j) / numFrames;
+                _ampSqOmegaQauticAverageList[i] +=
+                        _ampTimesOmegaSq[i][j] * _ampTimesOmegaSq[i][j] * _vertArea(j);
+                if(i == 0)
+                    activeArea += _vertArea(j);
+            }
         }
+        _ampSqOmegaQauticAverageList[i] /= activeArea;
     }
+    _ampSqOmegaQuaticAverage /= activeArea;
 }
 
 double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
@@ -84,6 +100,7 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
         double ampSq = _unitZvalsList[frameId][vid].real() * _unitZvalsList[frameId][vid].real() +
                        _unitZvalsList[frameId][vid].imag() * _unitZvalsList[frameId][vid].imag();
         double refAmpSq = 1;
+        // double ca = _spatialAmpRatio * _vertArea(vid) * dt *_ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage;
         double ca = _spatialAmpRatio * _vertArea(vid) * dt;
 
         energy += ca * (ampSq - refAmpSq) * (ampSq - refAmpSq);
@@ -139,7 +156,6 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
 
         std::complex<double> z0 = _unitZvalsList[frameId][vid0];
         std::complex<double> z1 = _unitZvalsList[frameId][vid1];
-
         double ce = _spatialKnoppelRatio * _edgeArea(eid) * dt;
 
         energy += 0.5 * norm((r1 * z0 * expw0 - r0 * z1)) * ce;
@@ -208,8 +224,9 @@ double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, 
     for (int vid = 0; vid < nverts; vid++)
     {
         Eigen::Vector2d diff;
-       double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQauticAverage * dt;
-        // double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * dt;
+    //    double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage * dt;
+        double coeff = (_ampTimesOmegaSq[0][vid] * _ampTimesOmegaSq[0][vid] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid]) / 2 / _ampSqOmegaQuaticAverage;
+        coeff *= _vertWeight(vid) / (dt * dt) * _vertArea[vid] * dt;
         diff << (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).real(), (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).imag();
         energy += 0.5 * coeff * diff.squaredNorm();
 
@@ -451,12 +468,12 @@ void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numI
     };
 
     OptSolver::testFuncGradHessian(funVal, x);
-
     auto x0 = x;
     Eigen::VectorXd grad;
     Eigen::SparseMatrix<double> hess;
     double f0 = funVal(x0, &grad, &hess, false);
     std::cout << "initial f: " << f0 << ", grad norm: " << grad.norm() << ", hess norm: " << hess.norm() << std::endl;
+
 	if(std::isnan(grad.norm()) || std::isnan(hess.norm()))
 	{
 		std::cerr << "get nan error in hessian or gradient computation!" << std::endl;

@@ -55,11 +55,9 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/StaticWrinkleEditor/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingCWF_new.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/IntrinsicFormula/WrinkleEditingModel.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pythonScript/batchImg2Videos.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/batchImg2Videos.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,7 +103,7 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;CMakeSettings&quot;
   }
 }</component>
-  <component name="RunManager" selected="CMake Application.StaticWrinkleEditor_bin">
+  <component name="RunManager" selected="CMake Application.LoadSequence_bin">
     <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -126,7 +124,7 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="LoadSequence_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoadSequence_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoadSequence_bin">
+    <configuration name="LoadSequence_bin" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="'/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_final/pantasma_globalRotation/' CWFRes 51" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="LoadSequence_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="LoadSequence_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -177,11 +175,6 @@
       </method>
     </configuration>
     <configuration name="WrinkleVisualization_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="WrinkleVisualization_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Phase interpolation" RUN_TARGET_NAME="WrinkleVisualization_bin">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -356,7 +349,8 @@
       <workItem from="1670355598121" duration="14409000" />
       <workItem from="1670441161625" duration="568000" />
       <workItem from="1670529608748" duration="4075000" />
-      <workItem from="1671055255751" duration="4947000" />
+      <workItem from="1671055255751" duration="7963000" />
+      <workItem from="1671322405701" duration="1000" />
     </task>
     <servers />
   </component>

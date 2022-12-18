@@ -664,7 +664,7 @@ Eigen::VectorXd WrinkleEditingModel::omegaInitialization(const Eigen::VectorXd& 
 					phi = (1 - t) * f0 / ((1 - t) * f0 + t * f1) * phi0 + t * f1 / ((1 - t) * f0 + t * f1) * phi1;
 				}
 
-
+				phi = (1 - t) * phi0 + t * phi1;
 				faceOmega = rot3dVec(initFaceOmega, rotAxis, phi);
 				faceOmega = faceOmega / faceOmega.norm() * std::sqrt(wSq);
 

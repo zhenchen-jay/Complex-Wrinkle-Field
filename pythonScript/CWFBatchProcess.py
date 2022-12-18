@@ -12,8 +12,8 @@ def batchCWFUpsampling(exePath : str, CWFDataFolder : str):
     allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
     for modelFolder in allModelFolders:
         jsonPath = os.path.join(modelFolder, "data.json")
-        if modelFolder.find("pantasma") == -1 and modelFolder.find("face") == -1:
-            continue
+        # if modelFolder.find("pantasma") == -1 and modelFolder.find("face") == -1:
+        #     continue
         args = [exePath, "-i", jsonPath]
         print(args)
         try:
@@ -35,5 +35,5 @@ def batchCWF(exePath : str, CWFDataFolder : str):
             pass
         
 if __name__ == '__main__':
-    batchCWFUpsampling(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_1000/")
-    batchCWF(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_100/")
+    # batchCWFUpsampling(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_1000/")
+    batchCWF(CWFEXEPath, '/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_final')

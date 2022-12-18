@@ -10,14 +10,15 @@ from CWFCommon import *
 
 def batchImg2Video(CWFDataFolder : str):
     allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
-    outFolder = "/home/zchen96/Projects/CWFRes/"
+    # outFolder = "/home/zchen96/Projects/CWFRes/"
+    outFolder = CWFDataFolder
     if not os.path.isdir(outFolder):
         os.mkdir(outFolder)
     outFolder = outFolder + 'polyimags'
     if not os.path.isdir(outFolder):
         os.mkdir(outFolder)
     for modelFolder in allModelFolders:
-        modelName = modelFolder.split('/')[-1]
+        modelName = os.path.split(modelFolder)[-1]
         print(modelName)
         imgsPath = os.path.join(modelFolder, "polyimags/CWFRes")
         args = ["ffmpeg", "-y", "-r", str(5), "-i", imgsPath  + "/output_%d.png", "-crf", str(10), outFolder + "/" + modelName + ".mp4"]
@@ -62,6 +63,6 @@ def batchRenderedImg2Video(CWFDataFolder : str):
         ffmpeg2Video(imgsPath, outFolder, modelName, "phi")
 
 if __name__ == '__main__':
-    CWFDataFolder = "/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_2000/"
-    # batchImg2Video(CWFDataFolder)
-    batchRenderedImg2Video(CWFDataFolder)
+    CWFDataFolder = "/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_final/"
+    batchImg2Video(CWFDataFolder)
+    # batchRenderedImg2Video(CWFDataFolder)
