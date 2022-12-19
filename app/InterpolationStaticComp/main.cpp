@@ -268,7 +268,7 @@ static void upsamplingEveryThingForComparison()
     }
     ZuenkoAlg::getZuenkoSurfacePerframe(triV, triMesh, curZvals, amp, omega, zuenkoUpV, zuenkoUpF, zuenkoN, bary, zuenkoWrinkledV, zuenkoUpF, zuenkoAmp, zuenkoPhi, wrinkleAmpScalingRatio);
 
-    TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWUpF, TFWUpV, TFWUpF, NULL, NULL, NULL, NULL, TFWAmp, NULL, TFWPhi, upsamplingLevel, wrinkleAmpScalingRatio, false, true);
+    TFWAlg::getTFWSurfacePerframe(triV, triMesh.faces(), amp, omega, TFWWrinkledV, TFWUpF, &TFWUpV, &TFWUpF, NULL, NULL, NULL, NULL, TFWAmp, NULL, TFWPhi, upsamplingLevel, wrinkleAmpScalingRatio, false, true);
 
 }
 

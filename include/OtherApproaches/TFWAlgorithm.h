@@ -62,7 +62,7 @@ namespace TFWAlg
 	void getTFWSurfacePerframe(const Eigen::MatrixXd& baseV, const Eigen::MatrixXi& baseF,
 							   const Eigen::VectorXd& amp, const Eigen::VectorXd& omega,
 							   Eigen::MatrixXd& wrinkledV, Eigen::MatrixXi& wrinkledF,
-							   Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
+							   Eigen::MatrixXd* upsampledV, Eigen::MatrixXi* upsampledF,
 							   Eigen::MatrixXd* soupPhiV, Eigen::MatrixXi* soupPhiF,
 							   Eigen::MatrixXd* soupProblemV, Eigen::MatrixXi* soupProblemF,
 							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd* soupPhi, Eigen::VectorXd& upsampledPhi,

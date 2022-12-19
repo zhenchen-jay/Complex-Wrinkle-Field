@@ -545,6 +545,7 @@ static bool loadProblem(const std::string inputpath)
 		}
 	}
 	std::cout << "num of picked faces: " << pickFaces.size() << std::endl;
+	std::cout << "num of frames: " << numFrames << std::endl;
 
 	updateEditionDomain();
 
@@ -640,12 +641,13 @@ static bool loadProblem(const std::string inputpath)
     }
 
 	// linear interpolation to get the list
-	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+    buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
     if(!loadTar)
-	    editModel->initialization(zList[0], omegaList[0], numFrames - 2, initType, 0.1, 5, false);
-    else
-        editModel->initialization(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, false);
+    {
+        editModel->editCWFBasedOnVertOp(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1]);
+    }
+    editModel->initializationNew(zList[0], omegaList[0], zList[numFrames - 1], omegaList[numFrames - 1], numFrames - 2, true);
 
 	zList = editModel->getVertValsList();
 	omegaList = editModel->getRefWList();
@@ -764,9 +766,9 @@ static bool saveProblem()
 int main(int argc, char** argv)
 {
 	CLI::App app("Wrinkle Interpolation");
-	app.add_option("input,-i,--input", args.input, "Input model")->required()->check(CLI::ExistingFile);
+	app.add_option("input,-i,--input", args.input, "Input model (some json file)")->required()->check(CLI::ExistingFile);
 	app.add_option("-a,--ampScaling", args.ampScale, "The amplitude scaling for wrinkled surface upsampling.");
-	app.add_option("-m,--method", args.method, "Method used to compute the interpolation.");
+	app.add_option("-m,--method", args.method, "Method used to compute the interpolation. (TFW: Chen et al[2021], zuenko: Zuenko et al[2019], knoppel: Knonppel et al[2015], linear: linear z)");
 
 	try {
 		app.parse(argc, argv);

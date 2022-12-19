@@ -2577,7 +2577,7 @@ namespace TFWAlg
 	void getTFWSurfacePerframe(const Eigen::MatrixXd& baseV, const Eigen::MatrixXi& baseF,
 							   const Eigen::VectorXd& amp, const Eigen::VectorXd& omega,
 							   Eigen::MatrixXd& wrinkledV, Eigen::MatrixXi& wrinkledF,
-							   Eigen::MatrixXd& upsampledV, Eigen::MatrixXi& upsampledF,
+							   Eigen::MatrixXd* upsampledV, Eigen::MatrixXi* upsampledF,
 							   Eigen::MatrixXd* soupPhiV, Eigen::MatrixXi* soupPhiF,
 							   Eigen::MatrixXd* soupProblemV, Eigen::MatrixXi* soupProblemF,
 							   Eigen::VectorXd& upsampledAmp, Eigen::VectorXd* soupPhi, Eigen::VectorXd& upsampledPhi,
@@ -2599,7 +2599,7 @@ namespace TFWAlg
 			for(int i = 0; i < bnd.size(); i++)
 				clampledVerts.insert(bnd[i]);
 		}
-		wrinkledMeshUpsamplingUncut(baseV, baseF, baseV, baseF, seamedV, seamedF, seamedAmp, seamedPhi, problem_faces, clampledVerts, &wrinkledV, &wrinkledF, &upsampledV, &upsampledF, soupPhiV, soupPhiF, soupProblemV, soupProblemF, &upsampledAmp, soupPhi, &upsampledPhi, numSubdivs, ampScaling, isUseV2Term);
+		wrinkledMeshUpsamplingUncut(baseV, baseF, baseV, baseF, seamedV, seamedF, seamedAmp, seamedPhi, problem_faces, clampledVerts, &wrinkledV, &wrinkledF, upsampledV, upsampledF, soupPhiV, soupPhiF, soupProblemV, soupProblemF, &upsampledAmp, soupPhi, &upsampledPhi, numSubdivs, ampScaling, isUseV2Term);
 	}
 
 	void getTFWSurfaceSequence(
@@ -2618,7 +2618,7 @@ namespace TFWAlg
 		wrinkledVList.resize(nframes);
 		wrinkledFList.resize(nframes);
 		upsampledVList.resize(nframes);
-		upsampledFList.resize(nframes);
+//		upsampledFList.resize(nframes);
 		if(soupPhiVList)
 			soupPhiVList->resize(nframes);
 		if(soupPhiFList)
@@ -2628,7 +2628,7 @@ namespace TFWAlg
 		if (soupProblemFList)
 			soupProblemFList->resize(nframes);
 		upsampledVList.resize(nframes);
-		upsampledFList.resize(nframes);
+//		upsampledFList.resize(nframes);
 		upsampledAmpList.resize(nframes);
         upsampledPhiList.resize(nframes);
 		if(soupPhiFList)
@@ -2649,15 +2649,15 @@ namespace TFWAlg
 			for (uint32_t i = range.begin(); i < range.end(); ++i)
 			{
 				getTFWSurfacePerframe(baseV, baseF, ampList[i], omegaList[i],
-				wrinkledVList[i], wrinkledFList[i], upsampledVList[i], upsampledFList[i],
+				wrinkledVList[i], wrinkledFList[i], &(upsampledVList[i]), NULL,
 				soupPhiVList ? &((*soupPhiVList)[i]) : NULL, soupPhiFList ? &((*soupPhiFList)[i]) : NULL, soupProblemVList ? &((*soupProblemVList)[i]) : NULL, soupProblemFList ? &((*soupProblemFList)[i]) : NULL,
 				upsampledAmpList[i], soupPhiList ? &((*soupPhiList)[i]) : NULL, upsampledPhiList[i], numSubdivs, ampScaling, isUseV2Term, isFixedBnd
 				);
 			}
 		};
-
 		tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
 		tbb::parallel_for(rangex, frameUpsampling);
+        upsampledFList = wrinkledFList;
 	}
 
 }

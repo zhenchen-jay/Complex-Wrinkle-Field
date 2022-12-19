@@ -55,9 +55,13 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/CWFBatchProcess.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingCWF_new.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/OtherApproachesCli/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/OtherApproachesCli/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/TFWSamplingGui/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/TFWSamplingGui/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/OtherApproaches/TFWAlgorithm.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/OtherApproaches/TFWAlgorithm.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pythonScript/OtherApproachesBatchProcess.py" beforeDir="false" afterPath="$PROJECT_DIR$/pythonScript/OtherApproachesBatchProcess.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rotMatrix.nb" beforeDir="false" afterPath="$PROJECT_DIR$/rotMatrix.nb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/OtherApproaches/TFWAlgorithm.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/OtherApproaches/TFWAlgorithm.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -350,7 +354,7 @@
       <workItem from="1670441161625" duration="568000" />
       <workItem from="1670529608748" duration="4075000" />
       <workItem from="1671055255751" duration="7963000" />
-      <workItem from="1671322405701" duration="1000" />
+      <workItem from="1671322405701" duration="3653000" />
     </task>
     <servers />
   </component>
@@ -384,6 +388,11 @@
           <url>file://$PROJECT_DIR$/src/IntrinsicFormula/WrinkleEditingModel.cpp</url>
           <line>784</line>
           <option name="timeStamp" value="8" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/LoadSequence/main.cpp</url>
+          <line>141</line>
+          <option name="timeStamp" value="9" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
