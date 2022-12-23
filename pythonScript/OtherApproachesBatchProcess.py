@@ -20,7 +20,7 @@ def getMethodRes(exePath: str, jsonPath: str, method: str):
 def batchOthers(exePath : str, CWFDataFolder : str):
     allModelFolders = [os.path.join(CWFDataFolder, o) for o in os.listdir(CWFDataFolder) if os.path.isdir(os.path.join(CWFDataFolder, o))]
     for modelFolder in allModelFolders:
-        if modelFolder.find('bunny_globalRotation') != -1 or modelFolder.find("torus_globalRotation") != -1:
+        if modelFolder.find('bunny_globalRotation') != -1 or modelFolder.find("pantasma") != -1:
             continue
 
         jsonPath = os.path.join(modelFolder, "data.json")
