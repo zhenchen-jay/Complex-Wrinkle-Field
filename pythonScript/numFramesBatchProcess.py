@@ -33,8 +33,8 @@ def batchCWF(exePath : str, CWFDataFolder : str):
         for modelFolder in allModelFolders:
             jsonPath = os.path.join(modelFolder, "data.json")
             args = [exePath, "-i", jsonPath, "-r"]
-            if modelFolder.find('cylinder') != -1:
-                continue
+            # if modelFolder.find('cylinder') != -1:
+            #     continue
             print(args)
             try:
                 cmd = subprocess.check_output(args, stderr=subprocess.STDOUT)
@@ -44,4 +44,4 @@ def batchCWF(exePath : str, CWFDataFolder : str):
         
 if __name__ == '__main__':
     # batchCWFUpsampling(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_1000/")
-    batchCWF(CWFEXEPath, '/media/zchen96/Extreme SSD/keyFrameCheck/')
+    batchCWF(CWFEXEPath, '/media/zchen96/Extreme SSD/CWF_Dataset/keyFrameCheck_finalVersion')

@@ -36,4 +36,4 @@ def batchCWF(exePath : str, CWFDataFolder : str):
         
 if __name__ == '__main__':
     # batchCWFUpsampling(CWFEXEPath, "/mnt/spinning1/zchen/WrinkleEdition_dataset/paperResRerunNewFormula_1000/")
-    batchCWF(CWFEXEPath, '/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_final')
+    batchCWF(CWFEXEPath, '/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_finalVersion')

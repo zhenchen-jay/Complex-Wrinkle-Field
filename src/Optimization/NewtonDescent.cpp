@@ -41,6 +41,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		std::cout << "energy = 0, return" << std::endl;
 	}
 
+	bool isSmallPerturbNeeded = false;
+
 	for (; i < numIter; i++)
 	{
 		if(disPlayInfo)
@@ -59,6 +61,10 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		Eigen::SparseMatrix<double> I(DIM, DIM);
 		I.setIdentity();
 		std::cout << "num of nonzeros: " << H.nonZeros() << ", rows: " << H.rows() << ", cols: " << H.cols() << std::endl;
+
+		if(isSmallPerturbNeeded && isProj)
+			H += reg * I;
+
 		Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver(H);
 
 		 //Eigen::CholmodSimplicialLLT<Eigen::SparseMatrix<double> > solver(H);
@@ -68,12 +74,17 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 		{
 			if (disPlayInfo)
 			{
-				if (isProj)
+				if (isProj){
 					std::cout << "some small perturb is needed to remove round-off error, current reg = " << reg << std::endl;
+				}
+					
 				else
 					std::cout << "Matrix is not positive definite, current reg = " << reg << std::endl;
 			}
 				
+			if(isProj)
+				isSmallPerturbNeeded = true;
+
 			H = hessian + reg * I;
 			solver.compute(H);
 			reg = std::max(2 * reg, 1e-16);
@@ -109,6 +120,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 			reg *= 0.5;
 			reg = std::max(reg, 1e-16);
 		}
+		else
+			reg = 1e-8;
 		
 		x0 = x0 + rate * delta_x;
 

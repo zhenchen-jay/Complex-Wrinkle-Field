@@ -101,7 +101,9 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
                        _unitZvalsList[frameId][vid].imag() * _unitZvalsList[frameId][vid].imag();
         double refAmpSq = 1;
         // double ca = _spatialAmpRatio * _vertArea(vid) * dt *_ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage;
-        double ca = _spatialAmpRatio * _vertArea(vid) * dt;
+        double cf = (_ampTimesOmegaSq[0][vid] * _ampTimesOmegaSq[0][vid] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid]) / 2;
+        cf = 1;
+        double ca = _spatialAmpRatio * _vertArea(vid) * dt * cf;
 
         energy += ca * (ampSq - refAmpSq) * (ampSq - refAmpSq);
 
@@ -156,7 +158,12 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
 
         std::complex<double> z0 = _unitZvalsList[frameId][vid0];
         std::complex<double> z1 = _unitZvalsList[frameId][vid1];
-        double ce = _spatialKnoppelRatio * _edgeArea(eid) * dt;
+
+        double cf = (_ampTimesOmegaSq[0][vid0] * _ampTimesOmegaSq[0][vid0] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid0] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid0]) / 2;
+        cf += (_ampTimesOmegaSq[0][vid1] * _ampTimesOmegaSq[0][vid1] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid1] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid1]) / 2;
+
+        cf = 2;
+        double ce = _spatialKnoppelRatio * _edgeArea(eid) * dt * cf / 2;
 
         energy += 0.5 * norm((r1 * z0 * expw0 - r0 * z1)) * ce;
 
@@ -225,7 +232,8 @@ double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, 
     {
         Eigen::Vector2d diff;
     //    double coeff = _vertWeight(vid) / (dt * dt) * _vertArea[vid] * _ampTimesOmegaSq[frameId][vid] * _ampTimesOmegaSq[frameId][vid] / _ampSqOmegaQuaticAverage * dt;
-        double coeff = (_ampTimesOmegaSq[0][vid] * _ampTimesOmegaSq[0][vid] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid]) / 2 / _ampSqOmegaQuaticAverage;
+        double coeff = (_ampTimesOmegaSq[0][vid] * _ampTimesOmegaSq[0][vid] + _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid] * _ampTimesOmegaSq[_unitZvalsList.size() - 1][vid]) / 2;
+        coeff /= _ampSqOmegaQuaticAverage;
         coeff *= _vertWeight(vid) / (dt * dt) * _vertArea[vid] * dt;
         diff << (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).real(), (_unitZvalsList[frameId + 1][vid] - _unitZvalsList[frameId][vid]).imag();
         energy += 0.5 * coeff * diff.squaredNorm();

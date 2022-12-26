@@ -31,4 +31,4 @@ def batchOthers(exePath : str, CWFDataFolder : str):
 
         
 if __name__ == '__main__':
-    batchOthers('/home/zchen96/Projects/PhaseInterpolation_polyscope/build/bin/OtherApproachesCli_bin', "/media/zchen96/Extreme SSD/otherApproaches/")
+    batchOthers('/home/zchen96/Projects/PhaseInterpolation_polyscope/build/bin/OtherApproachesCli_bin', "/media/zchen96/Extreme SSD/otherApproaches_finalVersion/")
