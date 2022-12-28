@@ -88,5 +88,5 @@ if __name__ == '__main__':
     CWFDataFolder = "/media/zchen96/Extreme SSD/CWF_Dataset/paperResRerunNewFormula_final/"
     otherFolder = "/media/zchen96/Extreme SSD/CWF_Dataset/otherApproaches/"
     # batchImg2Video(CWFDataFolder)
-    # batchRenderedImg2Video(CWFDataFolder)
+    batchRenderedImg2Video(CWFDataFolder)
     batchRenderedImg2VideoOtherApproaches(otherFolder)

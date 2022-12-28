@@ -17,7 +17,10 @@ def arguments():
 
 def png2jpeg(folderPath : str):
     allImgs = []
-    allImgs.extend(glob.glob(os.path.join(folderPath, '*.png')))
+    if os.path.isfile(folderPath):
+        allImgs.append(folderPath)
+    else:
+        allImgs.extend(glob.glob(os.path.join(folderPath, '*.png')))
     print(allImgs)
     for im in allImgs:
         im1 = Image.open(im)
