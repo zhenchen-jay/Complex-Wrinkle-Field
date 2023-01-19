@@ -55,7 +55,7 @@ struct SourceVert {
 };
 
 // smoothing
-int smoothingTimes = 3;
+int smoothingTimes = 0;
 double smoothingRatio = 0.95;
 bool isUseLoop = false;
 
@@ -374,6 +374,7 @@ int pCenter = 2;
 
 std::vector<SourceVert> sourcePoints;
 Eigen::VectorXd edgeVec;
+Eigen::MatrixXd faceVec;
 Eigen::VectorXd vertAmp;
 std::vector<std::complex<double>> vertZvals;
 
@@ -657,7 +658,9 @@ void saveForRender()
     mkdir(renderFolder);
     std::string vertFlagPath = renderFolder + "sourceInfo.cvs";
     saveSourcePts4Render(vertFlags, verVec, sourceAmp, vertFlagPath);
-	saveAmp4Render(vertAmp, renderFolder + "desginedAmp.cvs", vertAmp.minCoeff(), vertAmp.maxCoeff());
+	saveAmp4Render(vertAmp, renderFolder + "designedAmp.cvs", vertAmp.minCoeff(), vertAmp.maxCoeff());
+
+	saveDphi4Render(faceVec, triMesh, triV, renderFolder + "designedOmega.cvs");
 }
 
 bool vizFirstRun = true;
@@ -792,7 +795,7 @@ void wrinkleExtraction()
 	for (int i = 0; i < triMesh.nEdges(); i++)
 		edgeVec(i) *= edgeFlags(i);
 
-	Eigen::MatrixXd faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
+	faceVec = intrinsicEdgeVec2FaceVec(edgeVec, triV, triMesh);
 	for (int i = 0; i < triMesh.nFaces(); i++)
 		faceVec.row(i) *= faceFlags(i);
 
@@ -859,7 +862,7 @@ void wrinkleExtraction()
 	std::vector<std::vector<int>> vertNeiEdges, vertNeiFaces;
 	buildVertexNeighboringInfo(MeshConnectivity(upsampledTriF), upsampledTriV.rows(), vertNeiEdges, vertNeiFaces);
 
-	getWrinkledMesh(upsampledTriV, upsampledTriF, upsampledZvals, &vertNeiFaces, wrinkledV, 1.0, true);
+	getWrinkledMesh(upsampledTriV, upsampledTriF, upsampledZvals, &vertNeiFaces, wrinkledV, 1.0, false);
 
 	for (int i = 0; i < upsampledTriV.rows(); i++)
 	{

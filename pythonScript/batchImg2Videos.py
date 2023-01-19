@@ -37,20 +37,20 @@ def ffmpegPNG2Video(imgsPath : str, outFolder : str, modelName : str, imgType : 
     "-y", 
     "-r", str(20), 
     "-i", imgsPath  + '/' + prefix + "_" + imgType + "_%d.png",
-    "-vcodec", "qtrle",
-    # "-pix_fmt", "argb", 
-    # "-c:v", "libx264", 
-    "-crf", str(15), 
+    "-pix_fmt", "yuv420p", 
+    "-c:v", "libx264", 
+    "-crf", str(10), 
+    # "-c", "copy", 
     outFolder + "/" + modelName + "_" + imgType + suffix + ".mov"]
     if not os.path.isfile(imgsPath  + '/' + prefix + "_wrinkledMesh_0.png"):
         args = ["ffmpeg", 
         "-y", 
         "-r", str(20), 
         "-i", imgsPath  + '/' + prefix + "_" + imgType + "_back_%d.png",
-        "-vcodec", "qtrle", 
-        # "-pix_fmt", "argb", 
-        # "-c:v", "libx264", 
-        "-crf", str(15), 
+        "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", 
+        "-crf", str(10), 
+        # "-c", "copy", 
         outFolder + "/" + modelName + "_" + imgType + suffix + ".mov"]
     print(args)
     try:
@@ -103,8 +103,8 @@ def batchRenderedImg2Video(CWFDataFolder : str):
 
     for modelFolder in allModelFolders:
         modelName = modelFolder.split('/')[-1]
-        if modelName.find("hand") == -1: 
-            continue
+        # if modelName.find("hand") == -1: 
+        #     continue
         print(modelName)
         imgsPath = os.path.join(modelFolder, "rendered_CWF")
 
@@ -136,6 +136,10 @@ def batchRenderedImg2VideoOtherApproaches(otherFolder : str):
             ffmpegJPG2Video(methodImagsFolder, videoFolder, modelName, "amp")
             ffmpegJPG2Video(methodImagsFolder, videoFolder, modelName, "phi")
 
+            ffmpegPNG2Video(methodImagsFolder, videoFolder, modelName, "wrinkledMesh")
+            ffmpegPNG2Video(methodImagsFolder, videoFolder, modelName, "amp")
+            ffmpegPNG2Video(methodImagsFolder, videoFolder, modelName, "phi")
+
 keyframeList = [0, 10, 25, 50, 100, 200]
 def batchRenderImg2VideoKeyframes(keyframeFolder : str):
     parentFolder = os.path.join(keyframeFolder, os.pardir) 
@@ -159,12 +163,46 @@ def batchRenderImg2VideoKeyframes(keyframeFolder : str):
             ffmpegJPG2Video(imgsPath, outFolder, modelName, "amp", "_frame_" + str(keyframe))
             ffmpegJPG2Video(imgsPath, outFolder, modelName, "phi", "_frame_" + str(keyframe))
 
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "wrinkledMesh", "_frame_" + str(keyframe))
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "amp", "_frame_" + str(keyframe))
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "phi", "_frame_" + str(keyframe))
+
+coefList = [10, 100, 1000, 10000, 100000]
+def batchRenderImg2VideoCoeff(coeffFolder : str):
+    parentFolder = os.path.join(coeffFolder, os.pardir) 
+    outFolder = os.path.join(parentFolder, "videos")
+    if not os.path.isdir(outFolder):
+        os.mkdir(outFolder)
+
+    outFolder = os.path.join(outFolder, "coeffAnalysis")
+    if not os.path.isdir(outFolder):
+        os.mkdir(outFolder)
+
+    for coef in coefList:
+        workingFolder = os.path.join(coeffFolder, str(coef)) 
+        allModelFolders = [os.path.join(workingFolder, o) for o in os.listdir(workingFolder) if os.path.isdir(os.path.join(workingFolder, o))]
+        for modelFolder in allModelFolders:
+            modelName = os.path.split(modelFolder)[-1]
+            print(modelName)
+            imgsPath = os.path.join(modelFolder, "rendered_CWF")
+
+            ffmpegJPG2Video(imgsPath, outFolder, modelName, "wrinkledMesh", "_coeff_" + str(coef))
+            ffmpegJPG2Video(imgsPath, outFolder, modelName, "amp", "_coeff_" + str(coef))
+            ffmpegJPG2Video(imgsPath, outFolder, modelName, "phi", "_coeff_" + str(coef))
+
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "wrinkledMesh", "_coeff_" + str(coef))
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "amp", "_coeff_" + str(coef))
+            ffmpegPNG2Video(imgsPath, outFolder, modelName, "phi", "_coeff_" + str(coef))
+
 if __name__ == '__main__':
-    prefix = "E:/"
-    CWFDataFolder = prefix + "CWF_Dataset/paperResRerunNewFormula_final/"
-    otherFolder = prefix + "CWF_Dataset/otherApproaches/"
-    keyframeFolder =  prefix + "CWF_Dataset/keyFrameCheck"
+    folderPrefix = "E:/"
+    # folderPrefix = " /media/zchen96/Extreme SSD/"
+    CWFDataFolder = os.path.join(folderPrefix, "CWF_Dataset/paperResRerunNewFormula_final/")
+    otherFolder = os.path.join(folderPrefix, "CWF_Dataset/otherApproaches/")
+    keyframeFolder = os.path.join(folderPrefix, "CWF_Dataset/keyFrameCheck")
+    coeffFolder = os.path.join(folderPrefix, "CWF_Dataset/coefficientStudy")
     # batchImg2Video(CWFDataFolder)
-    batchRenderedImg2Video(CWFDataFolder)
+    # batchRenderedImg2Video(CWFDataFolder)
     # batchRenderedImg2VideoOtherApproaches(otherFolder)
     # batchRenderImg2VideoKeyframes(keyframeFolder)
+    batchRenderImg2VideoCoeff(coeffFolder)
