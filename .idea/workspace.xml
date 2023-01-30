@@ -55,6 +55,8 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/InterpolationStaticComp/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/UserDesignerApp/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/UserDesignerApp/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,7 +102,7 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;CMakeSettings&quot;
   }
 }</component>
-  <component name="RunManager" selected="CMake Application.LoopSundivision_bin">
+  <component name="RunManager" selected="CMake Application.userDesignerApp_bin">
     <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Phase interpolation" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -348,7 +350,8 @@
       <workItem from="1670529608748" duration="4075000" />
       <workItem from="1671055255751" duration="7963000" />
       <workItem from="1671322405701" duration="3653000" />
-      <workItem from="1672694801102" duration="360000" />
+      <workItem from="1672694801102" duration="7326000" />
+      <workItem from="1674600086780" duration="2434000" />
     </task>
     <servers />
   </component>
@@ -387,6 +390,36 @@
           <url>file://$PROJECT_DIR$/app/LoadSequence/main.cpp</url>
           <line>141</line>
           <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>318</line>
+          <option name="timeStamp" value="10" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>315</line>
+          <option name="timeStamp" value="11" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>801</line>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>248</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>329</line>
+          <option name="timeStamp" value="18" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
+          <line>417</line>
+          <option name="timeStamp" value="19" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -2,7 +2,7 @@
 
 ## To download
 ```
-git clone git@github.com:csyzzkdcz/PhaseInterpolation_polyscope.git 
+git clone https://github.com/zhenchen-jay/Complex-Wrinkle-Field.git 
 ```
 
 ## Dependencies

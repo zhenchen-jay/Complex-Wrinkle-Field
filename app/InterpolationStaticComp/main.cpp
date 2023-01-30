@@ -50,12 +50,12 @@ Eigen::MatrixXi triF, upsampledTriF, loopTriF, zuenkoUpF, TFWUpF;
 MeshConnectivity triMesh;
 Mesh secMesh, upSecMesh;
 
-Eigen::MatrixXd wrinkledV, loopWrinkledV, loopReImWrinkledV, zuenkoWrinkledV, TFWWrinkledV;
+Eigen::MatrixXd wrinkledV, loopWrinkledV, loopReImWrinkledV, zuenkoWrinkledV, TFWWrinkledV, knoppelWrinkledV;
 std::vector<std::complex<double>> zvals, upZvals, upLoopAmpPhi_Zvals, upLoopReIm_Zvals;
 Eigen::VectorXd phi, omega, amp, upOmega, upPhi, upAmp, upLoopAmpPhi_Phi, upLoopAmpPhi_Amp, upLoopReIm_Phi, upLoopReIm_Amp, zuenkoPhi, zuenkoAmp, TFWPhi, TFWAmp;
 Eigen::MatrixXd faceOmega;
 
-Eigen::VectorXd sideVertexLinearPhi, ClouhTorcherPhi, sideVertexWojtanPhi, knoppelPhi, sideVertexLinearAmp, ClouhTorcherAmp, sideVertexWojtanAmp;
+Eigen::VectorXd sideVertexLinearPhi, ClouhTorcherPhi, sideVertexWojtanPhi, knoppelPhi, knoppelAmp, sideVertexLinearAmp, ClouhTorcherAmp, sideVertexWojtanAmp;
 Eigen::MatrixXd sideVertexLinearWrinkledV, sideVertexWojtanWrinkledV, ClouhTorcherWrinkledV;
 
 int upsamplingLevel = 2;
@@ -122,16 +122,22 @@ static void getSideVertexUpsamplingAmpPhi(const Eigen::MatrixXd& V, const Eigen:
     getSideVertexAmp(V, mesh, zvals, bary, upAmpWojtan, 2);
 }
 
-static void getKnoppelUpsamplingPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF, Eigen::VectorXd& upPhi, int upLevel)
+static void getKnoppelUpsamplingAmpPhi(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXd& edgeOmega, const std::vector<std::complex<double>>& zvals, Eigen::MatrixXd& upV, Eigen::MatrixXi& upF,  Eigen::VectorXd& upAmp, Eigen::VectorXd& upPhi, int upLevel)
 {
 	Eigen::SparseMatrix<double> mat;
 	std::vector<int> facemap;
 	std::vector<std::pair<int, Eigen::Vector3d>> bary;
 
+    upAmp = Eigen::VectorXd::Zero(V.rows());
+    for(int i = 0; i < V.rows(); i++)
+    {
+        upAmp[i] = std::abs(zvals[i]);
+    }
 
 	meshUpSampling(V, F, upV, upF, upLevel, &mat, &facemap, &bary);
 	MeshConnectivity mesh(F);
 
+    upAmp = mat * upAmp;
 	IntrinsicFormula::getUpsamplingThetaFromEdgeOmega(mesh, edgeOmega, zvals, bary, upPhi); // knoppel's approach
 }
 
@@ -186,7 +192,7 @@ static void upsamplingEveryThingForComparison()
 	getOursUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upZvals, upsamplingLevel);
     getLoopAmpPhaseUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upLoopAmpPhi_Zvals, upsamplingLevel);
     getLoopReImUpsamplingRes(secMesh, omega, zvals, upSecMesh, upOmega, upLoopReIm_Zvals, upsamplingLevel);
-	getKnoppelUpsamplingPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, knoppelPhi, upsamplingLevel);
+	getKnoppelUpsamplingAmpPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, knoppelAmp, knoppelPhi, upsamplingLevel);
 	getSideVertexUpsamplingAmpPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, sideVertexLinearAmp, sideVertexLinearPhi, sideVertexWojtanAmp, sideVertexWojtanPhi, upsamplingLevel);
 	getClouhTorcherUpsamplingAmpPhi(triV, triF, omega, zvals, upsampledTriV, upsampledTriF, ClouhTorcherAmp, ClouhTorcherPhi, upsamplingLevel);
 
@@ -237,6 +243,7 @@ static void upsamplingEveryThingForComparison()
     sideVertexLinearWrinkledV = upsampledTriV;
     sideVertexWojtanWrinkledV = upsampledTriV;
     ClouhTorcherWrinkledV = upsampledTriV;
+    knoppelWrinkledV = upsampledTriV;
     loopWrinkledV = loopTriV;
     loopReImWrinkledV = loopTriV;
 
@@ -249,6 +256,7 @@ static void upsamplingEveryThingForComparison()
         sideVertexLinearWrinkledV.row(i) += wrinkleAmpScalingRatio * sideVertexLinearAmp[i] * std::cos(sideVertexLinearPhi[i]) * upsampledN.row(i);
         sideVertexWojtanWrinkledV.row(i) += wrinkleAmpScalingRatio * sideVertexWojtanAmp[i] * std::cos(sideVertexWojtanPhi[i]) * upsampledN.row(i);
         ClouhTorcherWrinkledV.row(i) += wrinkleAmpScalingRatio * ClouhTorcherAmp[i] * std::cos(ClouhTorcherPhi[i]) * upsampledN.row(i);
+        knoppelWrinkledV.row(i) += wrinkleAmpScalingRatio * knoppelAmp[i] * std::cos(knoppelPhi[i]) * upsampledN.row(i);
         loopWrinkledV.row(i) += wrinkleAmpScalingRatio * upLoopAmpPhi_Amp[i] * std::cos(upLoopAmpPhi_Phi[i]) * loopN.row(i);
         loopReImWrinkledV.row(i) += wrinkleAmpScalingRatio * upLoopReIm_Amp[i] * std::cos(upLoopReIm_Phi[i]) * loopN.row(i);
     }
@@ -344,6 +352,14 @@ static void updateView()
     loopPhasePatterns->setEnabled(true);
     n++;
 
+    // knoppel pattern
+    polyscope::registerSurfaceMesh("knoppel phase mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("knoppel phase mesh")->translate({ n * shiftx, m * shifty, 0 });
+    phaseColor = mPaint.paintPhi(knoppelPhi);
+    auto knoppelPhasePatterns = polyscope::getSurfaceMesh("knoppel phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+    knoppelPhasePatterns->setEnabled(true);
+    n++;
+
 
     // wojtan side vertex pahse pattern
     polyscope::registerSurfaceMesh("Wojtan-side phase mesh", upsampledTriV, upsampledTriF);
@@ -409,6 +425,14 @@ static void updateView()
     TFWAmpPatterns->setEnabled(true);
     n++;
 
+    // knoppel pattern
+    polyscope::registerSurfaceMesh("knoppel amp mesh", upsampledTriV, upsampledTriF);
+    polyscope::getSurfaceMesh("knoppel amp mesh")->translate({ n * shiftx, m * shifty, 0 });
+    auto knoppeAmpPatterns = polyscope::getSurfaceMesh("knoppel amp mesh")->addVertexScalarQuantity("vertex amp", knoppelAmp);
+    knoppeAmpPatterns->setColorMap("coolwarm");
+    knoppeAmpPatterns->setMapRange({globalAmpMin, globalAmpMax});
+    knoppeAmpPatterns->setEnabled(true);
+    n++;
 
     // wojtan side vertex pattern
     polyscope::registerSurfaceMesh("Wojtan-side amp mesh", upsampledTriV, upsampledTriF);
@@ -453,6 +477,9 @@ static void updateView()
     polyscope::getSurfaceMesh("TFW wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
     n++;
 
+    polyscope::registerSurfaceMesh("knoppel wrinkled mesh", knoppelWrinkledV, upsampledTriF);
+    polyscope::getSurfaceMesh("knoppel wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
+    n++;
 
     polyscope::registerSurfaceMesh("Wojtan-side wrinkled mesh", sideVertexWojtanWrinkledV, upsampledTriF);
     polyscope::getSurfaceMesh("Wojtan-side wrinkled mesh")->translate({ n * shiftx, m * shifty, 0 });
@@ -606,6 +633,7 @@ static void callback() {
         std::string saveFolder = workingFolder + "/otherUpsampling/";
         mkdir(saveFolder);
         savePhi4Render(sideVertexWojtanPhi, saveFolder + "sideVertexWojtanPhi.cvs");
+        savePhi4Render(knoppelPhi, saveFolder + "knoppelPhi.cvs");
         savePhi4Render(ClouhTorcherPhi, saveFolder + "ClouhTorcherPhi.cvs");
         savePhi4Render(upPhi, saveFolder + "CWFPhi.cvs");
         savePhi4Render(upLoopAmpPhi_Phi, saveFolder + "LoopAmpPhasePhi.cvs");
@@ -615,6 +643,7 @@ static void callback() {
 
 
         saveAmp4Render(sideVertexWojtanAmp, saveFolder + "sideVertexWojtanAmp.cvs", globalAmpMin, globalAmpMax);
+        saveAmp4Render(knoppelAmp, saveFolder + "knoppelAmp.cvs", globalAmpMin, globalAmpMax);
         saveAmp4Render(ClouhTorcherAmp, saveFolder + "ClouhTorcherAmp.cvs", globalAmpMin, globalAmpMax);
         saveAmp4Render(upAmp, saveFolder + "CWFAmp.cvs", globalAmpMin, globalAmpMax);
         saveAmp4Render(upLoopAmpPhi_Amp, saveFolder + "LoopAmpPhaseAmp.cvs", globalAmpMin, globalAmpMax);
@@ -626,6 +655,7 @@ static void callback() {
 
         igl::writeOBJ(saveFolder + "ClouhTorcherWrinkledMesh.obj", ClouhTorcherWrinkledV, upsampledTriF);
         igl::writeOBJ(saveFolder + "sideVertexWojtanWrinkledMesh.obj", sideVertexWojtanWrinkledV, upsampledTriF);
+        igl::writeOBJ(saveFolder + "knoppelWrinkledMesh.obj", knoppelWrinkledV, upsampledTriF);
         igl::writeOBJ(saveFolder + "CWFWrinkledMesh.obj", wrinkledV, loopTriF);
         igl::writeOBJ(saveFolder + "loopAmpPhaseWrinkledMesh.obj", loopWrinkledV, loopTriF);
         igl::writeOBJ(saveFolder + "loopReImWrinkledMesh.obj", loopReImWrinkledV, loopTriF);

@@ -268,6 +268,7 @@ double computeAmpEnergy(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh
 	{
 		(*deriv) = deriv1 - L * amp * smoothnessCoef;
 	}
+
 	if (hess)
 	{
 		hess->resize(amp.rows(), amp.rows());
