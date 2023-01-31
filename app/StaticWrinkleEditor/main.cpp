@@ -29,28 +29,16 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
-
-#include "../../include/IntrinsicFormula/WrinkleEditingCWFFullFormula.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingHalfFullCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingFullCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingLocalCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingLinearCWF.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingKnoppelCWF.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingCWF_new.h"
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
-#include "../../include/SpherigonSmoothing.h"
 #include "../../dep/SecStencils/types.h"
 #include "../../dep/SecStencils/Subd.h"
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
 #include "../../include/ComplexLoop/ComplexLoop.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhase.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhaseEdgeJump.h"
-#include "../../include/ComplexLoop/ComplexLoopReIm.h"
 #include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"
@@ -310,64 +298,9 @@ int dilationTimes = 10;
 bool isUseV2 = false;
 bool isForceReinitilaize = true;
 
-
-enum ModelType
+static void buildEditModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
-	CWF = 0,
-	HalfFullCWF = 1,
-	FullCWF = 2,
-	LocalCWF = 3,
-	LinearCWF = 4,
-	KnoppelCWF = 5,
-	CWFFullFormula = 6,
-	CWFNew = 7,
-};
-
-InitializationType initType = SeperateLinear;
-double zuenkoTau = 0.1;
-int zuenkoIter = 5;
-
-ModelType editModelType = CWFNew;
-
-static void buildEditModel(const ModelType editType, const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
-{
-	if (editType == CWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == HalfFullCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingHalfFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == FullCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingFullCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == LocalCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLocalCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio);
-	}
-	else if (editType == LinearCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingLinearCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == KnoppelCWF)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingKnoppelCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == CWFFullFormula)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFFullFormula>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else if (editType == CWFNew)
-	{
-		editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFNew>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
-	}
-	else
-	{
-		std::cerr << "error model!" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFNew>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 }
 
 void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
@@ -825,35 +758,16 @@ void updatePaintingItems()
 	std::cout << "start to update viewer." << std::endl;
 }
 
-void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames, const InitializationType& initType)
+void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, const Eigen::VectorXi& faceFlags, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
-	std::cout << "model Type: " << editModelType << std::endl;
-
-	/*
-	* 		CWF = 0,
-			HalfFullCWF = 1,
-			FullCWF = 2,
-			LocalCWF = 3,
-			LinearCWF = 4,
-			KnoppelCWF = 5,
-			CFWFFullFormula = 6
-			CWFNew = 7
-	*/
-	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n7: new CWF formula" << std::endl;
-	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
-
-	buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+	buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 	if(tarZvals.empty())
 	{
 		editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 	}
 
-	if(editModelType != CWFNew)
-		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-		//editModel->initialization(initZvals, initOmega, numFrames - 2, initType, zuenkoTau, zuenkoIter);
-	else
-		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-
+	editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
 	refAmpList = editModel->getRefAmpList();
@@ -883,31 +797,15 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 	Eigen::VectorXd x;
 	editModel->setSaveFolder(workingFolder);
 
-	/*
-   * 		CWF = 0,
-		   HalfFullCWF = 1,
-		   FullCWF = 2,
-		   LocalCWF = 3,
-		   LinearCWF = 4,
-		   KnoppelCWF = 5,
-		   CFWFFullFormula = 6
-		   CWFNew = 7
-	*/
-	std::cout << "0: CWF (the one used to generate paper results)\n1: Half-Full CWF ((z, w_tar) consistent), no delta omega invovled\n2: Full CWF ((z, w) consistent, no delta omega involved)\n3: Local CWF (Only editing domains are updated, funny behavior for interface domains)\n4: Linear (Linear z and blend w)\n5: Knoppel (blend w and solve Knoppel energy for z)\n6: CWF full formula\n 7: new CWF formula" << std::endl;
-	std::cout << "initilization finished with initialization type: (0 for linear, 1 for bnd fixed knoppel)." << initType << std::endl;
-
 	if (isForceReinitilaize)
 	{
-		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 		if(tarZvals.empty())
 		{
 			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 		}
 
-		if(editModelType != CWFNew)
-			editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-		else
-			editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 	}
 	editModel->convertList2Variable(x);
 //	editModel->testEnergy(x);
@@ -973,30 +871,15 @@ void registerMesh(int frameId, bool isFirstTime = true)
 	updateSelectedRegionSetViz();
 
 	// phase pattern
-	if(isShowActualKnoppel && editModelType == KnoppelCWF)
+	if(isFirstTime)
 	{
-		if(isFirstTime)
-		{
-			polyscope::registerSurfaceMesh("phase mesh", knoppelUpV, knoppelUpF);
-			polyscope::getSurfaceMesh("phase mesh")->translate({ curShift * shiftx, 0, 0 });
-		}
-			
-		mPaint.setNormalization(false);
-		Eigen::MatrixXd phaseColor = mPaint.paintPhi(knoppelPhiList[frameId]);
-		polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
+		polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
+		polyscope::getSurfaceMesh("phase mesh")->translate({ curShift * shiftx, 0, 0 });
 	}
-	else
-	{
-		if(isFirstTime)
-		{
-			polyscope::registerSurfaceMesh("phase mesh", upsampledTriV, upsampledTriF);
-			polyscope::getSurfaceMesh("phase mesh")->translate({ curShift * shiftx, 0, 0 });
-		}
 			
-		mPaint.setNormalization(false);
-		Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
-		polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
-	}
+	mPaint.setNormalization(false);
+	Eigen::MatrixXd phaseColor = mPaint.paintPhi(phaseFieldsList[frameId]);
+	polyscope::getSurfaceMesh("phase mesh")->addVertexColorQuantity("vertex phi", phaseColor);
 	curShift++;
 
 	// amp pattern
@@ -1320,15 +1203,12 @@ bool loadProblem()
 	}
 	if (!isLoadOpt || !isLoadRef)
 	{
-		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 		if(!loadTar)
 		{
 			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 		}
-		if (editModelType != CWFNew)
-			editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
-		else
-			editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();
@@ -1344,7 +1224,7 @@ bool loadProblem()
 	}
 	else
 	{
-		buildEditModel(editModelType, triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
+		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 		editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
 	}
     refF2List = refAmpList;
@@ -1501,9 +1381,6 @@ bool saveForRender()
 	igl::writeOBJ(renderFolder + "basemesh.obj", triV, triF);
 	igl::writeOBJ(renderFolder + "upmesh.obj", upsampledTriV, upsampledTriF);
 
-	if(editModelType == KnoppelCWF)
-		igl::writeOBJ(renderFolder + "knoppelUpmesh.obj", knoppelUpV, knoppelUpF);
-
 	saveFlag4Render(faceFlags, renderFolder + "faceFlags.cvs");
 
 	std::string outputFolderAmp = renderFolder + "/upsampledAmp/";
@@ -1511,10 +1388,6 @@ bool saveForRender()
 
 	std::string outputFolderPhase = renderFolder + "/upsampledPhase/";
 	mkdir(outputFolderPhase);
-
-	std::string outputFolderKnoppelPhase = renderFolder + "/upsampledKnoppelPhase/";
-	if(editModelType == KnoppelCWF)
-		mkdir(outputFolderKnoppelPhase);
 
 
 	std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
@@ -1545,8 +1418,6 @@ bool saveForRender()
 
 			saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
 			savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
-			if(editModelType == KnoppelCWF)
-				savePhi4Render(knoppelPhiList[i], outputFolderKnoppelPhase + "upKnoppelPhase" + std::to_string(i) + ".cvs");
 			saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
 
 			// reference information
@@ -1568,29 +1439,6 @@ bool saveForRender()
 
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes);
 	tbb::parallel_for(rangex, savePerFrame);
-
-//    for (int i = 0; i < nframes; i++)
-//    {
-//        // upsampled information
-//        igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
-//        Eigen::MatrixXd lapWrinkledV;
-//        laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
-//        igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
-//
-//        saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs");
-//        savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
-//        saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
-//
-//        // reference information
-//        Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
-//        saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs");
-//        saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
-//
-//        // optimal information
-//        saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
-//        saveAmp4Render(zList[i], optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs");
-//    }
-
 	return true;
 }
 
@@ -1734,29 +1582,6 @@ void callback() {
 
 	if (ImGui::CollapsingHeader("optimzation parameters", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		   /*
-			CWF = 0,
-			HalfFullCWF = 1,
-			FullCWF = 2,
-			LocalCWF = 3,
-			LinearCWF = 4,
-			KnoppelCWF = 5,
-			*/
-		ImGui::Combo("model type", (int*)&editModelType, "CWF\0HalfFullCWF\0FullCWF\0LocalCWF\0LinearCWF\0Knoppel\0CWFFullFormula\0CWFNew\0");
-		if(ImGui::Combo("Initialization type", (int*)&initType, "Linear\0SeperateLinear\0Knoppel\0"))
-		{
-			std::cout << "init type: " << initType << std::endl;
-		}
-		if (ImGui::InputDouble("Zuenko Tau", &zuenkoTau))
-		{
-			if (zuenkoTau < 0)
-				zuenkoTau = 0;
-		}
-		if (ImGui::InputInt("Zuenko Inner Iter", &zuenkoIter))
-		{
-			if (zuenkoIter < 0)
-				zuenkoTau = 5;
-		}
 		if (ImGui::InputInt("num of frames", &numFrames))
 		{
 			if (numFrames <= 0)
@@ -1820,7 +1645,7 @@ void callback() {
 
 		updateEditionDomain();
 		// solve for the path from source to target
-		reinitializeKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList, initType);
+		reinitializeKeyFrames(initZvals, initOmega, faceFlags, omegaList, zList);
 		updatePaintingItems();
 		updateFieldsInView(curFrame, false);
 	}

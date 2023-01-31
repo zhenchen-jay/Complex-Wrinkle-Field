@@ -26,16 +26,12 @@
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
-#include "../../include/SpherigonSmoothing.h"
 #include "../../dep/SecStencils/types.h"
 #include "../../dep/SecStencils/Subd.h"
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
 #include "../../include/ComplexLoop/ComplexLoop.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhase.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhaseEdgeJump.h"
-#include "../../include/ComplexLoop/ComplexLoopReIm.h"
 #include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/LoadSaveIO.h"
 #include "../../include/SecMeshParsing.h"

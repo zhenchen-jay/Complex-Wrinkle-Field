@@ -13,9 +13,6 @@
 
 #include "../../dep/SecStencils/Mesh.h"
 #include "../../include/ComplexLoop/ComplexLoop.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhase.h"
-#include "../../include/ComplexLoop/ComplexLoopAmpPhaseEdgeJump.h"
-#include "../../include/ComplexLoop/ComplexLoopReIm.h"
 #include "../../include/ComplexLoop/ComplexLoopZuenko.h"
 #include "../../include/SecMeshParsing.h"
 
