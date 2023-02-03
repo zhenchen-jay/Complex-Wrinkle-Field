@@ -1,4 +1,4 @@
-#include "../../include/IntrinsicFormula/WrinkleEditingCWF_new.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -10,7 +10,7 @@
 #include <unordered_set>
 using namespace IntrinsicFormula;
 
-void WrinkleEditingCWFNew::convertList2Variable(Eigen::VectorXd& x)
+void WrinkleEditingCWF::convertList2Variable(Eigen::VectorXd& x)
 {
     int nverts = _pos.rows();
     int nedges = _mesh.nEdges();
@@ -33,7 +33,7 @@ void WrinkleEditingCWFNew::convertList2Variable(Eigen::VectorXd& x)
     }
 }
 
-void WrinkleEditingCWFNew::convertVariable2List(const Eigen::VectorXd& x)
+void WrinkleEditingCWF::convertVariable2List(const Eigen::VectorXd& x)
 {
     int nverts = _pos.rows();
 
@@ -50,7 +50,7 @@ void WrinkleEditingCWFNew::convertVariable2List(const Eigen::VectorXd& x)
     }
 }
 
-void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
+void WrinkleEditingCWF::computeAmpSqOmegaQuaticAverage()
 {
     int numFrames = _unitZvalsList.size();
     _ampSqOmegaQauticAverageList.resize(numFrames, 0);
@@ -83,7 +83,7 @@ void WrinkleEditingCWFNew::computeAmpSqOmegaQuaticAverage()
     _ampSqOmegaQuaticAverage /= activeArea;
 }
 
-double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingCWF::temporalAmpDifference(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
     int nverts = _pos.rows();
     double energy = 0;
@@ -138,7 +138,7 @@ double WrinkleEditingCWFNew::temporalAmpDifference(int frameId, Eigen::VectorXd*
 }
 
 
-double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingCWF::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
     double energy = 0;
     int nedges = _mesh.nEdges();
@@ -217,7 +217,7 @@ double WrinkleEditingCWFNew::spatialKnoppelEnergy(int frameId, Eigen::VectorXd* 
 }
 
 
-double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingCWF::kineticEnergy(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
     int nverts = _pos.rows();
     double dt = 1. / (_unitZvalsList.size() - 1);
@@ -263,7 +263,7 @@ double WrinkleEditingCWFNew::kineticEnergy(int frameId, Eigen::VectorXd* deriv, 
     return energy;
 }
 
-double WrinkleEditingCWFNew::kineticEnergyWithoutFSq(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
+double WrinkleEditingCWF::kineticEnergyWithoutFSq(int frameId, Eigen::VectorXd* deriv, std::vector<Eigen::Triplet<double>>* hessT, bool isProj)
 {
     int nverts = _pos.rows();
     double dt = 1. / (_unitZvalsList.size() - 1);
@@ -306,7 +306,7 @@ double WrinkleEditingCWFNew::kineticEnergyWithoutFSq(int frameId, Eigen::VectorX
     return energy;
 }
 
-double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
+double WrinkleEditingCWF::computeEnergy(const Eigen::VectorXd& x, Eigen::VectorXd* deriv, Eigen::SparseMatrix<double>* hess, bool isProj)
 {
     int nverts = _pos.rows();
 
@@ -441,7 +441,7 @@ double WrinkleEditingCWFNew::computeEnergy(const Eigen::VectorXd& x, Eigen::Vect
     return energy;
 }
 
-void WrinkleEditingCWFNew::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
+void WrinkleEditingCWF::solveIntermeditateFrames(Eigen::VectorXd& x, int numIter, double gradTol, double xTol, double fTol, bool isdisplayInfo, std::string workingFolder)
 {
     std::cout << "CWF model with new formula" << std::endl;
     computeAmpSqOmegaQuaticAverage();

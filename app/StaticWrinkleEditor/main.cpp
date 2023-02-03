@@ -29,7 +29,7 @@
 #include "../../include/Optimization/NewtonDescent.h"
 #include "../../include/IntrinsicFormula/InterpolateZvals.h"
 #include "../../include/IntrinsicFormula/WrinkleEditingModel.h"
-#include "../../include/IntrinsicFormula/WrinkleEditingCWF_new.h"
+#include "../../include/IntrinsicFormula/WrinkleEditingCWF.h"
 
 #include "../../include/IntrinsicFormula/KnoppelStripePatternEdgeOmega.h"
 #include "../../include/WrinkleFieldsEditor.h"
@@ -300,7 +300,7 @@ bool isForceReinitilaize = true;
 
 static void buildEditModel(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor, std::shared_ptr<IntrinsicFormula::WrinkleEditingModel>& editModel)
 {
-	editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWFNew>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
+	editModel = std::make_shared<IntrinsicFormula::WrinkleEditingCWF>(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor);
 }
 
 void buildWrinkleMotions(const std::vector<PickedFace>& faceList, std::vector<VertexOpInfo>& vertOpInfo)
@@ -766,7 +766,7 @@ void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, c
 		editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 	}
 
-	editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+	editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 		
 	std::cout << "initilization finished!" << std::endl;
 	refOmegaList = editModel->getRefWList();
@@ -805,7 +805,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 		}
 
-		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 	}
 	editModel->convertList2Variable(x);
 //	editModel->testEnergy(x);
@@ -1208,7 +1208,7 @@ bool loadProblem()
 		{
 			editModel->editCWFBasedOnVertOp(initZvals, initOmega, tarZvals, tarOmega);
 		}
-		editModel->initializationNew(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
+		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
 		refAmpList = editModel->getRefAmpList();
 		refOmegaList = editModel->getRefWList();

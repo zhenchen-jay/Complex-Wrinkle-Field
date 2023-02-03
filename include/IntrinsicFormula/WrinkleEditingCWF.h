@@ -8,10 +8,10 @@
 namespace IntrinsicFormula
 {
     // this is actually the one we used to generate the paper results, where we manaully blend to get omega (w_blend + dw_blend), and ask the w-z consistency for (z, w_blend), and our variables are the vertex zvals
-	class WrinkleEditingCWFNew : public WrinkleEditingModel
+	class WrinkleEditingCWF : public WrinkleEditingModel
 	{
 	public:
-        WrinkleEditingCWFNew(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
+        WrinkleEditingCWF(const Eigen::MatrixXd& pos, const MeshConnectivity& mesh, const std::vector<VertexOpInfo>& vertexOpts, const Eigen::VectorXi& faceFlag, int quadOrd, double spatialAmpRatio, double spatialEdgeRatio, double spatialKnoppelRatio, int effectivedistFactor) :
 			WrinkleEditingModel(pos, mesh, vertexOpts, faceFlag, quadOrd, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor)
 		{
 			int nverts = _pos.rows();
