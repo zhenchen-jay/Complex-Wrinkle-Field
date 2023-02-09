@@ -46,4 +46,4 @@ target_link_libraries( ${PROJECT_NAME}_bin
         igl::core 
         igl_restricted::triangle 
         igl_copyleft::comiso 
-        ${SUITESPARSE_LIBRARIES} ${METIS_LIBRARY})
+        ${SuiteSparse_LIBRARIES})

@@ -34,8 +34,8 @@
 # This module defines the following variables:
 #
 # SUITESPARSE_FOUND: TRUE iff SuiteSparse and all dependencies have been found.
-# SUITESPARSE_INCLUDE_DIRS: Include directories for all SuiteSparse components.
-# SUITESPARSE_LIBRARIES: Libraries for all SuiteSparse component libraries and
+# SuiteSparse_INCLUDE_DIRS: Include directories for all SuiteSparse components.
+# SuiteSparse_LIBRARIES: Libraries for all SuiteSparse component libraries and
 #                        dependencies.
 # SUITESPARSE_VERSION: Extracted from UFconfig.h (<= v3) or
 #                      SuiteSparse_config.h (>= v4).
@@ -120,8 +120,8 @@ endmacro(SUITESPARSE_RESET_FIND_LIBRARY_PREFIX)
 # error message at priority depending upon [REQUIRED/QUIET/<NONE>] argument.
 macro(SUITESPARSE_REPORT_NOT_FOUND REASON_MSG)
   unset(SUITESPARSE_FOUND)
-  unset(SUITESPARSE_INCLUDE_DIRS)
-  unset(SUITESPARSE_LIBRARIES)
+  unset(SuiteSparse_INCLUDE_DIRS)
+  unset(SuiteSparse_LIBRARIES)
   unset(SUITESPARSE_VERSION)
   unset(SUITESPARSE_MAIN_VERSION)
   unset(SUITESPARSE_SUB_VERSION)
@@ -210,7 +210,7 @@ list(APPEND SUITESPARSE_CHECK_LIBRARY_DIRS
 # Additional suffixes to try appending to each search path.
 list(APPEND SUITESPARSE_CHECK_PATH_SUFFIXES
   suitesparse) # Windows/Ubuntu
-
+message("suite sparse includes: $ENV{SUITESPARSEDIR}")
 # Wrappers to find_path/library that pass the SuiteSparse search hints/paths.
 #
 # suitesparse_find_component(<component> [FILES name1 [name2 ...]]
@@ -446,7 +446,7 @@ foreach(REQUIRED_VAR ${SUITESPARSE_FOUND_REQUIRED_VARS})
 endforeach(REQUIRED_VAR ${SUITESPARSE_FOUND_REQUIRED_VARS})
 
 if (SUITESPARSE_FOUND)
-  list(APPEND SUITESPARSE_INCLUDE_DIRS
+  list(APPEND SuiteSparse_INCLUDE_DIRS
     ${AMD_INCLUDE_DIR}
     ${CAMD_INCLUDE_DIR}
     ${COLAMD_INCLUDE_DIR}
@@ -454,22 +454,22 @@ if (SUITESPARSE_FOUND)
     ${CHOLMOD_INCLUDE_DIR}
     ${SUITESPARSEQR_INCLUDE_DIR})
   # Handle config separately, as otherwise at least one of them will be set
-  # to NOTFOUND which would cause any check on SUITESPARSE_INCLUDE_DIRS to fail.
+  # to NOTFOUND which would cause any check on SuiteSparse_INCLUDE_DIRS to fail.
   if (SUITESPARSE_CONFIG_FOUND)
-    list(APPEND SUITESPARSE_INCLUDE_DIRS
+    list(APPEND SuiteSparse_INCLUDE_DIRS
       ${SUITESPARSE_CONFIG_INCLUDE_DIR})
   endif (SUITESPARSE_CONFIG_FOUND)
   if (UFCONFIG_FOUND)
-    list(APPEND SUITESPARSE_INCLUDE_DIRS
+    list(APPEND SuiteSparse_INCLUDE_DIRS
       ${UFCONFIG_INCLUDE_DIR})
   endif (UFCONFIG_FOUND)
   # As SuiteSparse includes are often all in the same directory, remove any
   # repetitions.
-  list(REMOVE_DUPLICATES SUITESPARSE_INCLUDE_DIRS)
+  list(REMOVE_DUPLICATES SuiteSparse_INCLUDE_DIRS)
 
   # Important: The ordering of these libraries is *NOT* arbitrary, as these
   # could potentially be static libraries their link ordering is important.
-  list(APPEND SUITESPARSE_LIBRARIES
+  list(APPEND SuiteSparse_LIBRARIES
     ${SUITESPARSEQR_LIBRARY}
     ${CHOLMOD_LIBRARY}
     ${CCOLAMD_LIBRARY}
@@ -479,11 +479,11 @@ if (SUITESPARSE_FOUND)
     ${LAPACK_LIBRARIES}
     ${BLAS_LIBRARIES})
   if (SUITESPARSE_CONFIG_FOUND)
-    list(APPEND SUITESPARSE_LIBRARIES
+    list(APPEND SuiteSparse_LIBRARIES
       ${SUITESPARSE_CONFIG_LIBRARY})
   endif (SUITESPARSE_CONFIG_FOUND)
   if (METIS_FOUND)
-    list(APPEND SUITESPARSE_LIBRARIES
+    list(APPEND SuiteSparse_LIBRARIES
       ${METIS_LIBRARY})
   endif (METIS_FOUND)
 endif()
@@ -503,7 +503,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND
       OUTPUT_STRIP_TRAILING_WHITESPACE)
 
     if (LSB_DISTRIBUTOR_ID MATCHES "Ubuntu" AND
-        SUITESPARSE_LIBRARIES MATCHES "/usr/lib/libamd")
+        SuiteSparse_LIBRARIES MATCHES "/usr/lib/libamd")
       # We are on Ubuntu, and the SuiteSparse version matches the broken
       # system install version and is a system install.
       set(SUITESPARSE_IS_BROKEN_SHARED_LINKING_UBUNTU_SYSTEM_VERSION TRUE)
@@ -511,7 +511,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND
         "${SUITESPARSE_VERSION} running on Ubuntu, which has a known bug "
         "preventing linking of shared libraries (static linking unaffected).")
     endif (LSB_DISTRIBUTOR_ID MATCHES "Ubuntu" AND
-      SUITESPARSE_LIBRARIES MATCHES "/usr/lib/libamd")
+      SuiteSparse_LIBRARIES MATCHES "/usr/lib/libamd")
   endif (LSB_RELEASE_EXECUTABLE)
 endif (CMAKE_SYSTEM_NAME MATCHES "Linux" AND
   SUITESPARSE_VERSION VERSION_EQUAL 3.4.0)
