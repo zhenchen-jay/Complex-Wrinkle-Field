@@ -16,6 +16,31 @@ git clone https://github.com/zhenchen-jay/Complex-Wrinkle-Field.git
 All the dependencies are solved by Fetcontent, except Suite Sparse and Spectra (need Eigen installed). 
 For macOS, please  make sure TBB was installed using homebrew by `brew install tbb@2020`. (The newest brew installed TBB will have some cmake issue.)
 
+## Spectra build
+In order to build with Spectra, you should install eigen as:
+```
+git clone https://gitlab.com/libeigen/eigen.git
+cd eigen
+mkdir build
+cd build
+cmake ..
+make install
+```
+
+## Suite Sparse build
+This part is tricky, for linux, you should use 
+```
+sudo apt-get update -y
+sudo apt-get install -y libsuitesparse-dev
+```
+
+For macOS, this can be done with [Homebrew](https://brew.sh/):
+```
+brew install suite-sparse
+```
+
+For windows, please follow the guidence provided in [suitesparse-metis-for-windows](https://github.com/jlblancoc/suitesparse-metis-for-windows).
+
 
 ## To build this, try
 ```

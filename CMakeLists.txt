@@ -115,7 +115,7 @@ if (MSVC)
   message("suite-sparse libs: ${SuiteSparse_LIBRARIES}")
 else()
   find_package(SuiteSparse REQUIRED)
-  include_directories(${SuiteSparse_INCLUDE_DIRS})
+  include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 endif()
 
 #CLI11
