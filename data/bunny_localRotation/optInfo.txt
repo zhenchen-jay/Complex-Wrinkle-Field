@@ -5,6 +5,6 @@ line search rate : 1, actual hessian : 0, reg = 1e-08
 f_old: 1187.08, f_new: 882.979, grad norm: 14.9896, delta x: 18.994, delta_f: 304.103
 z grad: 1.1217, w grad: 0, z change: 0.734933, w change: 0
 timing info (in total seconds): 
-assembling took: 0.061, LLT solver took: 27.475, line search took: 0.001
+assembling took: 0.056, LLT solver took: 31.932, line search took: 0.001
 
 iter: 1

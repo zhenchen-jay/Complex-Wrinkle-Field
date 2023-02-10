@@ -16,18 +16,15 @@ git clone https://github.com/zhenchen-jay/Complex-Wrinkle-Field.git
 All the dependencies are solved by Fetcontent, except Suite Sparse and Spectra (need Eigen installed). 
 For macOS, please  make sure TBB was installed using homebrew by `brew install tbb@2020`. (The newest brew installed TBB will have some cmake issue.)
 
-## Spectra build
-In order to build with Spectra, you should install eigen as:
+## build with spectra
+In order to build with Spectra with the same Eigen version of libigl, please comment out line 24-26 of the /build/_deps/spectra-src/CMakeLists.txt:
 ```
-git clone https://gitlab.com/libeigen/eigen.git
-cd eigen
-mkdir build
-cd build
-cmake ..
-make install
+# find_package(Eigen3 NO_MODULE REQUIRED)
+# set_package_properties(Eigen3 PROPERTIES TYPE REQUIRED PURPOSE "C++ vector data structures")
+# message(STATUS "Found Eigen3 Version: ${Eigen3_VERSION} Path: ${Eigen3_DIR}")
 ```
 
-## Suite Sparse build
+## build with Suite-Sparse
 This part is tricky, for linux, you should use 
 ```
 sudo apt-get update -y

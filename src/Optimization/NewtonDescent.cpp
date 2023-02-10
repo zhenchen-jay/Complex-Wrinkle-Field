@@ -69,6 +69,8 @@ void OptSolver::newtonSolver(std::function<double(const Eigen::VectorXd&, Eigen:
 
 		 //Eigen::CholmodSimplicialLLT<Eigen::SparseMatrix<double> > solver(H);
 
+		 //Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solver(H);
+
 
 		while (solver.info() != Eigen::Success)
 		{
