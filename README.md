@@ -58,4 +58,4 @@ When compiling in MacOS with C++17, you may encounter this issue:
 ```
 build/_deps/comiso-src/ext/gmm-4.2/include/gmm/gmm_domain_decomp.h:84:2: error: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
 ```
-To solve this, please remove the replace `register double` by `double`.  
+To solve this, please replace `register double` by `double`.  
