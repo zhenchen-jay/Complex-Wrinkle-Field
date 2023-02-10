@@ -110,13 +110,8 @@ include(geometry-central)
 
 #suite-sparse
 message("build with suite-sparse")
-if (MSVC)
-  find_package(SuiteSparse CONFIG REQUIRED)
-  message("suite-sparse libs: ${SuiteSparse_LIBRARIES}")
-else()
-  find_package(SuiteSparse REQUIRED)
-  include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
-endif()
+find_package(SuiteSparse REQUIRED)
+include_directories(${SUITESPARSE_INCLUDE_DIRS} ${METIS_INCLUDE_DIR})
 
 #CLI11
 include(CLI11)
