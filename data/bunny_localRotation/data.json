@@ -1,7 +1,7 @@
 {
     "init_amp": "amp.txt",
     "init_omega": "omega.txt",
-    "init_zvals": "zvals.txt",
+    "init_zvls": "zvals.txt",
     "mesh_name": "mesh.obj",
     "num_frame": 51,
     "quad_order": 4,
@@ -39,9 +39,6 @@
         "edge_ratio": 1000.0,
         "knoppel_ratio": 1000.0
     },
-    "tar_amp": "amp_tar.txt",
-    "tar_omega": "omega_tar.txt",
-    "tar_zvals": "zvals_tar.txt",
-    "upsampled_times": 5,
+    "upsampled_times": 2,
     "wrinkle_amp_ratio": 1.0
 }

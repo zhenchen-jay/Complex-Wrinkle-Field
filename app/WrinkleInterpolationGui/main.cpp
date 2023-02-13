@@ -44,6 +44,8 @@
 #include "../../include/SecMeshParsing.h"
 #include "../../include/MeshLib/RegionEdition.h"
 
+#include <CLI/CLI.hpp>
+
 long long int selectFace(polyscope::SurfaceMesh* mesh) 
 {
 	using namespace polyscope;
@@ -917,9 +919,10 @@ void updateFieldsInView(int frameId, bool isFirstTime)
 }
 
 
-bool loadProblem()
+bool loadProblem(std::string loadFileName = "")
 {
-	std::string loadFileName = igl::file_dialog_open();
+	if(loadFileName == "")
+		loadFileName = igl::file_dialog_open();
 
 	std::cout << "load file in: " << loadFileName << std::endl;
 	using json = nlohmann::json;
@@ -964,11 +967,6 @@ bool loadProblem()
 	selectedMotionValue = jval["region_global_details"]["omega_operation_value"];
 	std::string optype = jval["region_global_details"]["omega_operation_motion"];
 
-	/*isCoupled = jval["operation_details"]["amp_omega_coupling"];
-	selectedMagValue = jval["operation_details"]["amp_operation_value"];
-	selectedMotionValue = jval["operation_details"]["omega_operation_value"];
-
-	std::string optype = jval["operation_details"]["omega_operation_type"];*/
 	if (optype == "None")
 		selectedMotion = None;
 	else if (optype == "Enlarge")
@@ -977,11 +975,6 @@ bool loadProblem()
 		selectedMotion = Rotate;
 	else
 		selectedMotion = None;
-
-	/*isSelectAll = jval["region_details"]["select_all"];
-	clickedFid = jval["region_details"]["selected_fid"];
-	dilationTimes = jval["region_details"]["selected_domain_dilation"];
-	optTimes = jval["region_details"]["interface_dilation"];*/
 
 	pickFaces.clear();
 
@@ -1351,14 +1344,6 @@ bool saveProblem()
 	tbb::blocked_range<uint32_t> rangex(0u, (uint32_t)nframes, GRAIN_SIZE);
 	tbb::parallel_for(rangex, savePerFrame);
 
-//	for (int i = 0; i < zList.size(); i++)
-//	{
-//        saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
-//        saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
-//        saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
-//        saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
-//	}
-
 
 	std::ofstream o(saveFileName);
 	o << std::setw(4) << jval << std::endl;
@@ -1707,7 +1692,18 @@ void callback() {
 
 int main(int argc, char** argv)
 {
-	if (!loadProblem())
+	std::string inputFile = "";
+	CLI::App app("Wrinkle Interpolation");
+	app.add_option("input,-i,--input", inputFile, "Input model")->check(CLI::ExistingFile);
+
+	try {
+		app.parse(argc, argv);
+	}
+	catch (const CLI::ParseError& e) {
+		return app.exit(e);
+	}
+
+	if (!loadProblem(inputFile))
 	{
 		std::cout << "failed to load file." << std::endl;
 		return 1;

@@ -5,6 +5,12 @@ build_clion/
 build_*/
 cmake-build-*/
 
+# useless data
+data/bunny_localRotation/*.polyscope.ini
+data/bunny_localRotation/imgui.ini
+data/bunny_localRotation/optInfo.txt
+data/bunny_localRotation/tmpRes
+
 cmake/FindMKL.cmake
 
 # Editor and OS things

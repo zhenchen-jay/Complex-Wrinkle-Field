@@ -1,3 +1,3 @@
 add_subdirectory(WrinkleInterpolationGui)
-add_subdirectory(UserDesignGui)
+add_subdirectory(UserWrinkleDesign)
 add_subdirectory(WrinkleInterpolationCli)
