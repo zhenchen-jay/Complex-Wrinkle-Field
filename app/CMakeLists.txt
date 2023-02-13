@@ -1,4 +1,3 @@
-add_subdirectory(StaticWrinkleEditor)
-add_subdirectory(UserDesignerApp)
-add_subdirectory(SmoothestVecGen)
+add_subdirectory(WrinkleInterpolationGui)
+add_subdirectory(UserDesignGui)
 add_subdirectory(WrinkleInterpolationCli)
