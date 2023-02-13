@@ -60,9 +60,9 @@ There are two extra executable programs provided:
 ```
 ./bin/WrinkleInterpolationCli_bin -i ../data/bunny_localRotation/data.json -r 
 ```
-where -r option force the program to reoptimize the problem
+where -r option forces the program to reoptimize the problem
 
-- UserWrinkleDesign_bin: a tool for users to design wrinkles by themselves by assign frequency fields and amplitude. This can be tried with
+- UserWrinkleDesign_bin: a tool for users to design wrinkles by themselves by assign frequency field and amplitude. This can be executed with
 ```
 ./bin/UserWrinkleDesign_bin -i ../data/bunny_localRotation/design.json 
 ``` 
