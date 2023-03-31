@@ -1,3 +1,4 @@
 add_subdirectory(WrinkleInterpolationGui)
 add_subdirectory(UserWrinkleDesign)
 add_subdirectory(WrinkleInterpolationCli)
+add_subdirectory(WrinkleInterpolationQuasiStaticInput)

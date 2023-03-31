@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="CMakePresetLoader">{
   &quot;useNewFormat&quot;: true
 }</component>
@@ -8,6 +11,7 @@
   </component>
   <component name="CMakeRunConfigurationManager">
     <generated>
+      <config projectName="Complex Wrinkle Field Evolution" targetName="WrinkleInterpolationQuasiStaticInput_bin" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="imgui" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="tetgen" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="tbbmalloc_static" />
@@ -43,6 +47,7 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/CMakeLists.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,7 +98,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="CMake Application.UserWrinkleDesign_bin">
+  <component name="RunManager" selected="CMake Application.WrinkleInterpolationQuasiStaticInput_bin">
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="CLION.EXTERNAL.BUILD" enabled="true" />
@@ -125,6 +130,11 @@
       </method>
     </configuration>
     <configuration name="WrinkleInterpolationGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationGui_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationGui_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="WrinkleInterpolationQuasiStaticInput_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -234,6 +244,7 @@
       <item itemvalue="CMake Application.UserWrinkleDesign_bin" />
       <item itemvalue="CMake Application.WrinkleInterpolationCli_bin" />
       <item itemvalue="CMake Application.WrinkleInterpolationGui_bin" />
+      <item itemvalue="CMake Application.WrinkleInterpolationQuasiStaticInput_bin" />
       <item itemvalue="CMake Application.CLI11" />
       <item itemvalue="CMake Application.CoMISo" />
       <item itemvalue="CMake Application.geometry-central" />
@@ -282,7 +293,7 @@
       <workItem from="1671322405701" duration="3653000" />
       <workItem from="1672694801102" duration="7326000" />
       <workItem from="1674600086780" duration="2434000" />
-      <workItem from="1680297380301" duration="390000" />
+      <workItem from="1680297380301" duration="1804000" />
     </task>
     <servers />
   </component>
