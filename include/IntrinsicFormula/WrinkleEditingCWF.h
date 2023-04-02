@@ -230,7 +230,7 @@ namespace IntrinsicFormula
 		}
         
         double _ampSqOmegaQuaticAverage;
-        std::vector<int> _ampSqOmegaQauticAverageList;
+        std::vector<double> _ampSqOmegaQauticAverageList;
 
 	};
 }

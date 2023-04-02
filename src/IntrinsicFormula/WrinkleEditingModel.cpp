@@ -37,8 +37,8 @@ WrinkleEditingModel::WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshC
 	_faceArea = getFaceArea(_pos, _mesh);
 	
 
-	std::vector<int> bnds;
-	igl::boundary_loop(_mesh.faces(), bnds);
+	//std::vector<int> bnds;
+	//igl::boundary_loop(_mesh.faces(), bnds);
 
 	_nInterfaces = 0;
 
