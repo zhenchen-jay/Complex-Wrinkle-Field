@@ -628,10 +628,41 @@ bool loadProblem(std::string loadFileName = "")
 		}
 
 		else
-		{
-			Eigen::VectorXd edgeArea, vertArea;
-			edgeArea = getEdgeArea(triVList[numFrames - 1], triMesh);
-			vertArea = getVertArea(triVList[numFrames - 1], triMesh);
+        {
+            Eigen::VectorXd edgeArea, vertArea;
+            edgeArea = getEdgeArea(triVList[numFrames - 1], triMesh);
+            vertArea = getVertArea(triVList[numFrames - 1], triMesh);
+
+            tarOmega /= 2;
+            tarAmp *= 2;
+
+//            int nedges = triMesh.nEdges();
+//            for (int i = 0; i < nedges; i++)
+//            {
+//                double centerZ = triVList[numFrames - 1](triMesh.edgeVertex(i, 0), 2) +
+//                                 triVList[numFrames - 1](triMesh.edgeVertex(i, 1), 2);
+//                centerZ /= 2.0;
+//                centerZ = std::abs(centerZ);
+//                if(centerZ > 0.2)
+//                {
+//                    double scalingRatio = 25 * (centerZ - 0.2) * (centerZ - 0.2) + 1;
+//                    tarOmega[i] *= scalingRatio;
+//                }
+//
+//            }
+//
+//            int nverts = triVList[numFrames - 1].rows();
+//            for (int i = 0; i < nverts; i++)
+//            {
+//                double centerZ = triVList[numFrames - 1](i, 2);
+//                centerZ = std::abs(centerZ);
+//                if(centerZ > 0.2)
+//                {
+//                    double scalingRatio = 25 * (centerZ - 0.2) * (centerZ - 0.2) + 1;
+//                    tarAmp[i] /= scalingRatio;
+//                }
+//            }
+
 			IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, tarOmega, tarAmp, edgeArea, vertArea, nverts, tarZvals);
 		}
 	}
