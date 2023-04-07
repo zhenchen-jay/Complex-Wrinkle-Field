@@ -582,10 +582,10 @@ bool loadProblem(std::string loadFileName = "")
 			edgeArea = getEdgeArea(triVList[0], triMesh);
 			vertArea = getVertArea(triVList[0], triMesh);
 
-            double rescaling = 18.0 / 16.0;
-
-            initAmp *= rescaling;
-            initOmega /= rescaling;
+//            double rescaling = 18.0 / 16.0;
+//
+//            initAmp *= rescaling;
+//            initOmega /= rescaling;
 
             IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, edgeArea, vertArea, nverts, initZvals);
             for(int i = 0; i < nverts; i++)

@@ -329,7 +329,7 @@ bool saveProblem()
 	int id = filePath.rfind("/");
 	std::string workingFolder = filePath.substr(0, id + 1);
 
-    tarOmega = initOmega * rescalingFreq;
+    tarOmega = preComputedRotateOmega[curFrame] * rescalingFreq;
     tarAmp = initAmp * rescalingAmp;
 
     Eigen::VectorXd edgeArea, vertArea;

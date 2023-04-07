@@ -1,0 +1,7 @@
+{
+    "init_amp": "cylinder_amplitude_simulated.txt",
+    "init_omega": "cylinder_dphi_simulated.txt",
+    "init_zvals": "zvals_WTF_tar.txt",
+    "mesh": "cylinder_simulated.obj",
+    "upsampled_times": 4
+}
