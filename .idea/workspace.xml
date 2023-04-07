@@ -31,6 +31,7 @@
       <config projectName="Complex Wrinkle Field Evolution" targetName="tbb_static" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="WrinkleInterpolationGui_bin" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="CoMISo" />
+      <config projectName="Complex Wrinkle Field Evolution" targetName="BestAmpFreqEstimate_bin" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="polyscope" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="glad" />
       <config projectName="Complex Wrinkle Field Evolution" targetName="tbbmalloc_proxy_static" />
@@ -47,7 +48,9 @@
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/WrinkleInterpolationQuasiStaticInput/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/WrinkleInterpolationQuasiStaticInput/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/CommonTools.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/CommonTools.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,10 +101,15 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="CMake Application.WrinkleInterpolationQuasiStaticInput_bin">
+  <component name="RunManager" selected="CMake Application.BestAmpFreqEstimate_bin">
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="BestAmpFreqEstimate_bin" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-i /mnt/1TBSSD/CIPC_cylinder_CWF_init/data.json -r /mnt/1TBSSD/CIPC_cylinder_CWF_init/shell3.obj" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="BestAmpFreqEstimate_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="BestAmpFreqEstimate_bin">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
@@ -241,6 +249,7 @@
     </configuration>
     <list>
       <item itemvalue="CMake Application.LoadSequence_bin" />
+      <item itemvalue="CMake Application.BestAmpFreqEstimate_bin" />
       <item itemvalue="CMake Application.UserWrinkleDesign_bin" />
       <item itemvalue="CMake Application.WrinkleInterpolationCli_bin" />
       <item itemvalue="CMake Application.WrinkleInterpolationGui_bin" />
@@ -293,7 +302,7 @@
       <workItem from="1671322405701" duration="3653000" />
       <workItem from="1672694801102" duration="7326000" />
       <workItem from="1674600086780" duration="2434000" />
-      <workItem from="1680297380301" duration="13323000" />
+      <workItem from="1680297380301" duration="28217000" />
     </task>
     <servers />
   </component>

@@ -581,7 +581,19 @@ bool loadProblem(std::string loadFileName = "")
 			Eigen::VectorXd edgeArea, vertArea;
 			edgeArea = getEdgeArea(triVList[0], triMesh);
 			vertArea = getVertArea(triVList[0], triMesh);
-			IntrinsicFormula::roundZvalsFromEdgeOmegaVertexMag(triMesh, initOmega, initAmp, edgeArea, vertArea, nverts, initZvals);
+
+            double rescaling = 18.0 / 16.0;
+
+            initAmp *= rescaling;
+            initOmega /= rescaling;
+
+            IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, edgeArea, vertArea, nverts, initZvals);
+            for(int i = 0; i < nverts; i++)
+            {
+                auto z = initZvals[i];
+                z = initAmp(i) * std::complex<double>(std::cos(std::arg(z)), std::sin(std::arg(z)));
+                initZvals[i] = z;
+            }
 		}
 	}
 	else
@@ -633,40 +645,44 @@ bool loadProblem(std::string loadFileName = "")
             edgeArea = getEdgeArea(triVList[numFrames - 1], triMesh);
             vertArea = getVertArea(triVList[numFrames - 1], triMesh);
 
-            tarOmega /= 2;
-            tarAmp *= 2;
+            double rescaling = 26.0 / 13.0;
+            tarOmega /= -rescaling;
+            tarAmp *= rescaling;
 
             int nedges = triMesh.nEdges();
-            double changeZ = 0.3;
+            double changeZ = 0.2;
 
-            for (int i = 0; i < nedges; i++)
-            {
-                double centerZ = triVList[numFrames - 1](triMesh.edgeVertex(i, 0), 2) +
-                                 triVList[numFrames - 1](triMesh.edgeVertex(i, 1), 2);
-                centerZ /= 2.0;
-                centerZ = std::abs(centerZ);
-                if(centerZ > changeZ)
-                {
-//                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
+//            for (int i = 0; i < nedges; i++)
+//            {
+//                double centerZ = triVList[numFrames - 1](triMesh.edgeVertex(i, 0), 2) +
+//                                 triVList[numFrames - 1](triMesh.edgeVertex(i, 1), 2);
+//                centerZ /= 2.0;
+//                centerZ = std::abs(centerZ);
+//                if(centerZ > changeZ)
+//                {
+////                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
+//                    double scalingRatio = (centerZ - changeZ) / (0.5 - changeZ) * (rescaling - 1) + 1;
 //                    tarOmega[i] *= scalingRatio;
-                    tarOmega[i] *= 3;
-                }
-
-            }
-
-            int nverts = triVList[numFrames - 1].rows();
-            for (int i = 0; i < nverts; i++)
-            {
-                double centerZ = triVList[numFrames - 1](i, 2);
-                centerZ = std::abs(centerZ);
-                if(centerZ > changeZ)
-                {
-                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
-                    tarAmp[i] /= scalingRatio;
-
-//                    tarAmp[i] /= 2;
-                }
-            }
+//
+////                    tarOmega[i] *= 3;
+//                }
+//
+//            }
+//
+//            int nverts = triVList[numFrames - 1].rows();
+//            for (int i = 0; i < nverts; i++)
+//            {
+//                double centerZ = triVList[numFrames - 1](i, 2);
+//                centerZ = std::abs(centerZ);
+//                if(centerZ > changeZ)
+//                {
+////                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
+//                    double scalingRatio = (centerZ - changeZ) / (0.5 - changeZ) * (rescaling - 1) + 1;
+//                    tarAmp[i] /= scalingRatio;
+//
+////                    tarAmp[i] /= 2;
+//                }
+//            }
 
 			IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, tarOmega, edgeArea, vertArea, nverts, tarZvals);
             for(int i = 0; i < nverts; i++)

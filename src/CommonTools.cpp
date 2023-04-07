@@ -1082,7 +1082,7 @@ void getWrinkledMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const s
 
 			if (isTangentCorrection)
 			{
-				wrinkledV.row(vid) += scaleRatio / vertNeiFaces->at(vid).size() * (1. / 8 * std::sin(2 * theta) * extASqdtheta);
+				wrinkledV.row(vid) += scaleRatio * scaleRatio / vertNeiFaces->at(vid).size() * (1. / 8 * std::sin(2 * theta) * extASqdtheta);
 			}
 
 			
