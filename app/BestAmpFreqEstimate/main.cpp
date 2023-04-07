@@ -45,6 +45,117 @@
 
 #include <CLI/CLI.hpp>
 
+static void getFrequencyInfo(const Eigen::MatrixXd& V, const MeshConnectivity& mesh, int axis, double value, double& maxAmp, double& freq)
+{
+    if (axis < 0 || axis > 2)
+    {
+        std::cout << "wrong axis direction, should be 0, 1, 2, for x, y, z, set default to x direction." << std::endl;
+        axis = 0;
+    }
+    int nedges = mesh.nEdges();
+    std::vector<Eigen::Vector2d> middlepts;
+    // double midZ = ( V.col(2).minCoeff() + V.col(2).maxCoeff() ) / 2.0;
+    for (int i = 0; i < nedges; i++)
+    {
+        int v0 = mesh.edgeVertex(i, 0);
+        int v1 = mesh.edgeVertex(i, 1);
+        Eigen::Vector3d vert0 = V.row(v0).transpose();
+        Eigen::Vector3d vert1 = V.row(v1).transpose();
+        double z0 = vert0[axis];
+        double z1 = vert1[axis];
+        if (z0 == z1)
+            continue;
+        //compute barycentric coordinates
+        double t = (value - z0) / (z1 - z0);
+        if (t >= 0 && t <= 1.0)
+        {
+            Eigen::Vector3d mid = (1.0 - t) * vert0 + t * vert1;
+            assert(fabs(mid[axis] - midZ) < 1e-8);
+            if (axis == 0)
+                middlepts.push_back(mid.segment<2>(1));
+            else if (axis == 2)
+                middlepts.push_back(mid.segment<2>(0));
+            else
+                middlepts.push_back(Eigen::Vector2d(mid[2], mid[0]));
+        }
+    }
+
+    int npts = middlepts.size();
+    double minr = std::numeric_limits<double>::infinity();
+    double maxr = 0;
+    double totr = 0;
+    for (int i = 0; i < npts; i++)
+    {
+        double r = middlepts[i].norm();
+        minr = std::min(minr, r);
+        maxr = std::max(maxr, r);
+        totr += r;
+    }
+    double avgr = totr / double(npts);
+    double amplitude = (maxr - minr) / 2.0;
+    std::cout << "val: " << value << std::endl;
+    std::cout << "amplitude at val: " << amplitude << std::endl;
+    std::cout << "Radius of the circle: " << avgr << std::endl;
+
+    int nmodes = npts / 2;
+    struct AngPt
+    {
+        double angle;
+        double amplitude;
+        bool operator<(const AngPt& other) const
+        {
+            return angle < other.angle;
+        }
+    };
+    std::vector<AngPt> angpts;
+    for (int i = 0; i < npts; i++)
+    {
+        double theta = std::atan2(middlepts[i][1], middlepts[i][0]);
+        double ampt = middlepts[i].norm() - avgr;
+        angpts.push_back({ theta,ampt });
+    }
+    std::sort(angpts.begin(), angpts.end());
+    const double PI = 3.1415926535898;
+    int bestmode = -1;
+    double bestprod = 0;
+
+    for (int mode = 1; mode < nmodes; mode++)
+    {
+        double sinterm = 0;
+        double costerm = 0;
+        for (int i = 0; i < npts; i++)
+        {
+            int next = (i + 1) % npts;
+            int prev = (npts + i - 1) % npts;
+            double nexttheta = angpts[next].angle;
+            double prevtheta = angpts[prev].angle;
+            if (i == 0 || i == npts - 1)
+                nexttheta += 2.0 * PI;
+            double da = 0.5 * (nexttheta - prevtheta);
+            double theta = angpts[i].angle;
+            costerm += std::cos(mode * theta) * angpts[i].amplitude * da;
+            sinterm += std::sin(mode * theta) * angpts[i].amplitude * da;
+        }
+        double prod = costerm * costerm + sinterm * sinterm;
+
+        if (prod > bestprod)
+        {
+            bestprod = prod;
+            bestmode = mode;
+        }
+    }
+    std::cout << "current val has " << bestmode << " wrinkle periods" << std::endl;
+
+    maxAmp = 0;
+    for (int i = 0; i < npts; i++)
+    {
+        maxAmp += std::abs(angpts[i].amplitude);
+    }
+    maxAmp /= npts;
+    freq = bestmode;
+}
+
+
 Eigen::MatrixXd CIPCV, triV, upsampledV;
 Eigen::MatrixXi CIPCF, triF, upsampledF;
 Mesh secMesh;
@@ -329,7 +440,7 @@ bool saveProblem()
 	int id = filePath.rfind("/");
 	std::string workingFolder = filePath.substr(0, id + 1);
 
-    tarOmega = preComputedRotateOmega[curFrame] * rescalingFreq;
+    tarOmega = preComputedRotateOmega[curFrame];
     tarAmp = initAmp * rescalingAmp;
 
     Eigen::VectorXd edgeArea, vertArea;
@@ -403,7 +514,27 @@ void callback() {
                 updateView(curFrame, true);
             }
         }
+
+		if (ImGui::Button("Compute Optimal Rescaling", ImVec2(-1, 0)))
+		{
+            double IPCAmp, IPCFreq;
+            double guessAmp, guessFreq;
+
+            getFrequencyInfo(CIPCV, MeshConnectivity(CIPCF), 0, (CIPCV.col(0).minCoeff() + CIPCV.maxCoeff()) / 2, IPCAmp, IPCFreq);
+
+            getFrequencyInfo(wrinkledVList[curFrame], MeshConnectivity(upsampledF), 0, (wrinkledVList[curFrame].col(0).minCoeff() + wrinkledVList[curFrame].maxCoeff()) / 2, guessAmp, guessFreq);
+
+            rescalingAmp = IPCAmp / guessAmp;
+            rescalingFreq = IPCFreq / guessFreq;
+
+            std::cout << "rescaling Amp: " << rescalingAmp << ", freq: " << rescalingFreq << std::endl;
+
+            preComputation(numSamples, maxRot);
+            updatePaintingItems(true);
+            updateView(curFrame, true);
+		}
 	}
+	
 
 	
 	if (ImGui::CollapsingHeader("Frame Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -459,13 +590,6 @@ int main(int argc, char** argv)
 		return app.exit(e);
 	}
 
-    if(refFile == "")
-        refFile = igl::file_dialog_open();
-    if(!igl::readOBJ(refFile, CIPCV, CIPCF))
-    {
-        std::cout << "failed to load C-IPC mesh" << std::endl;
-        return EXIT_FAILURE;
-    }
 
 	if (!loadProblem(inputFile))
 	{
@@ -473,6 +597,13 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+	if (refFile == "")
+		refFile = igl::file_dialog_open();
+	if (!igl::readOBJ(refFile, CIPCV, CIPCF))
+	{
+		std::cout << "failed to load C-IPC mesh" << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	// Options
 	polyscope::options::autocenterStructures = false;
@@ -499,5 +630,5 @@ int main(int argc, char** argv)
 	polyscope::show();
 
 
-	return 0;
+	return EXIT_SUCCESS;
 }

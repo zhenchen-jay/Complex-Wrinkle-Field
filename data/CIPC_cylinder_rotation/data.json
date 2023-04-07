@@ -3,7 +3,7 @@
     "init_omega": "omega_opt.txt",
     "init_zvals": "zvals_opt.txt",
     "mesh_name_prefix": "cylinder_rotate",
-    "num_frame": 81,
+    "num_frame": 98,
     "quad_order": 4,
     "reference": {
         "ref_amp": "/refAmp/",

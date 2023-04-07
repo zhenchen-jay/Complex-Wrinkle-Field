@@ -645,9 +645,9 @@ bool loadProblem(std::string loadFileName = "")
             edgeArea = getEdgeArea(triVList[numFrames - 1], triMesh);
             vertArea = getVertArea(triVList[numFrames - 1], triMesh);
 
-            double rescaling = 26.0 / 13.0;
+            /*double rescaling = 26.0 / 13.0;
             tarOmega /= -rescaling;
-            tarAmp *= rescaling;
+            tarAmp *= rescaling;*/
 
             int nedges = triMesh.nEdges();
             double changeZ = 0.2;
