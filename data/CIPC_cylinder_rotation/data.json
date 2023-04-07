@@ -1,0 +1,29 @@
+{
+    "init_amp": "amp_opt.txt",
+    "init_omega": "omega_opt.txt",
+    "init_zvals": "zvals_opt.txt",
+    "mesh_name_prefix": "cylinder_rotate",
+    "num_frame": 81,
+    "quad_order": 4,
+    "reference": {
+        "ref_amp": "/refAmp/",
+        "ref_omega": "/refOmega/"
+    },
+    "solution": {
+        "opt_omega": "/optOmega/",
+        "opt_zvals": "/optZvals/",
+        "upsampled_amp": "/upsampledAmp/",
+        "upsampled_phase": "/upsampledPhase/",
+        "wrinkle_mesh": "/wrinkledMesh/"
+    },
+    "spatial_ratio": {
+        "amp_ratio": 100.0,
+        "edge_ratio": 100.0,
+        "knoppel_ratio": 100.0
+    },
+    "tar_amp": "amp_WTF_tar.txt",
+    "tar_omega": "omega_WTF_tar.txt",
+    "tar_zvals": "zvals_WTF_tar.txt",
+    "upsampled_times": 4,
+    "wrinkle_amp_ratio": 1.0
+}
