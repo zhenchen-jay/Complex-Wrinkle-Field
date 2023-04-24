@@ -70,7 +70,7 @@ static void getFrequencyInfo(const Eigen::MatrixXd& V, const MeshConnectivity& m
         if (t >= 0 && t <= 1.0)
         {
             Eigen::Vector3d mid = (1.0 - t) * vert0 + t * vert1;
-            assert(fabs(mid[axis] - midZ) < 1e-8);
+            assert(fabs(mid[axis] - value) < 1e-8);
             if (axis == 0)
                 middlepts.push_back(mid.segment<2>(1));
             else if (axis == 2)
@@ -410,6 +410,8 @@ bool loadProblem(std::string loadFileName = "")
 	std::string initAmpPath = jval["init_amp"];
 	std::string initOmegaPath = jval["init_omega"];
 
+    std::cout  << initAmpPath << "\n" << initOmegaPath << std::endl;
+
 	if (!loadEdgeOmega(workingFolder + initOmegaPath, nedges, initOmega))
     {
 		std::cout << "missing init edge omega file." << std::endl;
@@ -507,7 +509,7 @@ void callback() {
 
         if (ImGui::InputDouble("wrinkle frequency scaling ratio", &(rescalingFreq)))
         {
-            if (rescalingFreq > 0)
+            if (rescalingFreq != 0)
             {
                 preComputation(numSamples, maxRot);
                 updatePaintingItems(true);

@@ -19,7 +19,7 @@ void OptSolver::testFuncGradHessian(std::function<double(const Eigen::VectorXd&,
 		double eps = std::pow(0.1, i);
 		Eigen::VectorXd x = x0 + eps * dir;
 		Eigen::VectorXd grad1;
-		double f1 = objFunc(x, &grad1, NULL, false);
+		double f1 = objFunc(x, &grad1, nullptr, false);
 
 		std::cout << "\neps: " << eps << std::endl;
 		std::cout << "energy-gradient: " << (f1 - f) / eps - grad.dot(dir) << std::endl;

@@ -42,13 +42,97 @@
   </component>
   <component name="CMakeSettings">
     <configurations>
-      <configuration PROFILE_NAME="RelWithDebInfo" ENABLED="true" CONFIG_NAME="RelWithDebInfo" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" NO_GENERATOR="true" />
     </configurations>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2cd6e309-0fe9-48ce-931b-5db3cb962d26" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/WrinkleInterpolationQuasiStaticInput/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/WrinkleInterpolationQuasiStaticInput/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/BestAmpFreqEstimate/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/BestAmpFreqEstimate/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/optInfo.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/optInfo.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_0.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_0.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_1.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_1.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_10.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_10.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_11.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_11.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_12.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_12.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_13.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_13.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_14.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_14.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_15.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_15.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_16.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_16.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_17.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_17.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_18.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_18.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_19.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_19.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_2.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_2.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_20.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_20.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_21.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_21.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_22.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_22.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_23.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_23.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_24.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_24.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_25.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_25.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_26.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_26.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_27.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_27.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_28.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_28.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_29.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_29.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_3.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_3.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_30.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_30.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_31.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_31.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_32.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_32.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_33.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_33.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_34.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_34.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_35.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_35.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_36.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_36.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_37.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_37.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_38.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_38.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_39.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_39.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_4.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_4.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_40.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_40.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_41.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_41.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_42.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_42.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_43.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_43.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_44.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_44.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_45.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_45.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_46.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_46.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_47.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_47.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_48.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_48.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_49.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_49.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_5.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_5.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_50.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_50.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_51.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_51.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_52.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_52.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_53.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_53.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_54.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_54.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_55.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_55.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_56.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_56.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_57.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_57.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_58.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_58.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_59.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_59.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_6.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_6.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_60.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_60.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_61.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_61.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_62.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_62.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_63.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_63.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_64.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_64.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_65.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_65.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_66.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_66.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_67.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_67.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_68.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_68.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_69.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_69.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_7.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_7.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_70.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_70.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_71.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_71.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_72.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_72.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_73.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_73.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_74.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_74.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_75.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_75.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_76.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_76.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_77.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_77.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_78.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_78.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_79.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_79.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_8.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_8.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_80.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_80.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_9.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_9.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_CWF.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/data/CIPC_cylinder_rotation/screenshots/output_CWF.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Optimization/CommonFunctions.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/Optimization/CommonFunctions.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,7 +142,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:RelWithDebInfo" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Release" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -79,43 +163,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "cf.advertisement.text.has.clang-format": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "cmake.loaded.for.project": "true",
-    "last_opened_file_path": "/home/zchen96/Projects/Complex-Wrinkle-Field",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "CMakeSettings",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;cf.advertisement.text.has.clang-format&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;cmake.loaded.for.project&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/zchen96/Projects/Complex-Wrinkle-Field&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;CMakeSettings&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="CMake Application.BestAmpFreqEstimate_bin">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="BestAmpFreqEstimate_bin" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-i /mnt/1TBSSD/CIPC_cylinder_CWF_init/data.json -r /mnt/1TBSSD/CIPC_cylinder_CWF_init/shell3.obj" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="BestAmpFreqEstimate_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="BestAmpFreqEstimate_bin">
+    <configuration name="BestAmpFreqEstimate_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="BestAmpFreqEstimate_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="BestAmpFreqEstimate_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="CLI11" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="CLI11" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="CLI11" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="CoMISo" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="CoMISo" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="CoMISo" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="CoMISo" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -125,122 +204,127 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="UserWrinkleDesign_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="UserWrinkleDesign_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="UserWrinkleDesign_bin">
+    <configuration name="UserWrinkleDesign_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="UserWrinkleDesign_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="UserWrinkleDesign_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="WrinkleInterpolationCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationCli_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationCli_bin">
+    <configuration name="WrinkleInterpolationCli_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationCli_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationCli_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="WrinkleInterpolationGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationGui_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationGui_bin">
+    <configuration name="WrinkleInterpolationGui_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationGui_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationGui_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="WrinkleInterpolationQuasiStaticInput_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin" CONFIG_NAME="RelWithDebInfo" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin">
+    <configuration name="WrinkleInterpolationQuasiStaticInput_bin" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin" CONFIG_NAME="Release" RUN_TARGET_PROJECT_NAME="Complex Wrinkle Field Evolution" RUN_TARGET_NAME="WrinkleInterpolationQuasiStaticInput_bin">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="geometry-central" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="geometry-central" CONFIG_NAME="RelWithDebInfo">
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="glad" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="glad" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="geometry-central" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="geometry-central" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="glfw" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="glfw" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="glad" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="glad" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_comiso" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_comiso" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="glfw" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="glfw" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_core" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_copyleft_comiso" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_comiso" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_copyleft_tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_tetgen" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_copyleft_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_core" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_core" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_copyleft_tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_copyleft_tetgen" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_predicates" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_core" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_core" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="igl_restricted_triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_restricted_triangle" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_predicates" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="imgui" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="igl_restricted_triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="igl_restricted_triangle" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="polyscope" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="polyscope" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="imgui" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="imgui" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="predicates" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="polyscope" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="polyscope" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="stb" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="stb" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="predicates" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="predicates" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbb_def_files" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbb_def_files" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="stb" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="stb" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbb_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbb_static" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="tbb_def_files" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbb_def_files" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbbmalloc_proxy_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbbmalloc_proxy_static" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="tbb_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbb_static" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tbbmalloc_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbbmalloc_static" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="tbbmalloc_proxy_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbbmalloc_proxy_static" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tetgen" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="tbbmalloc_static" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tbbmalloc_static" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="triangle" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="tetgen" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="tetgen" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="update_mappings" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="update_mappings" CONFIG_NAME="RelWithDebInfo">
+    <configuration name="triangle" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="triangle" CONFIG_NAME="Release">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="update_mappings" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Complex Wrinkle Field Evolution" TARGET_NAME="update_mappings" CONFIG_NAME="Release">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -300,7 +384,8 @@
       <workItem from="1671322405701" duration="3653000" />
       <workItem from="1672694801102" duration="7326000" />
       <workItem from="1674600086780" duration="2434000" />
-      <workItem from="1680297380301" duration="29687000" />
+      <workItem from="1680297380301" duration="32591000" />
+      <workItem from="1681241482903" duration="1260000" />
     </task>
     <servers />
   </component>
@@ -369,6 +454,11 @@
           <url>file://$PROJECT_DIR$/app/UserDesignerApp/main.cpp</url>
           <line>417</line>
           <option name="timeStamp" value="19" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/app/BestAmpFreqEstimate/main.cpp</url>
+          <line>379</line>
+          <option name="timeStamp" value="20" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

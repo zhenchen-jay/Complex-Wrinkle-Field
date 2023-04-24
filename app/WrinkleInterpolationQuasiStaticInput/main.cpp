@@ -326,6 +326,7 @@ void updatePaintingItems()
 
 void reinitializeKeyFrames(const std::vector<std::complex<double>>& initZvals, const Eigen::VectorXd& initOmega, std::vector<Eigen::VectorXd>& wFrames, std::vector<std::vector<std::complex<double>>>& zFrames)
 {
+	buildEditModel(triVList, triMesh, quadOrder, spatialAmpRatio, spatialKnoppelRatio, editModel);
 	editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, true);
 		
 	std::cout << "initilization finished!" << std::endl;
@@ -359,6 +360,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 	if (isForceReinitilaize)
 	{
+		buildEditModel(triVList, triMesh, quadOrder, spatialAmpRatio, spatialKnoppelRatio, editModel);
 		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, true);
 	}
 	editModel->convertList2Variable(x);
@@ -512,6 +514,7 @@ bool loadProblem(std::string loadFileName = "")
 	for (int i = 0; i < numFrames; i++)
 	{
 		igl::readOBJ(meshFile + "_" + std::to_string(i) + ".obj", triVList[i], triF);
+		// triVList[i].col(0) *= 0.992 - 0.032 / (numFrames-1) * i;
 	}
 	
 	triMesh = MeshConnectivity(triF);
@@ -529,23 +532,23 @@ bool loadProblem(std::string loadFileName = "")
 		if (jval["spatial_ratio"].contains(std::string_view{ "amp_ratio" }))
 			spatialAmpRatio = jval["spatial_ratio"]["amp_ratio"];
 		else
-			spatialAmpRatio = 100;
+			spatialAmpRatio = 1;
 
 		if (jval["spatial_ratio"].contains(std::string_view{ "edge_ratio" }))
 			spatialEdgeRatio = jval["spatial_ratio"]["edge_ratio"];
 		else
-			spatialEdgeRatio = 100;
+			spatialEdgeRatio = 1;
 
 		if (jval["spatial_ratio"].contains(std::string_view{ "knoppel_ratio" }))
 			spatialKnoppelRatio = jval["spatial_ratio"]["knoppel_ratio"];
 		else
-			spatialKnoppelRatio = 100;
+			spatialKnoppelRatio = 1;
 	}
 	else
 	{
-		spatialAmpRatio = 100;
-		spatialEdgeRatio = 100;
-		spatialKnoppelRatio = 100;
+		spatialAmpRatio = 1;
+		spatialEdgeRatio = 1;
+		spatialKnoppelRatio = 1;
 	}
 
 	buildEditModel(triVList, triMesh, quadOrder, spatialAmpRatio, spatialKnoppelRatio, editModel);
@@ -581,11 +584,6 @@ bool loadProblem(std::string loadFileName = "")
 			Eigen::VectorXd edgeArea, vertArea;
 			edgeArea = getEdgeArea(triVList[0], triMesh);
 			vertArea = getVertArea(triVList[0], triMesh);
-
-//            double rescaling = 18.0 / 16.0;
-//
-//            initAmp *= rescaling;
-//            initOmega /= rescaling;
 
             IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, initOmega, edgeArea, vertArea, nverts, initZvals);
             for(int i = 0; i < nverts; i++)
@@ -645,44 +643,8 @@ bool loadProblem(std::string loadFileName = "")
             edgeArea = getEdgeArea(triVList[numFrames - 1], triMesh);
             vertArea = getVertArea(triVList[numFrames - 1], triMesh);
 
-            /*double rescaling = 26.0 / 13.0;
-            tarOmega /= -rescaling;
-            tarAmp *= rescaling;*/
-
             int nedges = triMesh.nEdges();
             double changeZ = 0.2;
-
-//            for (int i = 0; i < nedges; i++)
-//            {
-//                double centerZ = triVList[numFrames - 1](triMesh.edgeVertex(i, 0), 2) +
-//                                 triVList[numFrames - 1](triMesh.edgeVertex(i, 1), 2);
-//                centerZ /= 2.0;
-//                centerZ = std::abs(centerZ);
-//                if(centerZ > changeZ)
-//                {
-////                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
-//                    double scalingRatio = (centerZ - changeZ) / (0.5 - changeZ) * (rescaling - 1) + 1;
-//                    tarOmega[i] *= scalingRatio;
-//
-////                    tarOmega[i] *= 3;
-//                }
-//
-//            }
-//
-//            int nverts = triVList[numFrames - 1].rows();
-//            for (int i = 0; i < nverts; i++)
-//            {
-//                double centerZ = triVList[numFrames - 1](i, 2);
-//                centerZ = std::abs(centerZ);
-//                if(centerZ > changeZ)
-//                {
-////                    double scalingRatio = 1 / (0.5 - changeZ) / (0.5 - changeZ) * (centerZ - changeZ) * (centerZ - changeZ) + 1;
-//                    double scalingRatio = (centerZ - changeZ) / (0.5 - changeZ) * (rescaling - 1) + 1;
-//                    tarAmp[i] /= scalingRatio;
-//
-////                    tarAmp[i] /= 2;
-//                }
-//            }
 
 			IntrinsicFormula::roundZvalsFromEdgeOmega(triMesh, tarOmega, edgeArea, vertArea, nverts, tarZvals);
             for(int i = 0; i < nverts; i++)
@@ -1112,23 +1074,32 @@ void callback() {
 		{
 			if (effectivedistFactor < 0)
 				effectivedistFactor = 4;
+			else
+				isForceReinitilaize = true;
 		}
 		if (ImGui::InputDouble("spatial amp ratio", &spatialAmpRatio))
 		{
 			if (spatialAmpRatio < 0)
 				spatialAmpRatio = 1;
+			else
+				isForceReinitilaize = true;
+				
 		}
 
 		if (ImGui::InputDouble("spatial edge ratio", &spatialEdgeRatio))
 		{
 			if (spatialEdgeRatio < 0)
 				spatialEdgeRatio = 1;
+			else
+				isForceReinitilaize = true;
 		}
 
 		if (ImGui::InputDouble("spatial knoppel ratio", &spatialKnoppelRatio))
 		{
 			if (spatialKnoppelRatio < 0)
 				spatialKnoppelRatio = 1;
+			else
+				isForceReinitilaize = true;
 		}
 
 		ImGui::Checkbox("reinitialize before solve", &isForceReinitilaize);
