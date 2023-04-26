@@ -37,8 +37,8 @@ WrinkleEditingModel::WrinkleEditingModel(const Eigen::MatrixXd& pos, const MeshC
 	_faceArea = getFaceArea(_pos, _mesh);
 	
 
-	std::vector<int> bnds;
-	igl::boundary_loop(_mesh.faces(), bnds);
+	//std::vector<int> bnds;
+	//igl::boundary_loop(_mesh.faces(), bnds);
 
 	_nInterfaces = 0;
 
@@ -813,27 +813,20 @@ void WrinkleEditingModel::initialization(const std::vector<std::complex<double>>
 
 void WrinkleEditingModel::initialization(const std::vector<std::vector<std::complex<double>>>& zList, const std::vector<Eigen::VectorXd>& omegaList, const std::vector<Eigen::VectorXd>& refAmpList, const std::vector<Eigen::VectorXd>& refOmegaList, bool applyAdj)
 {
+	initialization(zList[0], omegaList[0], zList[zList.size() - 1], omegaList[omegaList.size() - 1], applyAdj);
+
 	_zvalsList = zList;
 	_edgeOmegaList = omegaList;
 	_combinedRefAmpList = refAmpList;
 	_combinedRefOmegaList = refOmegaList;
 
-	int numFrames = zList.size() - 2;
-	double dt = 1.0 / (numFrames + 1);
-
-	_zdotModel = ComputeZdotFromEdgeOmega(_mesh, _faceArea, _quadOrd, dt);
-	_refAmpAveList.resize(numFrames + 2);
-
-	for (int i = 0; i < _refAmpAveList.size(); i++)
-	{
-		double ave = 0;
-		for (int j = 0; j < _pos.rows(); j++)
+	_unitZvalsList = _zvalsList;
+	for (int i = 0; i < _unitZvalsList.size(); i++)
+		for (int j = 0; j < _unitZvalsList[i].size(); j++)
 		{
-			ave += _combinedRefAmpList[i][j];
+			if (refAmpList[i][j] > 0)
+				_unitZvalsList[i][j] /= refAmpList[i][j];
 		}
-		ave /= _pos.rows();
-		_refAmpAveList[i] = ave;
-	}
 }
 
 double WrinkleEditingModel::amplitudeEnergyWithGivenOmegaPerface(const Eigen::VectorXd& amp, const Eigen::VectorXd& w,

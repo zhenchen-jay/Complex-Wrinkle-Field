@@ -49,29 +49,31 @@ make -j4
 ```
 
 ## Results
-Once you run the command, a GUI will pop up. Then, click on "Solve" and the local rotation bunny results, as shown in the paper, will be displayed.
-
-![bunny_local_rotation](https://user-images.githubusercontent.com/29785561/188839142-906f3b2e-1051-458d-9c80-bd189e9bca07.gif)
-
+- Running the command with a JSON file from the "data" folder (e.g.,   `data/bunny_localRotation/data.json`) will open a GUI that displays the interpolated results between two given keyframes.
+- You can click the "Solve" button to re-run the algorithm with different parameters, such as the number of frames.
+- For visual efficiency, we only upsample twice to get the final wrinkles. You can increase this number ("upsample level" option in the GUI) for a better wrinkle appearance. 
 
 ## Other features
-There are two extra executable programs provided: 
-- WrinkleInterpolationCli_bin: a command line version of our interpolation app, which can be run by
+Two additional executable programs are provided:
+- WrinkleInterpolationCli_bin: A command line version of the interpolation app, which can be run with:
 ```
-./bin/WrinkleInterpolationCli_bin -i ../data/bunny_localRotation/data.json -r 
+./bin/WrinkleInterpolationCli_bin -i "some json file" -r 
 ```
-where -r option forces the program to reoptimize the problem
+The `-r` option forces the program to re-optimize the problem. Without `-r`, the program generates the corresponding (upsampled) wrinkled mesh sequence and save under `render/wrinkledMesh`. Note that this process may take a while (depends on the upsampling level)
 
-- UserWrinkleDesign_bin: a tool for users to design wrinkles by themselves by assign frequency field and amplitude. This can be executed with
+- WrinkleInterpolationTwistedCylinder_bin: A specialized GUI designed for the twisted cylinder example shown in the paper. It is used like WrinkleInterpolationGui_bin:
 ```
-./bin/UserWrinkleDesign_bin -i ../data/bunny_localRotation/design.json 
-``` 
-where the bunny wrinkles can be extracted by clicking on "run smoothest vector field", with "freq" setting to 62.83185 (20 pi) and "amp" equal to "0.01". Note that this app has not undergone full testing for robustness and there may be some GUI crash bugs.
+./bin/WrinkleInterpolationTwistedCylinder_bin -i "some json file"
+```
+The only difference is that it also takes a sequence of base meshes as input.
 
 
 ## Issues
-When compiling on MacOS with C++17, you may encounter this issue: 
+When compiling on macOS with C++17, you may encounter this issue:
 ```
 build/_deps/comiso-src/ext/gmm-4.2/include/gmm/gmm_domain_decomp.h:84:2: error: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
 ```
-To solve this, please replace `register double` by `double`.  
+To solve this, please replace `register double` by `double` in the file `build/_deps/comiso-src/ext/gmm-4.2/include/gmm/gmm_domain_decomp.h`
+
+## Contact
+If you need any assistance, please feel free to contact me at zhenjaychen@gmail.com.

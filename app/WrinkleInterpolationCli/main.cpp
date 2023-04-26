@@ -55,6 +55,7 @@ Eigen::VectorXd tarOmega;
 std::vector<std::complex<double>> tarZvals;
 
 // base mesh information list
+std::vector<Eigen::VectorXd> ampList;
 std::vector<Eigen::VectorXd> omegaList;
 std::vector<Eigen::MatrixXd> faceOmegaList;
 std::vector<std::vector<std::complex<double>>> zList;
@@ -69,12 +70,6 @@ std::vector<Eigen::VectorXd> ampFieldsList;
 std::vector<std::vector<std::complex<double>>> upZList;
 std::vector<Eigen::MatrixXd> wrinkledVList;
 
-std::vector<Eigen::VectorXd> consistencyVec;
-std::vector<Eigen::VectorXd> upConsistencyVec;
-
-// reference amp and omega
-std::vector<Eigen::VectorXd> refOmegaList;
-std::vector<Eigen::VectorXd> refAmpList;
 
 // region edition
 RegionEdition regEdt;
@@ -99,10 +94,6 @@ double spatialKnoppelRatio = 1000;
 std::string workingFolder;
 
 std::shared_ptr<IntrinsicFormula::WrinkleEditingModel> editModel;
-
-// smoothing
-int smoothingTimes = 2;
-double smoothingRatio = 0.95;
 
 bool isFixedBnd = false;
 int effectivedistFactor = 4;
@@ -291,9 +282,6 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 	phaseList.resize(wFrames.size());
 	upZFrames.resize(wFrames.size());
 
-	consistencyVec.resize(wFrames.size());
-	upConsistencyVec.resize(wFrames.size());
-
 	subOmegaList.resize(wFrames.size());
 	subFaceOmegaList.resize(wFrames.size());
 	
@@ -306,15 +294,11 @@ void updateMagnitudePhase(const std::vector<Eigen::VectorXd>& wFrames, const std
 		{
 			Eigen::VectorXd edgeVec = swapEdgeVec(triF, wFrames[i], 0);
 
-			consistencyVec[i] = inconsistencyComputation(secMesh, edgeVec, zFrames[i]);
-
 			std::shared_ptr<ComplexLoop> complexLoopOpt = std::make_shared<ComplexLoopZuenko>();
 			complexLoopOpt->setBndFixFlag(isFixedBnd);
 			complexLoopOpt->SetMesh(secMesh);
 			complexLoopOpt->Subdivide(edgeVec, zFrames[i], subOmegaList[i], upZFrames[i], upsampleTimes);
 			Mesh tmpMesh = complexLoopOpt->GetMesh();
-
-			upConsistencyVec[i] = inconsistencyComputation(tmpMesh, subOmegaList[i], upZFrames[i]);
 
 			subFaceOmegaList[i] = edgeVec2FaceVec(tmpMesh, subOmegaList[i]);
 			
@@ -419,41 +403,6 @@ void updateEverythingForSaving()
 	{
 		faceOmegaList[i] = intrinsicEdgeVec2FaceVec(omegaList[i], triV, triMesh);
 	}
-
-
-	// update global maximum amplitude
-	std::cout << "update max and min amp. " << std::endl;
-
-	globalAmpMax = std::max(ampFieldsList[0].maxCoeff(), refAmpList[0].maxCoeff());
-	globalAmpMin = std::min(ampFieldsList[0].minCoeff(), refAmpList[0].minCoeff());
-	for (int i = 1; i < ampFieldsList.size(); i++)
-	{
-		globalAmpMax = std::max(globalAmpMax, std::max(ampFieldsList[i].maxCoeff(), refAmpList[i].maxCoeff()));
-		globalAmpMin = std::min(globalAmpMin, std::min(ampFieldsList[i].minCoeff(), refAmpList[i].minCoeff()));
-	}
-
-	// update global maximum amplitude
-	std::cout << "update max and min consistency. " << std::endl;
-
-	globalInconMax = upConsistencyVec[0].maxCoeff();
-	globalInconMin = upConsistencyVec[0].minCoeff();
-	for (int i = 1; i < upConsistencyVec.size(); i++)
-	{
-		globalInconMax = std::max(globalInconMax, upConsistencyVec[i].maxCoeff());
-		globalInconMin = std::min(globalInconMin, upConsistencyVec[i].minCoeff());
-	}
-
-	// update global maximum amplitude
-	std::cout << "update max and min consistency. " << std::endl;
-
-	globalCoarseInconMax = consistencyVec[0].maxCoeff();
-	globalCoarseInconMin = consistencyVec[0].minCoeff();
-	for (int i = 1; i < upConsistencyVec.size(); i++)
-	{
-		globalCoarseInconMax = std::max(globalCoarseInconMax, consistencyVec[i].maxCoeff());
-		globalCoarseInconMin = std::min(globalCoarseInconMin, consistencyVec[i].minCoeff());
-	}
-
 }
 
 void getUpsampledMesh(const Eigen::MatrixXd& triV, const Eigen::MatrixXi& triF, Eigen::MatrixXd& upsampledTriV, Eigen::MatrixXi& upsampledTriF)
@@ -495,8 +444,7 @@ void solveKeyFrames(const std::vector<std::complex<double>>& initzvals, const Ei
 
 	editModel->solveIntermeditateFrames(x, args.numIter, args.gradTol, args.xTol, args.fTol, true, workingFolder);
 	editModel->convertVariable2List(x);
-	refOmegaList = editModel->getRefWList();
-	refAmpList = editModel->getRefAmpList();
+	ampList = editModel->getRefAmpList();
 
 	std::cout << "get w list" << std::endl;
 	wFrames = editModel->getWList();
@@ -724,43 +672,22 @@ bool loadProblem()
     }
 
 
-    std::string refAmp = jval["reference"]["ref_amp"];
-	std::string refOmega = jval["reference"]["ref_omega"];
-
+    std::string optAmp = jval["solution"]["opt_amp"];
 	std::string optZvals = jval["solution"]["opt_zvals"];
 	std::string optOmega = jval["solution"]["opt_omega"];
 
-	// edge omega List
-	int iter = 0;
-	bool isLoadRef = true;
-	refAmpList.resize(numFrames);
-	refOmegaList.resize(numFrames);
-
-	for (uint32_t i = 0; i < numFrames; ++i) {
-
-		if (!loadVertexAmp(workingFolder + refAmp + "/amp_" + std::to_string(i) + ".txt", triV.rows(), refAmpList[i]))
-		{
-			std::cout << "missing amp file: " << std::endl;
-			isLoadRef = false;
-			break;
-		}
-
-		std::string edgePath = workingFolder + refOmega + "/omega_" + std::to_string(i) + ".txt";
-		if (!loadEdgeOmega(edgePath, nedges, refOmegaList[i])) {
-			std::cout << "missing edge file." << std::endl;
-			isLoadRef = false;
-			break;
-		}
-	}
 
 
 	isLoadOpt = true;
 	zList.clear();
 	omegaList.clear();
+	ampList.clear();
 	for (int i = 0; i < numFrames; i++)
 	{
 		std::string zvalFile = workingFolder + optZvals + "/zvals_" + std::to_string(i) + ".txt";
 		std::string edgeOmegaFile = workingFolder + optOmega + "/omega_" + std::to_string(i) + ".txt";
+		std::string ampFile = workingFolder + optAmp + "/amp_" + std::to_string(i) + ".txt";
+
 		std::vector<std::complex<double>> zvals;
 		if (!loadVertexZvals(zvalFile, nverts, zvals))
 		{
@@ -773,15 +700,22 @@ bool loadProblem()
 			break;
 		}
 
+		Eigen::VectorXd vertAmp;
+		if (!loadVertexAmp(ampFile, nverts, vertAmp)) {
+			isLoadOpt = false;
+			break;
+		}
+
 		zList.push_back(zvals);
 		omegaList.push_back(edgeOmega);
+		ampList.push_back(vertAmp);
 	}
 
 	if (isLoadOpt)
 	{
 		std::cout << "load zvals and omegas from file!" << std::endl;
 	}
-	if (!isLoadOpt || !isLoadRef)
+	if (!isLoadOpt)
 	{
 		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
 
@@ -791,20 +725,15 @@ bool loadProblem()
         }
 		editModel->initialization(initZvals, initOmega, tarZvals, tarOmega, numFrames - 2, true);
 
-		refAmpList = editModel->getRefAmpList();
-		refOmegaList = editModel->getRefWList();
-
-		if (!isLoadOpt)
-		{
-			zList = editModel->getVertValsList();
-			omegaList = editModel->getWList();
-		}
+		zList = editModel->getVertValsList();
+		omegaList = editModel->getWList();
+		ampList = editModel->getRefAmpList();
 
 	}
 	else
 	{
 		buildEditModel(triV, triMesh, vertOpts, faceFlags, quadOrder, spatialAmpRatio, spatialEdgeRatio, spatialKnoppelRatio, effectivedistFactor, editModel);
-		editModel->initialization(zList, omegaList, refAmpList, refOmegaList);
+		editModel->initialization(zList, omegaList, ampList, omegaList);
 	}
 	
 
@@ -850,13 +779,8 @@ bool saveProblem()
 								  }
 			},
 			{
-			 "reference",         {
-										  {"ref_amp", "/refAmp/"},
-										  {"ref_omega", "/refOmega/"}
-								  }
-			},
-			{
 			 "solution",          {
+										  {"opt_amp", "/optAmp/"},
 										  {"opt_zvals", "/optZvals/"},
 										  {"opt_omega", "/optOmega/"},
 										  {"wrinkle_mesh", "/wrinkledMesh/"},
@@ -906,12 +830,9 @@ bool saveProblem()
 	std::string omegaOutputFolder = workingFolder + "/optOmega/";
 	mkdir(omegaOutputFolder);
 
-	std::string refOmegaOutputFolder = workingFolder + "/refOmega/";
-	mkdir(refOmegaOutputFolder);
+	std::string ampOutputFolder = workingFolder + "/optAmp/";
+	mkdir(ampOutputFolder);
 
-	// save reference
-	std::string refAmpOutputFolder = workingFolder + "/refAmp/";
-	mkdir(refAmpOutputFolder);
 
 	int nframes = zList.size();
 	auto savePerFrame = [&](const tbb::blocked_range<uint32_t>& range)
@@ -921,8 +842,7 @@ bool saveProblem()
 
 			saveVertexZvals(outputFolder + "zvals_" + std::to_string(i) + ".txt", zList[i]);
 			saveEdgeOmega(omegaOutputFolder + "omega_" + std::to_string(i) + ".txt", omegaList[i]);
-			saveVertexAmp(refAmpOutputFolder + "amp_" + std::to_string(i) + ".txt", refAmpList[i]);
-			saveEdgeOmega(refOmegaOutputFolder + "omega_" + std::to_string(i) + ".txt", refOmegaList[i]);
+			saveVertexAmp(ampOutputFolder + "amp_" + std::to_string(i) + ".txt", ampList[i]);
 		}
 	};
 
@@ -957,11 +877,6 @@ bool saveForRender()
 	std::string outputFolderWrinkles = renderFolder + "/wrinkledMesh/";
 	mkdir(outputFolderWrinkles);
 
-	std::string refAmpFolder = renderFolder + "/refAmp/";
-	mkdir(refAmpFolder);
-	std::string refOmegaFolder = renderFolder + "/refOmega/";
-	mkdir(refOmegaFolder);
-
 	std::string optAmpFolder = renderFolder + "/optAmp/";
 	mkdir(optAmpFolder);
 	std::string optOmegaFolder = renderFolder + "/optOmega/";
@@ -973,31 +888,10 @@ bool saveForRender()
 	{
 		for (uint32_t i = range.begin(); i < range.end(); ++i)
 		{
-
 			// upsampled information
 			igl::writeOBJ(outputFolderWrinkles + "wrinkledMesh_" + std::to_string(i) + ".obj", wrinkledVList[i], upsampledTriF);
-			// Eigen::MatrixXd lapWrinkledV;
-			// laplacianSmoothing(wrinkledVList[i], upsampledTriF, lapWrinkledV, smoothingRatio, smoothingTimes, isFixedBnd);
-			// igl::writeOBJ(outputFolderWrinkles + "wrinkledMeshSmoothed_" + std::to_string(i) + ".obj", lapWrinkledV, upsampledTriF);
-
 			saveAmp4Render(ampFieldsList[i], outputFolderAmp + "upAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
 			savePhi4Render(phaseFieldsList[i], outputFolderPhase + "upPhase" + std::to_string(i) + ".cvs");
-			saveDphi4Render(subFaceOmegaList[i], subSecMesh, outputFolderPhase + "upOmega" + std::to_string(i) + ".cvs");
-
-			// reference information
-			Eigen::MatrixXd refFaceOmega = intrinsicEdgeVec2FaceVec(refOmegaList[i], triV, triMesh);
-			saveAmp4Render(refAmpList[i], refAmpFolder + "refAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
-			saveDphi4Render(refFaceOmega, triMesh, triV, refOmegaFolder + "refOmega_" + std::to_string(i) + ".cvs");
-
-			// optimal information
-			saveDphi4Render(faceOmegaList[i], triMesh, triV, optOmegaFolder + "optOmega_" + std::to_string(i) + ".cvs");
-			Eigen::VectorXd baseAmplitude = refAmpList[i];
-			for(int j = 0 ; j < refAmpList[i].size(); j++)
-			{
-				baseAmplitude(j) = std::abs(zList[i][j]);
-			}
-
-			saveAmp4Render(baseAmplitude, optAmpFolder + "optAmp_" + std::to_string(i) + ".cvs", globalAmpMin, globalAmpMax);
 		}
 	};
 
