@@ -513,10 +513,6 @@ ComplexLoop::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletI
 			eValues.push_back(std::make_pair(vEdges[1], 0.3125)); // typo in [Wang et al. 2006]
 			eValues.push_back(std::make_pair(vEdges[2], 0.09375));
 			eValues.push_back(std::make_pair(vEdges[3], 0.125 / 3));
-
-			fValues.push_back(std::make_pair(vFaces[0], 0.15625 / 3));
-			fValues.push_back(std::make_pair(vFaces[1], -0.03125 / 3));
-			fValues.push_back(std::make_pair(vFaces[2], -0.125 / 3));
 		}
 		else
 		{
@@ -526,6 +522,10 @@ ComplexLoop::_AssembleEdgeEvenPartialBoundary(int edge, int vertInEdge, TripletI
 			eValues.push_back(std::make_pair(vEdges[3], 0.125 / 3));
 			eValues.push_back(std::make_pair(vEdges.back(), -0.125));
 		}
+
+		fValues.push_back(std::make_pair(vFaces[0], 0.15625 / 3));
+		fValues.push_back(std::make_pair(vFaces[1], -0.03125 / 3));
+		fValues.push_back(std::make_pair(vFaces[2], -0.125 / 3));
 	}
 	else if (edgeInVert == edgeCount - 2)
 	{

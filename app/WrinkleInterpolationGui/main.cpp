@@ -35,6 +35,7 @@
 #include "../../include/WrinkleFieldsEditor.h"
 #include "../../dep/SecStencils/types.h"
 #include "../../dep/SecStencils/Subd.h"
+#include "../../dep/SecStencils/Loop.h"
 #include "../../dep/SecStencils/utils.h"
 
 #include "../../include/json.hpp"
@@ -1508,7 +1509,6 @@ void callback() {
 				std::cout << std::endl;
 		}
 	}
-
 
 	ImGui::PopItemWidth();
 }
