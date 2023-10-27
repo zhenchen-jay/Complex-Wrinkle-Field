@@ -1041,7 +1041,6 @@ bool loadProblem(std::string loadFileName = "")
 	}
 
 
-	std::string optAmp = jval["solution"]["opt_amp"];
 	std::string optZvals = jval["solution"]["opt_zvals"];
 	std::string optOmega = jval["solution"]["opt_omega"];
 
@@ -1053,22 +1052,23 @@ bool loadProblem(std::string loadFileName = "")
 	{
 		std::string zvalFile = workingFolder + optZvals + "/zvals_" + std::to_string(i) + ".txt";
 		std::string edgeOmegaFile = workingFolder + optOmega + "/omega_" + std::to_string(i) + ".txt";
-		std::string ampFile = workingFolder + optAmp + "/amp_" + std::to_string(i) + ".txt";
 
 		std::vector<std::complex<double>> zvals;
+		Eigen::VectorXd vertAmp;
+
 		if (!loadVertexZvals(zvalFile, nverts, zvals))
 		{
 			isLoadOpt = false;
 			break;
 		}
+		else {
+			vertAmp.setZero(zvals.size());
+			for (int i = 0; i < zvals.size(); i++) {
+				vertAmp[i] = std::abs(zvals[i]);
+			}
+		}
 		Eigen::VectorXd edgeOmega;
 		if (!loadEdgeOmega(edgeOmegaFile, nedges, edgeOmega)) {
-			isLoadOpt = false;
-			break;
-		}
-
-		Eigen::VectorXd vertAmp;
-		if (!loadVertexAmp(ampFile, nverts, vertAmp)) {
 			isLoadOpt = false;
 			break;
 		}
